@@ -62,6 +62,63 @@ body {
   border-color: var(--app-border) !important;
 }
 
+.app-sidebar {
+  width: 98px !important;
+}
+
+.app-sidebar .sidebar-meta,
+.app-sidebar .sidebar-card {
+  display: none !important;
+}
+
+.app-sidebar .tab-item {
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px !important;
+  min-height: 54px;
+  padding: 7px 6px !important;
+  text-align: center;
+}
+
+.app-sidebar .sidebar-text {
+  display: block !important;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.app-sidebar .sidebar-controls {
+  display: block !important;
+  margin-left: 6px !important;
+  margin-right: 6px !important;
+  padding: 6px !important;
+}
+
+.app-sidebar .sidebar-control-grid {
+  display: grid !important;
+}
+
+.compact-btn {
+  min-height: 34px !important;
+  padding: 8px 12px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+}
+
+.firm-card {
+  background: linear-gradient(180deg, var(--app-panel), var(--app-panel-soft)) !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+.dark .firm-card {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22) !important;
+}
+
 .firm-window-grid {
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
@@ -70,6 +127,19 @@ body {
 .payment-row {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) 120px 120px 96px;
+}
+
+.delivery-product-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px 100px 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.delete-product-btn {
+  width: 34px;
+  height: 38px;
+  padding: 0 !important;
 }
 
 @media (max-width: 900px) {
@@ -95,28 +165,57 @@ body {
 
 @media (max-width: 720px) {
   .app-shell {
-    flex-direction: column;
+    flex-direction: column-reverse;
   }
 
   .app-sidebar {
     width: 100% !important;
+    position: sticky;
+    bottom: 0;
+    z-index: 120;
     min-height: auto;
     border-right: 0 !important;
     border-bottom: 1px solid var(--app-border) !important;
+    border-top: 1px solid var(--app-border) !important;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .app-sidebar nav {
     display: flex;
     gap: 6px;
     overflow-x: auto;
+    padding: 8px !important;
+  }
+
+  .app-sidebar .brand-row,
+  .app-sidebar .sidebar-card,
+  .app-sidebar .sidebar-controls,
+  .app-sidebar .sidebar-footer {
+    display: none !important;
   }
 
   .app-sidebar nav .tab-item {
-    min-width: max-content;
+    min-width: 52px;
+    min-height: 44px;
+    justify-content: center;
   }
 
   .mobile-stack {
     grid-template-columns: 1fr !important;
+  }
+
+  .delivery-product-grid {
+    grid-template-columns: 1fr 1fr 40px !important;
+  }
+
+  .delivery-product-grid select {
+    grid-column: 1 / -1;
+  }
+
+  .delete-product-btn {
+    width: 40px;
+    height: 40px;
+    justify-self: end;
   }
 
   .modal-backdrop {

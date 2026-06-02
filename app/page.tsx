@@ -51,6 +51,7 @@ const I18N:Record<Lang,Record<string,string>> = {
     addDelivery:"+ Kirim qo'shish", total:"Jami", paid:"To'langan", debt:"Qarz", deliveries:"kirim", totalSum:"Jami summa",
     last:"Oxirgi", items:"Mahsulot", paymentTitle:"To'lovlarni boshqarish", paymentHint:"Berilgan summani kiriting. 0 bo'lsa unpaid, to'liq summa bo'lsa paid, o'rtada bo'lsa partial bo'ladi.",
     paidAmount:"Berilgan summa", save:"Saqlash", status:"Status", noDoc:"Hujjat yo'q", language:"Til", uzbek:"O'zbek", korean:"Koreys",
+    supplierDebt:"Firma qarzi", recordDelivery:"+ Kirim", deliveryTitle:"Yangi kirim", companyName:"Firma nomi", deliveryDate:"Sana", documentNo:"Hujjat raqami", autoTotal:"Avto jami", productList:"Mahsulotlar", addProduct:"+ Mahsulot", calculatedTotal:"Hisoblangan jami", paymentStatus:"To'lov holati", note:"Eslatma", cancel:"Bekor qilish", saveDelivery:"Kirimni saqlash", scan:"Skan", selectProduct:"Mahsulot tanlang", quantity:"Soni", price:"Narx",
   },
   ko: {
     dashboard:"대시보드", warehouse:"창고", transfers:"이동", staff:"직원", reports:"보고서", suppliers:"업체", products:"상품",
@@ -60,6 +61,7 @@ const I18N:Record<Lang,Record<string,string>> = {
     addDelivery:"+ 입고 추가", total:"총액", paid:"결제됨", debt:"미수금", deliveries:"건 입고", totalSum:"총 금액",
     last:"최근", items:"상품", paymentTitle:"결제 관리", paymentHint:"결제 금액을 입력하세요. 0이면 미결제, 전액이면 완료, 중간이면 부분 결제입니다.",
     paidAmount:"결제 금액", save:"저장", status:"상태", noDoc:"문서 없음", language:"언어", uzbek:"우즈벡어", korean:"한국어",
+    supplierDebt:"업체 미수금", recordDelivery:"+ 입고", deliveryTitle:"새 입고", companyName:"업체명", deliveryDate:"날짜", documentNo:"문서 번호", autoTotal:"자동 합계", productList:"상품", addProduct:"+ 상품", calculatedTotal:"계산 합계", paymentStatus:"결제 상태", note:"메모", cancel:"취소", saveDelivery:"입고 저장", scan:"스캔", selectProduct:"상품 선택", quantity:"수량", price:"가격",
   },
 };
 
@@ -282,22 +284,19 @@ export default function CRMApp() {
       )}
 
       {/* SIDEBAR */}
-      <div className="app-sidebar theme-panel" style={{width:sidebarOpen?220:58,background:"var(--app-panel)",borderRight:"1px solid var(--app-border)",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .3s",overflow:"hidden"}}>
-        <div style={{padding:"16px 14px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setSidebarOpen(!sidebarOpen)}>
+      <div className="app-sidebar theme-panel" style={{background:"var(--app-panel)",borderRight:"1px solid var(--app-border)",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .2s",overflow:"hidden"}}>
+        <div className="brand-row" style={{padding:"14px 12px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:8,cursor:"default"}}>
           <span style={{fontSize:22,flexShrink:0}}>🏭</span>
-          {sidebarOpen && <div><div style={{fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>Oshxona CRM</div><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>v2.0</div></div>}
+          <div className="sidebar-meta"><div style={{fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>Oshxona CRM</div><div style={{fontSize:10,color:"var(--app-muted)"}}>v2.0</div></div>
         </div>
-        {sidebarOpen && (
-          <div className="theme-soft" style={{margin:"10px",padding:12,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:11}}>
+        <div className="sidebar-card theme-soft" style={{margin:"10px",padding:10,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:11}}>
             <div style={{fontSize:20,marginBottom:3}}>{user.branchIcon}</div>
             <div style={{fontWeight:700,fontSize:13}}>{user.name}</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{user.branchName}</div>
+            <div style={{fontSize:11,color:"var(--app-muted)"}}>{user.branchName}</div>
           </div>
-        )}
-        {sidebarOpen && (
-          <div className="theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.38)",marginBottom:7,fontWeight:700}}>{t.language}</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        <div className="sidebar-controls theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
+            <div style={{fontSize:10,color:"var(--app-muted)",marginBottom:7,fontWeight:700}}>{t.language}</div>
+            <div className="sidebar-control-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
               {(["uz","ko"] as const).map(code=>(
                 <button key={code} onClick={()=>setLang(code)} style={{border:`1px solid ${lang===code?"rgba(48,120,255,0.45)":"rgba(255,255,255,0.08)"}`,background:lang===code?"rgba(48,120,255,0.14)":"rgba(255,255,255,0.03)",color:lang===code?"#79c0ff":"rgba(255,255,255,0.55)",borderRadius:8,padding:"7px 8px",fontSize:11,fontWeight:800,cursor:"pointer"}}>
                   {code==="uz"?"UZ":"KO"}
@@ -305,15 +304,12 @@ export default function CRMApp() {
               ))}
             </div>
           </div>
-        )}
-        {sidebarOpen && (
-          <div className="theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
+        <div className="sidebar-controls theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
             <div style={{fontSize:10,color:"var(--app-muted)",marginBottom:7,fontWeight:700}}>Mode</div>
             <button onClick={()=>setTheme(theme==="dark"?"light":"dark")} style={{width:"100%",border:"1px solid var(--app-border)",background:theme==="dark"?"rgba(48,120,255,0.14)":"rgba(15,23,42,0.04)",color:"var(--app-text)",borderRadius:8,padding:"8px 10px",fontSize:11,fontWeight:800,cursor:"pointer"}}>
               {theme==="dark"?"Dark":"Light"}
             </button>
           </div>
-        )}
         <nav style={{flex:1,padding:6}}>
           {translatedTabs.map(nav=>(
             <div key={nav.id} className="tab-item" onClick={()=>setTab(nav.id)}
@@ -323,14 +319,10 @@ export default function CRMApp() {
             </div>
           ))}
         </nav>
-        <div style={{padding:"8px",borderTop:"1px solid var(--app-border)"}}>
-          <div className="tab-item" onClick={()=>setSidebarOpen(!sidebarOpen)} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:9,color:"rgba(255,255,255,0.4)",fontSize:13}}>
-            <span style={{fontSize:17}}>{sidebarOpen?"◀":"▶"}</span>
-            <span className="sidebar-text">Collapse</span>
-          </div>
+        <div className="sidebar-footer" style={{padding:"8px",borderTop:"1px solid var(--app-border)"}}>
           <div className="tab-item" onClick={()=>setUser(null)} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:9,color:"#f85149",fontSize:13}}>
             <span style={{fontSize:17}}>🚪</span>
-            <span className="sidebar-text">Logout</span>
+            <span className="sidebar-text">{t.logout}</span>
           </div>
         </div>
       </div>
@@ -751,6 +743,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
   };
 
   const openDeliveryModal = (firmName = "") => {
+    if (firmName) setSelectedFirm(null);
     setSupItems([{pid:"",qty:1,price:0,qr:""}]);
     setForm({firm:firmName,doc:"",date:new Date().toISOString().slice(0,10),note:"",totalPrice:"",paidAmount:""});
     setLockedFirm(firmName);
@@ -810,20 +803,20 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
   };
 
   return (
-    <PageWrap title="🚚 Suppliers" sub={<>Total debt: <strong style={{color:totalDebt>0?"#f85149":"#3fb950"}}>{fmtM(totalDebt)}</strong></>}
-      action={<Btn color="blue" onClick={()=>openDeliveryModal(selectedFirm||"")}>+ Record Delivery</Btn>}>
+    <PageWrap title={`🚚 ${t.suppliers}`} sub={<>{t.supplierDebt}: <strong style={{color:totalDebt>0?"#f85149":"#3fb950"}}>{fmtM(totalDebt)}</strong></>}
+      action={<Btn color="blue" onClick={()=>openDeliveryModal(selectedFirm||"")}>{t.recordDelivery}</Btn>}>
 
       {showModal && (
         <div className="modal-backdrop">
           <div className="modal" style={{maxWidth:600}}>
-            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>🚚 Record New Delivery</div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>🚚 {t.deliveryTitle}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <div><label style={{fontSize:11,color:"var(--app-muted)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COMPANY NAME</label><input value={form.firm} readOnly={!!lockedFirm} onChange={e=>!lockedFirm&&setForm({...form,firm:e.target.value})} placeholder="Mars LLC, Nestle..." style={lockedFirm?{fontWeight:800,cursor:"not-allowed"}:{}} /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DELIVERY DATE</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DOCUMENT NO.</label><input value={form.doc} onChange={e=>setForm({...form,doc:e.target.value})} placeholder="INV-2024-001" /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>AUTO TOTAL</label><input readOnly value={fmtM(calcTotal())} style={{fontWeight:900,color:"#3fb950"}} /></div>
+              <div><label style={{fontSize:11,color:"var(--app-muted)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.companyName}</label><input value={form.firm} readOnly={!!lockedFirm} onChange={e=>!lockedFirm&&setForm({...form,firm:e.target.value})} placeholder="Mars LLC, Nestle..." style={lockedFirm?{fontWeight:800,cursor:"not-allowed"}:{}} /></div>
+              <div><label style={{fontSize:11,color:"var(--app-muted)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.deliveryDate}</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></div>
+              <div><label style={{fontSize:11,color:"var(--app-muted)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.documentNo}</label><input value={form.doc} onChange={e=>setForm({...form,doc:e.target.value})} placeholder="INV-2024-001" /></div>
+              <div><label style={{fontSize:11,color:"var(--app-muted)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.autoTotal}</label><input readOnly value={fmtM(calcTotal())} style={{fontWeight:900,color:"#3fb950"}} /></div>
             </div>
-            <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>📦 Products:</div>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>📦 {t.productList}</div>
             {supItems.map((item,i)=>{
               const p = products.find((x:Product)=>x.id===item.pid);
               const dona = p&&p.perBox>0&&item.qty ? <div style={{background:"rgba(48,120,255,0.06)",border:"1px solid rgba(48,120,255,0.15)",borderRadius:7,padding:"6px 10px",fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:5}}>📦 {fmt(item.qty)} {p.unit} = <strong style={{color:"#79c0ff"}}>{fmt(item.qty*p.perBox)} {p.boxUnit}</strong></div>:null;
@@ -831,28 +824,28 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                 <div key={i} style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:12,marginBottom:8}}>
                   <div className="mobile-stack" style={{display:"grid",gridTemplateColumns:"1fr 90px",gap:8,alignItems:"center",marginBottom:8}}>
                     <input value={item.qr} onChange={e=>{const n=[...supItems];n[i].qr=e.target.value;setSupItems(n);}} onKeyDown={e=>{if(e.key==="Enter") applyQrCode(i,item.qr);}} placeholder="QR code" />
-                    <button onClick={()=>applyQrCode(i,item.qr)} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.25)",color:"#3078ff",borderRadius:8,padding:"9px 10px",cursor:"pointer",fontSize:12,fontWeight:700}}>Scan</button>
+                    <button className="compact-btn" onClick={()=>applyQrCode(i,item.qr)} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.25)",color:"#3078ff",cursor:"pointer",fontWeight:700}}>{t.scan}</button>
                   </div>
-                  <div className="mobile-stack" style={{display:"grid",gridTemplateColumns:"1fr 80px 100px 30px",gap:8,alignItems:"center"}}>
+                  <div className="delivery-product-grid">
                     <select value={item.pid} onChange={e=>{const n=[...supItems];const picked=products.find((p:Product)=>p.id===e.target.value);n[i].pid=e.target.value;n[i].qr=picked?.qrCode||n[i].qr;n[i].price=n[i].price||picked?.pricePerUnit||0;setSupItems(n);}}>
-                      <option value="">Select product</option>
+                      <option value="">{t.selectProduct}</option>
                       {products.map((p:Product)=><option key={p.id} value={p.id}>{p.name} ({p.unit})</option>)}
                     </select>
-                    <input type="number" value={item.qty} min={0.1} step={0.1} onChange={e=>{const n=[...supItems];n[i].qty=parseFloat(e.target.value)||1;setSupItems(n);}} placeholder="Qty" />
-                    <input type="number" value={item.price||""} onChange={e=>{const n=[...supItems];n[i].price=parseFloat(e.target.value)||0;setSupItems(n);}} placeholder="Price" />
+                    <input type="number" value={item.qty} min={0.1} step={0.1} onChange={e=>{const n=[...supItems];n[i].qty=parseFloat(e.target.value)||1;setSupItems(n);}} placeholder={t.quantity} />
+                    <input type="number" value={item.price||""} onChange={e=>{const n=[...supItems];n[i].price=parseFloat(e.target.value)||0;setSupItems(n);}} placeholder={t.price} />
                     <button onClick={()=>setSupItems(supItems.filter((_,idx)=>idx!==i))} style={{background:"rgba(248,81,73,0.1)",border:"1px solid rgba(248,81,73,0.2)",color:"#f85149",borderRadius:7,padding:6,cursor:"pointer",fontSize:14}}>×</button>
                   </div>
                   {dona}
                 </div>
               );
             })}
-            <button onClick={()=>setSupItems([...supItems,{pid:"",qty:1,price:0,qr:""}])} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed rgba(48,120,255,0.4)",background:"rgba(48,120,255,0.05)",color:"#3078ff",cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:12}}>+ Add product</button>
+            <button className="compact-btn" onClick={()=>setSupItems([...supItems,{pid:"",qty:1,price:0,qr:""}])} style={{width:"100%",border:"1px dashed rgba(48,120,255,0.4)",background:"rgba(48,120,255,0.05)",color:"#3078ff",cursor:"pointer",fontWeight:600,marginBottom:12}}>{t.addProduct}</button>
             {calcTotal()>0&&<div style={{background:"rgba(255,255,255,0.04)",borderRadius:10,padding:"11px 14px",marginBottom:12,display:"flex",justifyContent:"space-between"}}>
-              <span style={{color:"rgba(255,255,255,0.5)",fontSize:13}}>Calculated total:</span>
+              <span style={{color:"var(--app-muted)",fontSize:13}}>{t.calculatedTotal}:</span>
               <span style={{fontWeight:800,fontSize:18,color:"#3fb950"}}>{fmtM(calcTotal())}</span>
             </div>}
             <div style={{marginBottom:14}}>
-              <label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>PAYMENT STATUS</label>
+              <label style={{fontSize:11,color:"var(--app-muted)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:8}}>{t.paymentStatus}</label>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {(["paid","unpaid","partial"] as const).map(m=>(
                   <button key={m} onClick={()=>setPayMethod(m)} style={{padding:"7px 14px",borderRadius:9,border:`2px solid ${payMethod===m?PAY_CFG[m].c:"rgba(255,255,255,0.1)"}`,background:payMethod===m?PAY_CFG[m].bg:"transparent",color:payMethod===m?PAY_CFG[m].c:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:12,fontWeight:700}}>
@@ -862,11 +855,11 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
               </div>
             </div>
             {payMethod==="partial"&&<div style={{marginBottom:12}}><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>PAID AMOUNT (₩)</label><input type="number" value={form.paidAmount} onChange={e=>setForm({...form,paidAmount:e.target.value})} placeholder="750000" /></div>}
-            <textarea value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Note (optional)..." rows={2} style={{resize:"vertical",marginBottom:14}} />
+            <textarea value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder={t.note} rows={2} style={{resize:"vertical",marginBottom:14}} />
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              <button onClick={()=>{setShowModal(false);setLockedFirm("");}} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Cancel</button>
-              <button onClick={submit} disabled={loading} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>
-                {loading?"Saving...":"💾 Save Delivery"}
+              <button className="compact-btn" onClick={()=>{setShowModal(false);setLockedFirm("");}} style={{flex:1,border:"1px solid var(--app-border)",background:"transparent",color:"var(--app-muted)",cursor:"pointer"}}>{t.cancel}</button>
+              <button className="compact-btn" onClick={submit} disabled={loading} style={{flex:2,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>
+                {loading?"Saving...":`💾 ${t.saveDelivery}`}
               </button>
             </div>
           </div>
@@ -889,7 +882,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:14,marginBottom:22}}>
         {firmRows.map((firm:any)=>(
-          <button key={firm.name} onClick={()=>openFirmWindow(firm.name)} className="action-btn" style={{textAlign:"left",background:"linear-gradient(180deg,#161b22,#111820)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10,padding:0,color:"#e6edf3",cursor:"pointer",overflow:"hidden",boxShadow:"0 12px 30px rgba(0,0,0,0.18)"}}>
+          <button key={firm.name} onClick={()=>openFirmWindow(firm.name)} className="action-btn firm-card" style={{textAlign:"left",border:"1px solid var(--app-border)",borderRadius:10,padding:0,cursor:"pointer",overflow:"hidden"}}>
             <div style={{height:4,background:firm.debt>0?"linear-gradient(90deg,#f85149,#d29922)":"linear-gradient(90deg,#3fb950,#79c0ff)"}} />
             <div style={{padding:16}}>
               <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:12,alignItems:"flex-start"}}>
@@ -941,7 +934,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                     <div style={{fontSize:20,fontWeight:900}}>{firmView==="history"?t.history:firmView==="add"?t.addNow:t.payments}</div>
                     <div style={{fontSize:12,color:"rgba(255,255,255,0.42)",marginTop:3}}>{selectedHistory.length} {t.deliveries}, {t.total.toLowerCase()} {fmtM(selectedFirmRow?.total||0)}</div>
                   </div>
-                  <button onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:900}}>{t.addDelivery}</button>
+                  <button data-testid="firm-add-delivery" onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:900}}>{t.addDelivery}</button>
                 </div>
 
                 {firmView==="history"&&(
@@ -983,7 +976,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                   <div style={{background:"rgba(48,120,255,0.07)",border:"1px solid rgba(48,120,255,0.18)",borderRadius:12,padding:18}}>
                     <div style={{fontSize:16,fontWeight:900,marginBottom:8}}>{t.addNow}</div>
                     <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginBottom:16}}>Bu firma nomi avtomatik to'ldiriladi. QR code orqali mahsulotni tez tanlash mumkin.</div>
-                    <button onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"11px 16px",cursor:"pointer",fontSize:13,fontWeight:900}}>{t.addNow}</button>
+                    <button data-testid="firm-add-now" onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:900}}>{t.addNow}</button>
                   </div>
                 )}
 
@@ -1290,5 +1283,5 @@ function PageWrap({ title, sub, action, children }:{ title?:any; sub?:any; actio
 }
 function Btn({ color, onClick, children }:{ color:"blue"|"green"|"red"; onClick:()=>void; children:any }) {
   const colors = { blue:"linear-gradient(135deg,#3078ff,#1a56db)", green:"linear-gradient(135deg,#3fb950,#27a73c)", red:"linear-gradient(135deg,#f85149,#c0392b)" };
-  return <button onClick={onClick} style={{background:colors[color],color:"#fff",border:"none",borderRadius:11,padding:"11px 20px",cursor:"pointer",fontWeight:700,fontSize:14,fontFamily:"Inter,sans-serif",boxShadow:`0 4px 14px rgba(0,0,0,0.3)`}}>{children}</button>;
+  return <button className="compact-btn" onClick={onClick} style={{background:colors[color],color:"#fff",border:"none",cursor:"pointer",fontWeight:800,fontFamily:"Inter,sans-serif",boxShadow:`0 4px 12px rgba(0,0,0,0.18)`}}>{children}</button>;
 }
