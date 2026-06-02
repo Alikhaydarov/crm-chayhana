@@ -22,6 +22,7 @@ type StockMap = Record<string,number>;
 type Transfer = { id:string; toBranch:string; items:any[]; totalValue:number; requestedBy:string; approvedBy?:string; status:"pending"|"approved"|"rejected"; note?:string; createdAt:string; updatedAt:string };
 type Supplier = { id:string; firm:string; docNumber:string; deliveryDate:string; note:string; items:any[]; totalPrice:number; payStatus:"paid"|"unpaid"|"partial"; paidAmount:number; createdAt:string };
 type Staff = { id:string; name:string; role:string; branch:string; phone:string; salary:number; joinDate:string; active:boolean };
+type Lang = "uz"|"ko";
 
 const BNAME:Record<string,string> = { restaurant1:"Restaurant-1", restaurant2:"Restaurant-2", shop:"Shop", main:"Main Warehouse" };
 const BICON:Record<string,string> = { restaurant1:"🍜", restaurant2:"🍲", shop:"🏪", main:"🏭", superadmin:"🏭" };
@@ -39,6 +40,27 @@ const PAY_CFG = {
 const fmt  = (n:number) => n.toLocaleString("uz-UZ");
 const fmtM = (n:number) => `₩${fmt(n)}`;
 const fmtD = (s:string) => new Date(s).toLocaleString("en-US",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+
+const I18N:Record<Lang,Record<string,string>> = {
+  uz: {
+    dashboard:"Dashboard", warehouse:"Sklad", transfers:"Transferlar", staff:"Xodimlar", reports:"Hisobotlar", suppliers:"Firmalar", products:"Mahsulotlar",
+    logout:"Chiqish", firmList:"Firmalar ro'yxati", firmHint:"Firma ustiga bosing, ichida history va yangi mahsulot qo'shish bo'limlari ochiladi",
+    newFirm:"+ Yangi firma", firmOffice:"Firma kabineti", history:"History", addNow:"Add now", payments:"Payments",
+    historySub:"Oldingi kirimlar", addSub:"Yangi mahsulot kiritish", paymentsSub:"To'lov va qarzlar", close:"Yopish",
+    addDelivery:"+ Kirim qo'shish", total:"Jami", paid:"To'langan", debt:"Qarz", deliveries:"kirim", totalSum:"Jami summa",
+    last:"Oxirgi", items:"Mahsulot", paymentTitle:"To'lovlarni boshqarish", paymentHint:"Berilgan summani kiriting. 0 bo'lsa unpaid, to'liq summa bo'lsa paid, o'rtada bo'lsa partial bo'ladi.",
+    paidAmount:"Berilgan summa", save:"Saqlash", status:"Status", noDoc:"Hujjat yo'q", language:"Til", uzbek:"O'zbek", korean:"Koreys",
+  },
+  ko: {
+    dashboard:"대시보드", warehouse:"창고", transfers:"이동", staff:"직원", reports:"보고서", suppliers:"업체", products:"상품",
+    logout:"로그아웃", firmList:"업체 목록", firmHint:"업체를 누르면 내역, 입고 추가, 결제 관리 창이 열립니다",
+    newFirm:"+ 새 업체", firmOffice:"업체 관리", history:"내역", addNow:"입고 추가", payments:"결제",
+    historySub:"이전 입고 내역", addSub:"새 상품 입고", paymentsSub:"결제 및 미수금", close:"닫기",
+    addDelivery:"+ 입고 추가", total:"총액", paid:"결제됨", debt:"미수금", deliveries:"건 입고", totalSum:"총 금액",
+    last:"최근", items:"상품", paymentTitle:"결제 관리", paymentHint:"결제 금액을 입력하세요. 0이면 미결제, 전액이면 완료, 중간이면 부분 결제입니다.",
+    paidAmount:"결제 금액", save:"저장", status:"상태", noDoc:"문서 없음", language:"언어", uzbek:"우즈벡어", korean:"한국어",
+  },
+};
 
 // ─── QTY COLOR ───────────────────────────────────────────────
 function qtyColor(qty:number, min:number) {
@@ -118,6 +140,7 @@ export default function CRMApp() {
   const [user, setUser] = useState<UserInfo|null>(null);
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [lang, setLang] = useState<Lang>("uz");
   const [products, setProducts] = useState<Product[]>([]);
   const [stock, setStock] = useState<StockMap>({});
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -126,6 +149,7 @@ export default function CRMApp() {
   const [reports, setReports] = useState<any>(null);
   const [lowStockOpen, setLowStockOpen] = useState(false);
   const { toast, show: showToast } = useToast();
+  const t = I18N[lang];
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
@@ -136,6 +160,8 @@ export default function CRMApp() {
   }, [user]);
 
   useEffect(()=>{ if(user) fetchAll(); },[user,fetchAll]);
+  useEffect(()=>{ const saved = localStorage.getItem("crm-lang") as Lang|null; if(saved==="uz"||saved==="ko") setLang(saved); },[]);
+  useEffect(()=>{ localStorage.setItem("crm-lang", lang); },[lang]);
 
   if (!user) return <LoginPage onLogin={setUser} />;
 
@@ -151,6 +177,11 @@ export default function CRMApp() {
     { id:"suppliers",  icon:"🚚", label:"Suppliers" },
     ...(isSA?[{ id:"products", icon:"🏷️", label:"Products" }]:[]),
   ];
+
+  const translatedTabs = TABS.map(item => ({
+    ...item,
+    label: item.id==="transfers" ? `${t.transfers}${pending>0?` (${pending})`:""}` : (t[item.id] || item.label),
+  }));
 
   return (
     <div style={{display:"flex",minHeight:"100vh",background:"#0d1117",fontFamily:"Inter,sans-serif",color:"#e6edf3"}}>
@@ -209,12 +240,24 @@ export default function CRMApp() {
             <div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{user.branchName}</div>
           </div>
         )}
+        {sidebarOpen && (
+          <div style={{margin:"0 10px 10px",padding:8,background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10}}>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.38)",marginBottom:7,fontWeight:700}}>{t.language}</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {(["uz","ko"] as const).map(code=>(
+                <button key={code} onClick={()=>setLang(code)} style={{border:`1px solid ${lang===code?"rgba(48,120,255,0.45)":"rgba(255,255,255,0.08)"}`,background:lang===code?"rgba(48,120,255,0.14)":"rgba(255,255,255,0.03)",color:lang===code?"#79c0ff":"rgba(255,255,255,0.55)",borderRadius:8,padding:"7px 8px",fontSize:11,fontWeight:800,cursor:"pointer"}}>
+                  {code==="uz"?"UZ":"KO"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <nav style={{flex:1,padding:6}}>
-          {TABS.map(t=>(
-            <div key={t.id} className="tab-item" onClick={()=>setTab(t.id)}
-              style={{display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:9,marginBottom:2,background:tab===t.id?"rgba(48,120,255,0.12)":"transparent",color:tab===t.id?"#3078ff":"rgba(255,255,255,0.6)",fontWeight:tab===t.id?700:400,fontSize:13,border:`1px solid ${tab===t.id?"rgba(48,120,255,0.25)":"transparent"}`,whiteSpace:"nowrap",overflow:"hidden"}}>
-              <span style={{fontSize:17,flexShrink:0}}>{t.icon}</span>
-              <span className="sidebar-text">{t.label}</span>
+          {translatedTabs.map(nav=>(
+            <div key={nav.id} className="tab-item" onClick={()=>setTab(nav.id)}
+              style={{display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:9,marginBottom:2,background:tab===nav.id?"rgba(48,120,255,0.12)":"transparent",color:tab===nav.id?"#3078ff":"rgba(255,255,255,0.6)",fontWeight:tab===nav.id?700:400,fontSize:13,border:`1px solid ${tab===nav.id?"rgba(48,120,255,0.25)":"transparent"}`,whiteSpace:"nowrap",overflow:"hidden"}}>
+              <span style={{fontSize:17,flexShrink:0}}>{nav.icon}</span>
+              <span className="sidebar-text">{nav.label}</span>
             </div>
           ))}
         </nav>
@@ -237,7 +280,7 @@ export default function CRMApp() {
         {tab==="transfers"  && <TransfersTab  transfers={transfers} products={products} user={user} onRefresh={fetchAll} showToast={showToast} />}
         {tab==="staff"      && <StaffTab      staffList={staffList} user={user} onRefresh={fetchAll} showToast={showToast} />}
         {tab==="reports"    && <ReportsTab    reports={reports} transfers={transfers} />}
-        {tab==="suppliers"  && <SuppliersTab  suppliers={suppliers} products={products} user={user} onRefresh={fetchAll} showToast={showToast} />}
+        {tab==="suppliers"  && <SuppliersTab  suppliers={suppliers} products={products} user={user} onRefresh={fetchAll} showToast={showToast} lang={lang} t={t} />}
         {tab==="products" && isSA && <ProductsTab products={products} stock={stock} onRefresh={fetchAll} showToast={showToast} />}
       </div>
     </div>
@@ -610,10 +653,11 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
 // ════════════════════════════════════════════════════════════
 // SUPPLIERS
 // ════════════════════════════════════════════════════════════
-function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
+function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any) {
   const [filter, setFilter] = useState("all");
   const [selectedFirm, setSelectedFirm] = useState<string|null>(null);
-  const [firmView, setFirmView] = useState<"history"|"add"|"payments"|"products">("history");
+  const [firmView, setFirmView] = useState<"history"|"add"|"payments">("history");
+  const [paymentDrafts, setPaymentDrafts] = useState<Record<string,string>>({});
   const [showModal, setShowModal] = useState(false);
   const [supItems, setSupItems] = useState([{pid:"",qty:1,price:0,qr:""}]);
   const [payMethod, setPayMethod] = useState<"paid"|"unpaid"|"partial">("unpaid");
@@ -638,7 +682,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
   const selectedHistory = selectedFirm ? suppliers.filter((s:Supplier)=>(s.firm.trim() || "Noma'lum firma")===selectedFirm) : [];
   const selectedFirmRow:any = firmRows.find((f:any)=>f.name===selectedFirm);
 
-  const openFirmWindow = (firmName:string, view:"history"|"add"|"payments"|"products" = "history") => {
+  const openFirmWindow = (firmName:string, view:"history"|"add"|"payments" = "history") => {
     setSelectedFirm(firmName);
     setFirmView(view);
   };
@@ -670,6 +714,18 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
   };
 
   const calcTotal = () => supItems.reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
+
+  const saveManualPayment = (s:Supplier) => {
+    const raw = paymentDrafts[s.id] ?? String(s.paidAmount || 0);
+    const paidAmount = Math.min(Math.max(parseFloat(raw) || 0, 0), s.totalPrice);
+    const payStatus = paidAmount <= 0 ? "unpaid" : paidAmount >= s.totalPrice ? "paid" : "partial";
+    const data = updateSupplierPayLocal(s.id,payStatus,paidAmount);
+    if(data.success){
+      setPaymentDrafts(prev=>({...prev,[s.id]:String(paidAmount)}));
+      showToast(payStatus==="paid"?"To'liq to'landi":payStatus==="partial"?"Qisman to'landi":"To'lanmagan");
+      onRefresh();
+    }
+  };
 
   const submit = async () => {
     if (!form.firm.trim()) { showToast("Enter company name","error"); return; }
@@ -762,10 +818,10 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
 
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:14}}>
         <div>
-          <div style={{fontSize:16,fontWeight:800}}>Firmalar ro'yxati</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:3}}>Firma ustiga bosing, ichida history va yangi mahsulot qo'shish bo'limlari ochiladi</div>
+          <div style={{fontSize:16,fontWeight:800}}>{t.firmList}</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:3}}>{t.firmHint}</div>
         </div>
-        <button onClick={()=>openDeliveryModal()} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.25)",color:"#79c0ff",borderRadius:8,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:800}}>+ Yangi firma</button>
+        <button onClick={()=>openDeliveryModal()} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.25)",color:"#79c0ff",borderRadius:8,padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:800}}>{t.newFirm}</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:14,marginBottom:22}}>
         {firmRows.map((firm:any)=>(
@@ -775,17 +831,17 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
               <div style={{display:"flex",justifyContent:"space-between",gap:10,marginBottom:12,alignItems:"flex-start"}}>
                 <div>
                   <div style={{fontSize:16,fontWeight:900,marginBottom:4}}>{firm.name}</div>
-                  <div style={{fontSize:11,color:"rgba(255,255,255,0.38)"}}>Oxirgi: {fmtD(firm.lastDate)}</div>
+                  <div style={{fontSize:11,color:"rgba(255,255,255,0.38)"}}>{t.last}: {fmtD(firm.lastDate)}</div>
                 </div>
                 <span style={{fontSize:10,color:firm.debt>0?"#f85149":"#3fb950",fontWeight:900,border:`1px solid ${firm.debt>0?"rgba(248,81,73,0.28)":"rgba(63,185,80,0.28)"}`,borderRadius:999,padding:"4px 8px",background:firm.debt>0?"rgba(248,81,73,0.08)":"rgba(63,185,80,0.08)"}}>{firm.debt>0?"QARZ":"TO'LANGAN"}</span>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
                 <div style={{background:"rgba(255,255,255,0.035)",borderRadius:8,padding:"9px 8px"}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>Kirim</div><div style={{fontSize:13,fontWeight:800}}>{firm.count}</div></div>
-                <div style={{background:"rgba(255,255,255,0.035)",borderRadius:8,padding:"9px 8px"}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>Mahsulot</div><div style={{fontSize:13,fontWeight:800}}>{firm.products}</div></div>
-                <div style={{background:"rgba(255,255,255,0.035)",borderRadius:8,padding:"9px 8px"}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>Qarz</div><div style={{fontSize:13,fontWeight:800,color:firm.debt>0?"#f85149":"#3fb950"}}>{fmtM(firm.debt)}</div></div>
+                <div style={{background:"rgba(255,255,255,0.035)",borderRadius:8,padding:"9px 8px"}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>{t.items}</div><div style={{fontSize:13,fontWeight:800}}>{firm.products}</div></div>
+                <div style={{background:"rgba(255,255,255,0.035)",borderRadius:8,padding:"9px 8px"}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>{t.debt}</div><div style={{fontSize:13,fontWeight:800,color:firm.debt>0?"#f85149":"#3fb950"}}>{fmtM(firm.debt)}</div></div>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
-                <span style={{color:"rgba(255,255,255,0.45)"}}>Jami summa</span>
+                <span style={{color:"rgba(255,255,255,0.45)"}}>{t.totalSum}</span>
                 <span style={{color:"#3fb950",fontWeight:900}}>{fmtM(firm.total)}</span>
               </div>
             </div>
@@ -800,27 +856,26 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
             <div style={{display:"grid",gridTemplateColumns:"230px 1fr",minHeight:560}}>
               <aside style={{background:"#0d1117",borderRight:"1px solid rgba(255,255,255,0.08)",padding:18}}>
                 <div style={{fontSize:18,fontWeight:900,marginBottom:4}}>{selectedFirm}</div>
-                <div style={{fontSize:12,color:"rgba(255,255,255,0.42)",marginBottom:18}}>Firma kabineti</div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.42)",marginBottom:18}}>{t.firmOffice}</div>
                 {[
-                  ["history","History","Oldingi kirimlar"],
-                  ["add","Add now","Yangi mahsulot kiritish"],
-                  ["payments","Payments","To'lov va qarzlar"],
-                  ["products","Products","Olingan mahsulotlar"],
+                  ["history",t.history,t.historySub],
+                  ["add",t.addNow,t.addSub],
+                  ["payments",t.payments,t.paymentsSub],
                 ].map(([id,label,sub])=>(
                   <button key={id} onClick={()=>setFirmView(id as any)} style={{width:"100%",textAlign:"left",background:firmView===id?"rgba(48,120,255,0.14)":"transparent",border:`1px solid ${firmView===id?"rgba(48,120,255,0.32)":"transparent"}`,color:firmView===id?"#79c0ff":"rgba(255,255,255,0.68)",borderRadius:9,padding:"11px 12px",cursor:"pointer",marginBottom:7}}>
                     <div style={{fontSize:13,fontWeight:900}}>{label}</div>
                     <div style={{fontSize:10,color:"rgba(255,255,255,0.36)",marginTop:2}}>{sub}</div>
                   </button>
                 ))}
-                <button onClick={()=>setSelectedFirm(null)} style={{width:"100%",marginTop:18,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.62)",borderRadius:9,padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:800}}>Close</button>
+                <button onClick={()=>setSelectedFirm(null)} style={{width:"100%",marginTop:18,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.62)",borderRadius:9,padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:800}}>{t.close}</button>
               </aside>
               <section style={{background:"#161b22",padding:20,maxHeight:"78vh",overflow:"auto"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:18}}>
                   <div>
-                    <div style={{fontSize:20,fontWeight:900}}>{firmView==="history"?"History":firmView==="add"?"Add now":firmView==="payments"?"Payments":"Products"}</div>
-                    <div style={{fontSize:12,color:"rgba(255,255,255,0.42)",marginTop:3}}>{selectedHistory.length} ta kirim, jami {fmtM(selectedFirmRow?.total||0)}</div>
+                    <div style={{fontSize:20,fontWeight:900}}>{firmView==="history"?t.history:firmView==="add"?t.addNow:t.payments}</div>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.42)",marginTop:3}}>{selectedHistory.length} {t.deliveries}, {t.total.toLowerCase()} {fmtM(selectedFirmRow?.total||0)}</div>
                   </div>
-                  <button onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:900}}>+ Add delivery</button>
+                  <button onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"10px 14px",cursor:"pointer",fontSize:12,fontWeight:900}}>{t.addDelivery}</button>
                 </div>
 
                 {firmView==="history"&&(
@@ -832,15 +887,15 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
                         <div key={s.id} style={{background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:11,padding:14}}>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:10}}>
                             <div>
-                              <div style={{fontSize:13,fontWeight:900}}>{s.docNumber||"No document"}</div>
+                              <div style={{fontSize:13,fontWeight:900}}>{s.docNumber||t.noDoc}</div>
                               <div style={{fontSize:11,color:"rgba(255,255,255,0.42)",marginTop:2}}>{new Date(s.deliveryDate||s.createdAt).toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric"})}</div>
                             </div>
-                            <button onClick={()=>togglePay(s)} style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"6px 13px",fontSize:11,fontWeight:800,cursor:"pointer"}}>{pay.l}</button>
+                            <span style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"6px 13px",fontSize:11,fontWeight:800}}>{pay.l}</span>
                           </div>
                           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:10}}>
-                            <div style={{background:"rgba(0,0,0,0.12)",borderRadius:8,padding:10}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>Total</div><div style={{fontSize:14,fontWeight:900,color:"#3fb950"}}>{fmtM(s.totalPrice)}</div></div>
-                            <div style={{background:"rgba(0,0,0,0.12)",borderRadius:8,padding:10}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>Paid</div><div style={{fontSize:14,fontWeight:900,color:"#3078ff"}}>{fmtM(s.paidAmount)}</div></div>
-                            <div style={{background:"rgba(0,0,0,0.12)",borderRadius:8,padding:10}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>Debt</div><div style={{fontSize:14,fontWeight:900,color:debt>0?"#f85149":"#3fb950"}}>{fmtM(debt)}</div></div>
+                            <div style={{background:"rgba(0,0,0,0.12)",borderRadius:8,padding:10}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>{t.total}</div><div style={{fontSize:14,fontWeight:900,color:"#3fb950"}}>{fmtM(s.totalPrice)}</div></div>
+                            <div style={{background:"rgba(0,0,0,0.12)",borderRadius:8,padding:10}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>{t.paid}</div><div style={{fontSize:14,fontWeight:900,color:"#3078ff"}}>{fmtM(s.paidAmount)}</div></div>
+                            <div style={{background:"rgba(0,0,0,0.12)",borderRadius:8,padding:10}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>{t.debt}</div><div style={{fontSize:14,fontWeight:900,color:debt>0?"#f85149":"#3fb950"}}>{fmtM(debt)}</div></div>
                           </div>
                           <div style={{display:"flex",flexDirection:"column",gap:7}}>
                             {s.items.map((it:any,i:number)=>(
@@ -860,39 +915,38 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast }:any) {
 
                 {firmView==="add"&&(
                   <div style={{background:"rgba(48,120,255,0.07)",border:"1px solid rgba(48,120,255,0.18)",borderRadius:12,padding:18}}>
-                    <div style={{fontSize:16,fontWeight:900,marginBottom:8}}>Yangi kirim qo'shish</div>
+                    <div style={{fontSize:16,fontWeight:900,marginBottom:8}}>{t.addNow}</div>
                     <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginBottom:16}}>Bu firma nomi avtomatik to'ldiriladi. QR code orqali mahsulotni tez tanlash mumkin.</div>
-                    <button onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"11px 16px",cursor:"pointer",fontSize:13,fontWeight:900}}>Add now</button>
+                    <button onClick={()=>openDeliveryModal(selectedFirm)} style={{background:"linear-gradient(135deg,#3078ff,#1a56db)",border:"none",color:"#fff",borderRadius:9,padding:"11px 16px",cursor:"pointer",fontSize:13,fontWeight:900}}>{t.addNow}</button>
                   </div>
                 )}
 
                 {firmView==="payments"&&(
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12}}>
-                    <div className="stat-card"><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6}}>Jami</div><div style={{fontSize:18,fontWeight:900,color:"#3fb950"}}>{fmtM(selectedFirmRow?.total||0)}</div></div>
-                    <div className="stat-card"><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6}}>To'langan</div><div style={{fontSize:18,fontWeight:900,color:"#3078ff"}}>{fmtM(selectedFirmRow?.paid||0)}</div></div>
-                    <div className="stat-card"><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6}}>Qarz</div><div style={{fontSize:18,fontWeight:900,color:(selectedFirmRow?.debt||0)>0?"#f85149":"#3fb950"}}>{fmtM(selectedFirmRow?.debt||0)}</div></div>
-                    <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:8}}>
-                      {selectedHistory.map((s:Supplier)=><button key={s.id} onClick={()=>togglePay(s)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:9,padding:"11px 12px",color:"#e6edf3",cursor:"pointer",fontSize:12}}><span>{s.docNumber||fmtD(s.createdAt)}</span><span style={{color:PAY_CFG[s.payStatus].c,fontWeight:900}}>{PAY_CFG[s.payStatus].l}</span></button>)}
-                    </div>
-                  </div>
-                )}
-
-                {firmView==="products"&&(
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    {Object.values(selectedHistory.flatMap((s:Supplier)=>s.items).reduce((acc:Record<string,any>, it:any)=>{
-                      const key = it.productName;
-                      if(!acc[key]) acc[key]={name:key, qty:0, unit:it.unit, total:0, qr:it.qrCode||""};
-                      acc[key].qty += it.quantity;
-                      acc[key].total += it.quantity*it.pricePerUnit;
-                      if(it.qrCode) acc[key].qr = it.qrCode;
-                      return acc;
-                    },{})).map((it:any)=>(
-                      <div key={it.name} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:10,background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:9,padding:"11px 12px",fontSize:12}}>
-                        <span style={{fontWeight:900}}>{it.name}<span style={{color:"rgba(255,255,255,0.35)",fontWeight:400,marginLeft:7}}>{it.qr}</span></span>
-                        <span style={{color:"rgba(255,255,255,0.55)"}}>{fmt(it.qty)} {it.unit}</span>
-                        <span style={{color:"#3fb950",fontWeight:900}}>{fmtM(it.total)}</span>
+                    <div className="stat-card"><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6}}>{t.total}</div><div style={{fontSize:18,fontWeight:900,color:"#3fb950"}}>{fmtM(selectedFirmRow?.total||0)}</div></div>
+                    <div className="stat-card"><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6}}>{t.paid}</div><div style={{fontSize:18,fontWeight:900,color:"#3078ff"}}>{fmtM(selectedFirmRow?.paid||0)}</div></div>
+                    <div className="stat-card"><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:6}}>{t.debt}</div><div style={{fontSize:18,fontWeight:900,color:(selectedFirmRow?.debt||0)>0?"#f85149":"#3fb950"}}>{fmtM(selectedFirmRow?.debt||0)}</div></div>
+                    <div style={{gridColumn:"1/-1",background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:12,padding:14}}>
+                      <div style={{fontSize:15,fontWeight:900,marginBottom:5}}>{t.paymentTitle}</div>
+                      <div style={{fontSize:12,color:"rgba(255,255,255,0.45)",marginBottom:12}}>{t.paymentHint}</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                        {selectedHistory.map((s:Supplier)=>{
+                          const debt = s.totalPrice - s.paidAmount;
+                          const pay = PAY_CFG[s.payStatus];
+                          return (
+                            <div key={s.id} style={{display:"grid",gridTemplateColumns:"1.1fr 120px 120px 96px",gap:10,alignItems:"center",background:"rgba(0,0,0,0.14)",borderRadius:10,padding:10}}>
+                              <div>
+                                <div style={{fontSize:13,fontWeight:900}}>{s.docNumber||fmtD(s.createdAt)}</div>
+                                <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2}}>{t.total}: {fmtM(s.totalPrice)} · {t.debt}: {fmtM(debt)}</div>
+                              </div>
+                              <span style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"6px 10px",fontSize:11,fontWeight:900,textAlign:"center"}}>{pay.l}</span>
+                              <input type="number" min={0} max={s.totalPrice} value={paymentDrafts[s.id] ?? String(s.paidAmount || 0)} onChange={e=>setPaymentDrafts(prev=>({...prev,[s.id]:e.target.value}))} placeholder={t.paidAmount} />
+                              <button onClick={()=>saveManualPayment(s)} style={{background:"rgba(48,120,255,0.12)",border:"1px solid rgba(48,120,255,0.3)",color:"#79c0ff",borderRadius:8,padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:900}}>{t.save}</button>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 )}
               </section>
