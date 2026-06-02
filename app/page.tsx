@@ -23,6 +23,7 @@ type Transfer = { id:string; toBranch:string; items:any[]; totalValue:number; re
 type Supplier = { id:string; firm:string; docNumber:string; deliveryDate:string; note:string; items:any[]; totalPrice:number; payStatus:"paid"|"unpaid"|"partial"; paidAmount:number; createdAt:string };
 type Staff = { id:string; name:string; role:string; branch:string; phone:string; salary:number; joinDate:string; active:boolean };
 type Lang = "uz"|"ko";
+type ThemeMode = "dark"|"light";
 
 const BNAME:Record<string,string> = { restaurant1:"Restaurant-1", restaurant2:"Restaurant-2", shop:"Shop", main:"Main Warehouse" };
 const BICON:Record<string,string> = { restaurant1:"🍜", restaurant2:"🍲", shop:"🏪", main:"🏭", superadmin:"🏭" };
@@ -136,11 +137,62 @@ function LoginPage({ onLogin }:{ onLogin:(u:UserInfo)=>void }) {
 // ════════════════════════════════════════════════════════════
 // MAIN APP
 // ════════════════════════════════════════════════════════════
+function IdLoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; theme:ThemeMode; setTheme:(theme:ThemeMode)=>void }) {
+  const [userId, setUserId] = useState("super");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError("");
+    const data = loginLocal(userId.trim(), password);
+    if (data.success) onLogin(data.user);
+    else setError(data.message);
+    setLoading(false);
+  };
+
+  return (
+    <div className={`${theme} theme-shell min-h-screen px-4 py-8 flex items-center justify-center bg-slate-100 text-slate-950 dark:bg-[#0d1117] dark:text-slate-100`}>
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/70 dark:border-white/10 dark:bg-[#161b22] dark:shadow-black/40 sm:p-8">
+        <div className="mb-7 flex items-start justify-between gap-4">
+          <div>
+            <div className="mb-2 text-4xl">🏭</div>
+            <h1 className="text-2xl font-black tracking-tight">Oshxona CRM</h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-white/45">Warehouse Management System</p>
+          </div>
+          <button onClick={() => setTheme(theme==="dark" ? "light" : "dark")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5">
+            {theme==="dark" ? "Light" : "Dark"}
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/45">ID</label>
+            <input className="crm-input w-full rounded-lg border px-3 py-3 text-sm outline-none focus:border-blue-500" value={userId} onChange={e=>setUserId(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="super, rest1, rest2, shop1" />
+          </div>
+          <div>
+            <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/45">Parol</label>
+            <input className="crm-input w-full rounded-lg border px-3 py-3 text-sm outline-none focus:border-blue-500" type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Parolni kiriting" />
+          </div>
+        </div>
+        {error && <div className="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-500">{error}</div>}
+        <button onClick={handleLogin} disabled={loading} className="mt-5 w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/25 disabled:opacity-60">
+          {loading ? "Kirilmoqda..." : "Kirish"}
+        </button>
+        <div className="mt-4 rounded-xl bg-slate-100 p-3 text-xs text-slate-500 dark:bg-white/5 dark:text-white/40">
+          <strong className="text-slate-700 dark:text-white/60">Demo:</strong> super / super123 · rest1 / rest1 · rest2 / rest2 · shop1 / shop1
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CRMApp() {
   const [user, setUser] = useState<UserInfo|null>(null);
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [lang, setLang] = useState<Lang>("uz");
+  const [theme, setTheme] = useState<ThemeMode>("dark");
   const [products, setProducts] = useState<Product[]>([]);
   const [stock, setStock] = useState<StockMap>({});
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -162,8 +214,10 @@ export default function CRMApp() {
   useEffect(()=>{ if(user) fetchAll(); },[user,fetchAll]);
   useEffect(()=>{ const saved = localStorage.getItem("crm-lang") as Lang|null; if(saved==="uz"||saved==="ko") setLang(saved); },[]);
   useEffect(()=>{ localStorage.setItem("crm-lang", lang); },[lang]);
+  useEffect(()=>{ const saved = localStorage.getItem("crm-theme") as ThemeMode|null; if(saved==="dark"||saved==="light") setTheme(saved); },[]);
+  useEffect(()=>{ localStorage.setItem("crm-theme", theme); },[theme]);
 
-  if (!user) return <LoginPage onLogin={setUser} />;
+  if (!user) return <IdLoginPage onLogin={setUser} theme={theme} setTheme={setTheme} />;
 
   const isSA = user.role === "superadmin";
   const pending = transfers.filter(t=>t.status==="pending").length;
@@ -184,26 +238,26 @@ export default function CRMApp() {
   }));
 
   return (
-    <div style={{display:"flex",minHeight:"100vh",background:"#0d1117",fontFamily:"Inter,sans-serif",color:"#e6edf3"}}>
+    <div className={`${theme} theme-shell app-shell`} style={{display:"flex",minHeight:"100vh",background:"var(--app-bg)",fontFamily:"Inter,sans-serif",color:"var(--app-text)"}}>
       <style>{`
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#30363d;border-radius:2px}
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes slideIn{from{transform:translateX(80px);opacity:0}to{transform:translateX(0);opacity:1}}
-        .tab-item{transition:all .15s;cursor:pointer} .tab-item:hover{background:rgba(255,255,255,0.06)!important}
+        .tab-item{transition:all .15s;cursor:pointer} .tab-item:hover{background:rgba(48,120,255,0.08)!important}
         .action-btn{transition:all .15s;cursor:pointer} .action-btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
         .card{animation:fadeIn .35s ease forwards}
-        input,select,textarea{background:rgba(255,255,255,0.05)!important;color:#e6edf3!important;border:1px solid rgba(255,255,255,0.1)!important;border-radius:8px!important;padding:10px 13px!important;font-size:13px!important;outline:none!important;font-family:Inter,sans-serif!important;width:100%}
+        input,select,textarea{background:var(--app-input)!important;color:var(--app-text)!important;border:1px solid var(--app-border)!important;border-radius:8px!important;padding:10px 13px!important;font-size:13px!important;outline:none!important;font-family:Inter,sans-serif!important;width:100%}
         input:focus,select:focus,textarea:focus{border-color:rgba(48,120,255,0.5)!important}
-        select option{background:#161b22}
+        select option{background:var(--app-panel);color:var(--app-text)}
         table{width:100%;border-collapse:collapse}
-        th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.06);white-space:nowrap}
-        td{padding:11px 14px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
-        tr:hover td{background:rgba(255,255,255,0.02)}
-        .stat-card{background:#161b22;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:18px 16px;transition:all .2s}
-        .stat-card:hover{border-color:rgba(255,255,255,0.12)}
+        th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--app-muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--app-border);white-space:nowrap}
+        td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--app-border);vertical-align:middle}
+        tr:hover td{background:rgba(48,120,255,0.04)}
+        .stat-card{background:var(--app-panel);border:1px solid var(--app-border);border-radius:14px;padding:18px 16px;transition:all .2s;color:var(--app-text)}
+        .stat-card:hover{border-color:rgba(48,120,255,0.28)}
         .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
-        .modal{background:#161b22;border:1px solid rgba(255,255,255,0.1);border-radius:18px;padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto}
+        .modal{background:var(--app-panel);border:1px solid var(--app-border);border-radius:18px;padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;color:var(--app-text)}
         @media(max-width:700px){.sidebar-text{display:none}}
       `}</style>
 
@@ -228,20 +282,20 @@ export default function CRMApp() {
       )}
 
       {/* SIDEBAR */}
-      <div style={{width:sidebarOpen?220:58,background:"#161b22",borderRight:"1px solid rgba(255,255,255,0.06)",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .3s",overflow:"hidden"}}>
-        <div style={{padding:"16px 14px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setSidebarOpen(!sidebarOpen)}>
+      <div className="app-sidebar theme-panel" style={{width:sidebarOpen?220:58,background:"var(--app-panel)",borderRight:"1px solid var(--app-border)",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .3s",overflow:"hidden"}}>
+        <div style={{padding:"16px 14px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setSidebarOpen(!sidebarOpen)}>
           <span style={{fontSize:22,flexShrink:0}}>🏭</span>
           {sidebarOpen && <div><div style={{fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>Oshxona CRM</div><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>v2.0</div></div>}
         </div>
         {sidebarOpen && (
-          <div style={{margin:"10px",padding:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:11}}>
+          <div className="theme-soft" style={{margin:"10px",padding:12,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:11}}>
             <div style={{fontSize:20,marginBottom:3}}>{user.branchIcon}</div>
             <div style={{fontWeight:700,fontSize:13}}>{user.name}</div>
             <div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{user.branchName}</div>
           </div>
         )}
         {sidebarOpen && (
-          <div style={{margin:"0 10px 10px",padding:8,background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10}}>
+          <div className="theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
             <div style={{fontSize:10,color:"rgba(255,255,255,0.38)",marginBottom:7,fontWeight:700}}>{t.language}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
               {(["uz","ko"] as const).map(code=>(
@@ -250,6 +304,14 @@ export default function CRMApp() {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+        {sidebarOpen && (
+          <div className="theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
+            <div style={{fontSize:10,color:"var(--app-muted)",marginBottom:7,fontWeight:700}}>Mode</div>
+            <button onClick={()=>setTheme(theme==="dark"?"light":"dark")} style={{width:"100%",border:"1px solid var(--app-border)",background:theme==="dark"?"rgba(48,120,255,0.14)":"rgba(15,23,42,0.04)",color:"var(--app-text)",borderRadius:8,padding:"8px 10px",fontSize:11,fontWeight:800,cursor:"pointer"}}>
+              {theme==="dark"?"Dark":"Light"}
+            </button>
           </div>
         )}
         <nav style={{flex:1,padding:6}}>
@@ -261,7 +323,7 @@ export default function CRMApp() {
             </div>
           ))}
         </nav>
-        <div style={{padding:"8px",borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+        <div style={{padding:"8px",borderTop:"1px solid var(--app-border)"}}>
           <div className="tab-item" onClick={()=>setSidebarOpen(!sidebarOpen)} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 11px",borderRadius:9,color:"rgba(255,255,255,0.4)",fontSize:13}}>
             <span style={{fontSize:17}}>{sidebarOpen?"◀":"▶"}</span>
             <span className="sidebar-text">Collapse</span>
@@ -576,7 +638,7 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
         <div className="modal-backdrop">
           <div className="modal" style={{maxWidth:520}}>
             <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>📋 Transfer Details</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            <div className="mobile-stack" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               {[["ID",detail.id,true],["Status",`${ST_CFG[detail.status].i} ${ST_CFG[detail.status].l}`],["Branch",`${BICON[detail.toBranch]} ${BNAME[detail.toBranch]}`],["Requested by",detail.requestedBy],["Approved by",detail.approvedBy||"—"],["Total value",fmtM(detail.totalValue)]].map(([l,v,mono],i)=>(
                 <div key={i} style={{background:"rgba(255,255,255,0.04)",borderRadius:9,padding:"10px 12px"}}>
                   <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:3}}>{l}</div>
@@ -662,6 +724,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
   const [supItems, setSupItems] = useState([{pid:"",qty:1,price:0,qr:""}]);
   const [payMethod, setPayMethod] = useState<"paid"|"unpaid"|"partial">("unpaid");
   const [form, setForm] = useState({firm:"",doc:"",date:new Date().toISOString().slice(0,10),note:"",totalPrice:"",paidAmount:""});
+  const [lockedFirm, setLockedFirm] = useState("");
   const [loading, setLoading] = useState(false);
 
   const totalVal = suppliers.reduce((s:number,x:Supplier)=>s+x.totalPrice,0);
@@ -690,6 +753,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
   const openDeliveryModal = (firmName = "") => {
     setSupItems([{pid:"",qty:1,price:0,qr:""}]);
     setForm({firm:firmName,doc:"",date:new Date().toISOString().slice(0,10),note:"",totalPrice:"",paidAmount:""});
+    setLockedFirm(firmName);
     setPayMethod("unpaid");
     setShowModal(true);
   };
@@ -731,7 +795,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
     if (!form.firm.trim()) { showToast("Enter company name","error"); return; }
     const valid = supItems.filter(i=>i.pid&&i.qty>0);
     if (!valid.length) { showToast("Add at least 1 product","error"); return; }
-    const total = calcTotal() || parseFloat(form.totalPrice)||0;
+    const total = calcTotal();
     if (!total) { showToast("Enter price","error"); return; }
     const paid = payMethod==="paid"?total:payMethod==="unpaid"?0:parseFloat(form.paidAmount)||0;
     const items = valid.map(i=>{
@@ -740,7 +804,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
     });
     setLoading(true);
     const data = createSupplierLocal({firm:form.firm,docNumber:form.doc,deliveryDate:form.date,note:form.note,items,totalPrice:total,payStatus:payMethod,paidAmount:paid});
-    if(data.success){showToast(`Delivery recorded! ${fmtM(total)}`);setShowModal(false);setSupItems([{pid:"",qty:1,price:0,qr:""}]);setForm({firm:"",doc:"",date:new Date().toISOString().slice(0,10),note:"",totalPrice:"",paidAmount:""});setPayMethod("unpaid");setSelectedFirm(form.firm);onRefresh();}
+    if(data.success){showToast(`Delivery recorded! ${fmtM(total)}`);setShowModal(false);setLockedFirm("");setSupItems([{pid:"",qty:1,price:0,qr:""}]);setForm({firm:"",doc:"",date:new Date().toISOString().slice(0,10),note:"",totalPrice:"",paidAmount:""});setPayMethod("unpaid");setSelectedFirm(form.firm);onRefresh();}
     else showToast("Error","error");
     setLoading(false);
   };
@@ -754,10 +818,10 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
           <div className="modal" style={{maxWidth:600}}>
             <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>🚚 Record New Delivery</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COMPANY NAME</label><input value={form.firm} onChange={e=>setForm({...form,firm:e.target.value})} placeholder="Mars LLC, Nestle..." /></div>
+              <div><label style={{fontSize:11,color:"var(--app-muted)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>COMPANY NAME</label><input value={form.firm} readOnly={!!lockedFirm} onChange={e=>!lockedFirm&&setForm({...form,firm:e.target.value})} placeholder="Mars LLC, Nestle..." style={lockedFirm?{fontWeight:800,cursor:"not-allowed"}:{}} /></div>
               <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DELIVERY DATE</label><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></div>
               <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>DOCUMENT NO.</label><input value={form.doc} onChange={e=>setForm({...form,doc:e.target.value})} placeholder="INV-2024-001" /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>TOTAL PRICE (₩)</label><input type="number" value={form.totalPrice} onChange={e=>setForm({...form,totalPrice:e.target.value})} placeholder="1500000" /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>AUTO TOTAL</label><input readOnly value={fmtM(calcTotal())} style={{fontWeight:900,color:"#3fb950"}} /></div>
             </div>
             <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>📦 Products:</div>
             {supItems.map((item,i)=>{
@@ -765,11 +829,11 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
               const dona = p&&p.perBox>0&&item.qty ? <div style={{background:"rgba(48,120,255,0.06)",border:"1px solid rgba(48,120,255,0.15)",borderRadius:7,padding:"6px 10px",fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:5}}>📦 {fmt(item.qty)} {p.unit} = <strong style={{color:"#79c0ff"}}>{fmt(item.qty*p.perBox)} {p.boxUnit}</strong></div>:null;
               return (
                 <div key={i} style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:12,marginBottom:8}}>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 90px",gap:8,alignItems:"center",marginBottom:8}}>
+                  <div className="mobile-stack" style={{display:"grid",gridTemplateColumns:"1fr 90px",gap:8,alignItems:"center",marginBottom:8}}>
                     <input value={item.qr} onChange={e=>{const n=[...supItems];n[i].qr=e.target.value;setSupItems(n);}} onKeyDown={e=>{if(e.key==="Enter") applyQrCode(i,item.qr);}} placeholder="QR code" />
                     <button onClick={()=>applyQrCode(i,item.qr)} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.25)",color:"#3078ff",borderRadius:8,padding:"9px 10px",cursor:"pointer",fontSize:12,fontWeight:700}}>Scan</button>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 80px 100px 30px",gap:8,alignItems:"center"}}>
+                  <div className="mobile-stack" style={{display:"grid",gridTemplateColumns:"1fr 80px 100px 30px",gap:8,alignItems:"center"}}>
                     <select value={item.pid} onChange={e=>{const n=[...supItems];const picked=products.find((p:Product)=>p.id===e.target.value);n[i].pid=e.target.value;n[i].qr=picked?.qrCode||n[i].qr;n[i].price=n[i].price||picked?.pricePerUnit||0;setSupItems(n);}}>
                       <option value="">Select product</option>
                       {products.map((p:Product)=><option key={p.id} value={p.id}>{p.name} ({p.unit})</option>)}
@@ -799,8 +863,8 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
             </div>
             {payMethod==="partial"&&<div style={{marginBottom:12}}><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>PAID AMOUNT (₩)</label><input type="number" value={form.paidAmount} onChange={e=>setForm({...form,paidAmount:e.target.value})} placeholder="750000" /></div>}
             <textarea value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Note (optional)..." rows={2} style={{resize:"vertical",marginBottom:14}} />
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setShowModal(false)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Cancel</button>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <button onClick={()=>{setShowModal(false);setLockedFirm("");}} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Cancel</button>
               <button onClick={submit} disabled={loading} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>
                 {loading?"Saving...":"💾 Save Delivery"}
               </button>
@@ -850,13 +914,14 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
         {firmRows.length===0&&<div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:24,color:"rgba(255,255,255,0.35)",textAlign:"center"}}>No firms yet</div>}
       </div>
 
-      {selectedFirm&&(
+      {selectedFirm&&!showModal&&(
         <div className="modal-backdrop">
           <div className="modal" style={{maxWidth:980,padding:0,overflow:"hidden"}}>
-            <div style={{display:"grid",gridTemplateColumns:"230px 1fr",minHeight:560}}>
-              <aside style={{background:"#0d1117",borderRight:"1px solid rgba(255,255,255,0.08)",padding:18}}>
+            <div className="firm-window-grid" style={{minHeight:560}}>
+              <aside className="firm-window-side" style={{background:"var(--app-bg)",borderRight:"1px solid var(--app-border)",padding:18}}>
                 <div style={{fontSize:18,fontWeight:900,marginBottom:4}}>{selectedFirm}</div>
                 <div style={{fontSize:12,color:"rgba(255,255,255,0.42)",marginBottom:18}}>{t.firmOffice}</div>
+                <div className="firm-window-menu">
                 {[
                   ["history",t.history,t.historySub],
                   ["add",t.addNow,t.addSub],
@@ -867,9 +932,10 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                     <div style={{fontSize:10,color:"rgba(255,255,255,0.36)",marginTop:2}}>{sub}</div>
                   </button>
                 ))}
+                </div>
                 <button onClick={()=>setSelectedFirm(null)} style={{width:"100%",marginTop:18,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.62)",borderRadius:9,padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:800}}>{t.close}</button>
               </aside>
-              <section style={{background:"#161b22",padding:20,maxHeight:"78vh",overflow:"auto"}}>
+              <section style={{background:"var(--app-panel)",padding:20,maxHeight:"78vh",overflow:"auto"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:18}}>
                   <div>
                     <div style={{fontSize:20,fontWeight:900}}>{firmView==="history"?t.history:firmView==="add"?t.addNow:t.payments}</div>
@@ -934,7 +1000,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                           const debt = s.totalPrice - s.paidAmount;
                           const pay = PAY_CFG[s.payStatus];
                           return (
-                            <div key={s.id} style={{display:"grid",gridTemplateColumns:"1.1fr 120px 120px 96px",gap:10,alignItems:"center",background:"rgba(0,0,0,0.14)",borderRadius:10,padding:10}}>
+                            <div key={s.id} className="payment-row" style={{gap:10,alignItems:"center",background:"rgba(0,0,0,0.14)",borderRadius:10,padding:10}}>
                               <div>
                                 <div style={{fontSize:13,fontWeight:900}}>{s.docNumber||fmtD(s.createdAt)}</div>
                                 <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2}}>{t.total}: {fmtM(s.totalPrice)} · {t.debt}: {fmtM(debt)}</div>
@@ -1208,12 +1274,12 @@ function ProductsTab({ products, stock, onRefresh, showToast }:any) {
 // ─── HELPERS ─────────────────────────────────────────────────
 function PageWrap({ title, sub, action, children }:{ title?:any; sub?:any; action?:any; children:any }) {
   return (
-    <div style={{padding:"28px 24px"}}>
+    <div style={{padding:"28px 24px",color:"var(--app-text)"}}>
       {(title||action) && (
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:24}}>
           <div>
-            {title&&<div style={{fontSize:22,fontWeight:800,color:"#fff",marginBottom:4}}>{title}</div>}
-            {sub&&<div style={{color:"rgba(255,255,255,0.4)",fontSize:13}}>{sub}</div>}
+            {title&&<div style={{fontSize:22,fontWeight:800,color:"var(--app-text)",marginBottom:4}}>{title}</div>}
+            {sub&&<div style={{color:"var(--app-muted)",fontSize:13}}>{sub}</div>}
           </div>
           {action&&<div>{action}</div>}
         </div>

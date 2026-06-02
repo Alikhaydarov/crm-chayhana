@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Oshxona CRM v2 - Sklad Boshqaruvi",
@@ -15,14 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body
-        style={{
-          margin: 0,
-          background: "#0d1117",
-          fontFamily: "'Inter', sans-serif",
-          color: "#e6edf3",
-        }}
-      >
+      <body>
         {children}
       </body>
     </html>

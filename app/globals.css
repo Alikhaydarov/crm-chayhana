@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #f4f7fb;
+  --app-panel: #ffffff;
+  --app-panel-soft: #f8fafc;
+  --app-border: rgba(15, 23, 42, 0.1);
+  --app-text: #0f172a;
+  --app-muted: rgba(15, 23, 42, 0.56);
+  --app-input: #ffffff;
+}
+
+.dark {
+  --app-bg: #0d1117;
+  --app-panel: #161b22;
+  --app-panel-soft: #111820;
+  --app-border: rgba(255, 255, 255, 0.08);
+  --app-text: #e6edf3;
+  --app-muted: rgba(255, 255, 255, 0.52);
+  --app-input: rgba(255, 255, 255, 0.05);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: "Inter", sans-serif;
+}
+
+.theme-shell {
+  background: var(--app-bg) !important;
+  color: var(--app-text) !important;
+}
+
+.theme-panel,
+.stat-card,
+.modal {
+  background: var(--app-panel) !important;
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+}
+
+.theme-soft {
+  background: var(--app-panel-soft) !important;
+}
+
+.theme-muted {
+  color: var(--app-muted) !important;
+}
+
+.crm-input,
+.theme-shell input,
+.theme-shell select,
+.theme-shell textarea {
+  background: var(--app-input) !important;
+  color: var(--app-text) !important;
+  border-color: var(--app-border) !important;
+}
+
+.firm-window-grid {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+}
+
+.payment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) 120px 120px 96px;
+}
+
+@media (max-width: 900px) {
+  .firm-window-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .firm-window-side {
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--app-border) !important;
+  }
+
+  .firm-window-menu {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .payment-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    width: 100% !important;
+    min-height: auto;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--app-border) !important;
+  }
+
+  .app-sidebar nav {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .app-sidebar nav .tab-item {
+    min-width: max-content;
+  }
+
+  .mobile-stack {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modal-backdrop {
+    align-items: stretch !important;
+    padding: 8px !important;
+  }
+
+  .modal {
+    max-height: calc(100vh - 16px) !important;
+    border-radius: 14px !important;
+  }
+}
