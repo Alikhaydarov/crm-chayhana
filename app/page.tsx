@@ -41,6 +41,8 @@ const PAY_CFG = {
 const fmt  = (n:number) => n.toLocaleString("uz-UZ");
 const fmtM = (n:number) => `₩${fmt(n)}`;
 const fmtD = (s:string) => new Date(s).toLocaleString("en-US",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+const stText = (t:Record<string,string>, status:string) => t[status] || status;
+const payText = (t:Record<string,string>, status:string) => status==="paid"?t.paid:status==="partial"?t.partial:status==="unpaid"?t.unpaid:status;
 
 const I18N:Record<Lang,Record<string,string>> = {
   uz: {
@@ -50,8 +52,9 @@ const I18N:Record<Lang,Record<string,string>> = {
     historySub:"Oldingi kirimlar", addSub:"Yangi mahsulot kiritish", paymentsSub:"To'lov va qarzlar", close:"Yopish",
     addDelivery:"+ Kirim qo'shish", total:"Jami", paid:"To'langan", debt:"Qarz", deliveries:"kirim", totalSum:"Jami summa",
     last:"Oxirgi", items:"Mahsulot", paymentTitle:"To'lovlarni boshqarish", paymentHint:"Berilgan summani kiriting. 0 bo'lsa unpaid, to'liq summa bo'lsa paid, o'rtada bo'lsa partial bo'ladi.",
-    paidAmount:"Berilgan summa", save:"Saqlash", status:"Status", noDoc:"Hujjat yo'q", language:"Til", uzbek:"O'zbek", korean:"Koreys",
+    paidAmount:"Berilgan summa", save:"Saqlash", status:"Status", noDoc:"Hujjat yo'q", language:"Til", uzbek:"O'zbek", korean:"Koreys", unpaid:"To'lanmagan",
     supplierDebt:"Firma qarzi", recordDelivery:"+ Kirim", deliveryTitle:"Yangi kirim", companyName:"Firma nomi", deliveryDate:"Sana", documentNo:"Hujjat raqami", autoTotal:"Avto jami", productList:"Mahsulotlar", addProduct:"+ Mahsulot", calculatedTotal:"Hisoblangan jami", paymentStatus:"To'lov holati", note:"Eslatma", cancel:"Bekor qilish", saveDelivery:"Kirimni saqlash", scan:"Skan", selectProduct:"Mahsulot tanlang", quantity:"Soni", price:"Narx",
+    mode:"Rejim", dark:"Tungi", light:"Kunduzgi", loading:"Yuklanmoqda...", lowStockProducts:"Kam qolgan mahsulotlar", allProductsOk:"Hamma mahsulotlar minimumdan yuqori", mainStockValue:"Asosiy sklad qiymati", productTypes:"Mahsulot turlari", totalStaff:"Jami xodim", myStockValue:"Mening sklad qiymatim", myRequests:"Mening so'rovlarim", pending:"Kutilmoqda", approved:"Tasdiqlangan", rejected:"Rad etilgan", partial:"Qisman", lowStock:"Kam qoldi", branchStatus:"Filial holati", staffLabel:"xodim", stockValue:"Sklad qiymati", totalReceived:"Jami olingan", recentTransfers:"Oxirgi transferlar", all:"Hammasi", branch:"Filial", value:"Qiymat", date:"Sana", noTransfersYet:"Transferlar yo'q", totalValue:"Jami qiymat", editStockQuantity:"Sklad sonini o'zgartirish", current:"Hozirgi", newQuantity:"Yangi soni", invalidQuantity:"Soni noto'g'ri", stockUpdated:"Sklad yangilandi", errorUpdatingStock:"Skladni yangilashda xato", lowStockWarning:"mahsulot kam qolgan", medium:"o'rtacha", clickDetails:"Batafsil ko'rish", good:"Yaxshi", searchProduct:"Mahsulot qidirish...", allCategories:"Barcha kategoriyalar", product:"Mahsulot", category:"Kategoriya", unit:"Birlik", totalUnits:"Jami birlik", action:"Amal", edit:"O'zgartirish", noProductsFound:"Mahsulot topilmadi", totalTransfers:"Jami transferlar", newRequest:"+ Yangi so'rov", transferRequest:"Sklad transfer so'rovi", requestFrom:"So'rov", mainWarehouse:"Asosiy sklad", sendRequest:"So'rov yuborish", sending:"Yuborilmoqda...", transferDetails:"Transfer tafsilotlari", requestedBy:"So'ragan", approvedBy:"Tasdiqlagan", view:"Ko'rish", approve:"Tasdiqlash", reject:"Rad etish", noTransfers:"Transfer yo'q", totalSalary:"Jami oylik", addStaff:"+ Xodim qo'shish", addNewStaff:"Yangi xodim qo'shish", fullName:"To'liq ism", position:"Lavozim", phone:"Telefon", salary:"Oylik", joinDate:"Ishga kirgan sana", fillFields:"Maydonlarni to'ldiring", staffAdded:"Xodim qo'shildi", staffStatusUpdated:"Xodim statusi yangilandi", active:"Faol", inactive:"Nofaol", deactivate:"O'chirish", activate:"Faollashtirish", monthlyTransfers:"Oylik transferlar", branchComparison:"Filiallar solishtiruvi", totalTransferred:"Jami o'tkazilgan", productsTitle:"Mahsulotlar", addNewProduct:"Yangi mahsulot qo'shish", name:"Nomi", qrCode:"QR kod", minStock:"Minimum sklad", mainStock:"Asosiy sklad", boxPackage:"Quti/Paket sozlamalari", unitsPerBox:"Qutidagi birlik", unitName:"Birlik nomi",
   },
   ko: {
     dashboard:"대시보드", warehouse:"창고", transfers:"이동", staff:"직원", reports:"보고서", suppliers:"업체", products:"상품",
@@ -60,8 +63,9 @@ const I18N:Record<Lang,Record<string,string>> = {
     historySub:"이전 입고 내역", addSub:"새 상품 입고", paymentsSub:"결제 및 미수금", close:"닫기",
     addDelivery:"+ 입고 추가", total:"총액", paid:"결제됨", debt:"미수금", deliveries:"건 입고", totalSum:"총 금액",
     last:"최근", items:"상품", paymentTitle:"결제 관리", paymentHint:"결제 금액을 입력하세요. 0이면 미결제, 전액이면 완료, 중간이면 부분 결제입니다.",
-    paidAmount:"결제 금액", save:"저장", status:"상태", noDoc:"문서 없음", language:"언어", uzbek:"우즈벡어", korean:"한국어",
+    paidAmount:"결제 금액", save:"저장", status:"상태", noDoc:"문서 없음", language:"언어", uzbek:"우즈벡어", korean:"한국어", unpaid:"미결제",
     supplierDebt:"업체 미수금", recordDelivery:"+ 입고", deliveryTitle:"새 입고", companyName:"업체명", deliveryDate:"날짜", documentNo:"문서 번호", autoTotal:"자동 합계", productList:"상품", addProduct:"+ 상품", calculatedTotal:"계산 합계", paymentStatus:"결제 상태", note:"메모", cancel:"취소", saveDelivery:"입고 저장", scan:"스캔", selectProduct:"상품 선택", quantity:"수량", price:"가격",
+    mode:"모드", dark:"다크", light:"라이트", loading:"로딩 중...", lowStockProducts:"재고 부족 상품", allProductsOk:"모든 상품이 최소 재고 이상입니다", mainStockValue:"본사 재고 금액", productTypes:"상품 종류", totalStaff:"전체 직원", myStockValue:"내 재고 금액", myRequests:"내 요청", pending:"대기", approved:"승인됨", rejected:"거절됨", partial:"부분 결제", lowStock:"재고 부족", branchStatus:"지점 현황", staffLabel:"직원", stockValue:"재고 금액", totalReceived:"총 입고", recentTransfers:"최근 이동", all:"전체", branch:"지점", value:"금액", date:"날짜", noTransfersYet:"이동 내역 없음", totalValue:"총 금액", editStockQuantity:"재고 수량 수정", current:"현재", newQuantity:"새 수량", invalidQuantity:"수량이 올바르지 않습니다", stockUpdated:"재고가 수정되었습니다", errorUpdatingStock:"재고 수정 오류", lowStockWarning:"상품 재고 부족", medium:"주의", clickDetails:"자세히 보기", good:"양호", searchProduct:"상품 검색...", allCategories:"전체 카테고리", product:"상품", category:"카테고리", unit:"단위", totalUnits:"전체 단위", action:"작업", edit:"수정", noProductsFound:"상품 없음", totalTransfers:"전체 이동", newRequest:"+ 새 요청", transferRequest:"재고 이동 요청", requestFrom:"요청", mainWarehouse:"본사 창고", sendRequest:"요청 보내기", sending:"전송 중...", transferDetails:"이동 상세", requestedBy:"요청자", approvedBy:"승인자", view:"보기", approve:"승인", reject:"거절", noTransfers:"이동 없음", totalSalary:"총 급여", addStaff:"+ 직원 추가", addNewStaff:"새 직원 추가", fullName:"전체 이름", position:"직책", phone:"전화", salary:"급여", joinDate:"입사일", fillFields:"필드를 입력하세요", staffAdded:"직원이 추가되었습니다", staffStatusUpdated:"직원 상태가 변경되었습니다", active:"활성", inactive:"비활성", deactivate:"비활성화", activate:"활성화", monthlyTransfers:"월별 이동", branchComparison:"지점 비교", totalTransferred:"총 이동 금액", productsTitle:"상품", addNewProduct:"새 상품 추가", name:"이름", qrCode:"QR 코드", minStock:"최소 재고", mainStock:"본사 재고", boxPackage:"박스/패키지 설정", unitsPerBox:"박스당 수량", unitName:"단위명",
   },
 };
 
@@ -71,10 +75,10 @@ function qtyColor(qty:number, min:number) {
   if (qty <= min * 2) return "#f0a500";
   return "#3fb950";
 }
-function qtyBadge(qty:number, min:number) {
-  if (qty <= min)      return <span style={{background:"rgba(248,81,73,0.1)",color:"#f85149",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>🔴 Low</span>;
-  if (qty <= min * 2)  return <span style={{background:"rgba(240,165,0,0.1)",color:"#f0a500",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>🟡 Medium</span>;
-  return <span style={{background:"rgba(63,185,80,0.1)",color:"#3fb950",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>🟢 Good</span>;
+function qtyBadge(qty:number, min:number, t?:Record<string,string>) {
+  if (qty <= min)      return <span style={{background:"rgba(248,81,73,0.1)",color:"#f85149",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>🔴 {t?.lowStock || "Low"}</span>;
+  if (qty <= min * 2)  return <span style={{background:"rgba(240,165,0,0.1)",color:"#f0a500",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>🟡 {t?.medium || "Medium"}</span>;
+  return <span style={{background:"rgba(63,185,80,0.1)",color:"#3fb950",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>🟢 {t?.good || "Good"}</span>;
 }
 
 // ─── TOAST ───────────────────────────────────────────────────
@@ -275,10 +279,10 @@ export default function CRMApp() {
         <div className="modal-backdrop" onClick={()=>setLowStockOpen(false)}>
           <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <div style={{fontSize:17,fontWeight:800}}>⚠️ Low Stock Products</div>
+              <div style={{fontSize:17,fontWeight:800}}>⚠️ {t.lowStockProducts}</div>
               <button onClick={()=>setLowStockOpen(false)} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.5)",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:13}}>✕</button>
             </div>
-            <LowStockList products={products} stock={stock} />
+              <LowStockList products={products} stock={stock} t={t} />
           </div>
         </div>
       )}
@@ -305,9 +309,9 @@ export default function CRMApp() {
             </div>
           </div>
         <div className="sidebar-controls theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
-            <div style={{fontSize:10,color:"var(--app-muted)",marginBottom:7,fontWeight:700}}>Mode</div>
+            <div style={{fontSize:10,color:"var(--app-muted)",marginBottom:7,fontWeight:700}}>{t.mode}</div>
             <button onClick={()=>setTheme(theme==="dark"?"light":"dark")} style={{width:"100%",border:"1px solid var(--app-border)",background:theme==="dark"?"rgba(48,120,255,0.14)":"rgba(15,23,42,0.04)",color:"var(--app-text)",borderRadius:8,padding:"8px 10px",fontSize:11,fontWeight:800,cursor:"pointer"}}>
-              {theme==="dark"?"Dark":"Light"}
+              {theme==="dark"?t.dark:t.light}
             </button>
           </div>
         <nav style={{flex:1,padding:6}}>
@@ -328,26 +332,40 @@ export default function CRMApp() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div style={{flex:1,overflow:"auto"}}>
-        {tab==="dashboard"  && <DashboardTab  reports={reports} user={user} setTab={setTab} transfers={transfers} suppliers={suppliers} openLowStock={()=>setLowStockOpen(true)} />}
-        {tab==="warehouse"  && <WarehouseTab  products={products} stock={stock} user={user} onRefresh={fetchAll} showToast={showToast} openLowStock={()=>setLowStockOpen(true)} />}
-        {tab==="transfers"  && <TransfersTab  transfers={transfers} products={products} user={user} onRefresh={fetchAll} showToast={showToast} />}
-        {tab==="staff"      && <StaffTab      staffList={staffList} user={user} onRefresh={fetchAll} showToast={showToast} />}
-        {tab==="reports"    && <ReportsTab    reports={reports} transfers={transfers} />}
+      <div className="flex-1 overflow-auto pb-24 md:pb-0">
+        <div className="sticky top-0 z-[130] mx-3 mb-2 mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2 text-[var(--app-text)] shadow-sm md:hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--app-panel-soft)] text-lg">{user.branchIcon}</span>
+            <div>
+              <div className="truncate text-sm font-black leading-4">{user.name}</div>
+              <div className="truncate text-[11px] font-semibold text-[var(--app-muted)]">{user.branchName}</div>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-2.5 py-2 text-[11px] font-black text-[var(--app-text)]" onClick={()=>setLang(lang==="uz"?"ko":"uz")}>{lang==="uz"?"UZ":"KO"}</button>
+            <button className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-2.5 py-2 text-[11px] font-black text-[var(--app-text)]" onClick={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?t.dark:t.light}</button>
+            <button className="rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-2 text-[11px] font-black text-red-500" onClick={()=>setUser(null)}>{t.logout}</button>
+          </div>
+        </div>
+        {tab==="dashboard"  && <DashboardTab  reports={reports} user={user} setTab={setTab} transfers={transfers} suppliers={suppliers} openLowStock={()=>setLowStockOpen(true)} t={t} />}
+        {tab==="warehouse"  && <WarehouseTab  products={products} stock={stock} user={user} onRefresh={fetchAll} showToast={showToast} openLowStock={()=>setLowStockOpen(true)} t={t} />}
+        {tab==="transfers"  && <TransfersTab  transfers={transfers} products={products} user={user} onRefresh={fetchAll} showToast={showToast} t={t} />}
+        {tab==="staff"      && <StaffTab      staffList={staffList} user={user} onRefresh={fetchAll} showToast={showToast} t={t} />}
+        {tab==="reports"    && <ReportsTab    reports={reports} transfers={transfers} t={t} />}
         {tab==="suppliers"  && <SuppliersTab  suppliers={suppliers} products={products} user={user} onRefresh={fetchAll} showToast={showToast} lang={lang} t={t} />}
-        {tab==="products" && isSA && <ProductsTab products={products} stock={stock} onRefresh={fetchAll} showToast={showToast} />}
+        {tab==="products" && isSA && <ProductsTab products={products} stock={stock} onRefresh={fetchAll} showToast={showToast} t={t} />}
       </div>
     </div>
   );
 }
 
 // ─── LOW STOCK LIST (shared) ─────────────────────────────────
-function LowStockList({ products, stock }:{ products:Product[]; stock:StockMap }) {
+function LowStockList({ products, stock, t }:{ products:Product[]; stock:StockMap; t:Record<string,string> }) {
   const items = products
     .map(p=>({ p, qty:stock[p.id]||0 }))
     .filter(({p,qty})=>qty<=p.minStock*2)
     .sort((a,b)=>a.qty/a.p.minStock - b.qty/b.p.minStock);
-  if (!items.length) return <div style={{textAlign:"center",padding:40,color:"rgba(255,255,255,0.4)"}}>✅ All products above minimum levels!</div>;
+  if (!items.length) return <div style={{textAlign:"center",padding:40,color:"rgba(255,255,255,0.4)"}}>✓ {t.allProductsOk}</div>;
   return (
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
       {items.map(({p,qty})=>{
@@ -376,24 +394,25 @@ function LowStockList({ products, stock }:{ products:Product[]; stock:StockMap }
 // ════════════════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════════════════
-function DashboardTab({ reports, user, setTab, transfers, suppliers, openLowStock }:any) {
+function DashboardTab({ reports, user, setTab, transfers, suppliers, openLowStock, t }:any) {
   const isSA = user.role==="superadmin";
-  if (!reports) return <PageWrap><div style={{color:"rgba(255,255,255,0.4)"}}>Loading...</div></PageWrap>;
+  const tt = t;
+  if (!reports) return <PageWrap><div style={{color:"rgba(255,255,255,0.4)"}}>{t.loading}</div></PageWrap>;
   const totalDebt = suppliers.reduce((s:number,x:Supplier)=>s+(x.totalPrice-x.paidAmount),0);
   const myBranch = reports.branchStats?.find((b:any)=>b.branch===user.role);
   const stats = isSA ? [
-    { l:"Main Stock Value",  v:fmtM(reports.mainStockValue), c:"#3fb950", i:"💰" },
-    { l:"Product Types",     v:reports.totalProducts,         c:"#3078ff", i:"📦" },
-    { l:"Total Staff",       v:reports.totalStaff,            c:"#f0a500", i:"👥" },
-    { l:"Supplier Debt",     v:fmtM(totalDebt), c:totalDebt>0?"#f85149":"#3fb950", i:"🚚" },
+    { l:t.mainStockValue,  v:fmtM(reports.mainStockValue), c:"#3fb950", i:"💰" },
+    { l:t.productTypes,     v:reports.totalProducts,         c:"#3078ff", i:"📦" },
+    { l:t.totalStaff,       v:reports.totalStaff,            c:"#f0a500", i:"👥" },
+    { l:t.supplierDebt,     v:fmtM(totalDebt), c:totalDebt>0?"#f85149":"#3fb950", i:"🚚" },
   ] : [
-    { l:"My Stock Value",    v:fmtM(myBranch?.stockValue||0), c:"#3fb950", i:"💰" },
-    { l:"My Requests",       v:myBranch?.totalTransfers||0,   c:"#3078ff", i:"🔄" },
-    { l:"Pending",           v:myBranch?.pendingTransfers||0, c:"#f0a500", i:"⏳" },
-    { l:"Low Stock ›",       v:myBranch?.lowStockCount||0, c:(myBranch?.lowStockCount||0)>0?"#f85149":"#3fb950", i:"⚠️", click:true },
+    { l:t.myStockValue,    v:fmtM(myBranch?.stockValue||0), c:"#3fb950", i:"💰" },
+    { l:t.myRequests,       v:myBranch?.totalTransfers||0,   c:"#3078ff", i:"🔄" },
+    { l:t.pending,           v:myBranch?.pendingTransfers||0, c:"#f0a500", i:"⏳" },
+    { l:t.lowStock,       v:myBranch?.lowStockCount||0, c:(myBranch?.lowStockCount||0)>0?"#f85149":"#3fb950", i:"⚠️", click:true },
   ];
   return (
-    <PageWrap title={`${BICON[user.role]} ${user.branchName} — Dashboard`} sub={new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}>
+    <PageWrap title={`${BICON[user.role]} ${user.branchName} - ${t.dashboard}`} sub={new Date().toLocaleDateString("ko-KR",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:28}}>
         {stats.map((s,i)=>(
           <div key={i} className="stat-card card" onClick={s.click?openLowStock:undefined} style={{cursor:s.click?"pointer":"default"}}>
@@ -405,16 +424,16 @@ function DashboardTab({ reports, user, setTab, transfers, suppliers, openLowStoc
       </div>
       {isSA && reports.branchStats && (
         <div style={{marginBottom:28}}>
-          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>🏢 Branch Status</div>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>🏢 {t.branchStatus}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:14}}>
             {reports.branchStats.map((b:any)=>(
               <div key={b.branch} className="card" style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:18}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
                   <span style={{fontSize:28}}>{b.branchIcon}</span>
-                  <div><div style={{fontWeight:700,fontSize:15}}>{b.branchName}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{b.staffCount} staff</div></div>
+                  <div><div style={{fontWeight:700,fontSize:15}}>{b.branchName}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{b.staffCount} {t.staffLabel}</div></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  {[["Stock value",fmtM(b.stockValue),"#3fb950"],["Total received",fmtM(b.totalReceived),"#3078ff"],["Approved",b.approvedTransfers,"#3fb950"],["Low stock",b.lowStockCount,b.lowStockCount>0?"#f85149":"#3fb950"]].map(([l,v,c],j)=>(
+                  {[[t.stockValue,fmtM(b.stockValue),"#3fb950"],[t.totalReceived,fmtM(b.totalReceived),"#3078ff"],[t.approved,b.approvedTransfers,"#3fb950"],[t.lowStock,b.lowStockCount,b.lowStockCount>0?"#f85149":"#3fb950"]].map(([l,v,c],j)=>(
                     <div key={j} style={{background:"rgba(255,255,255,0.03)",borderRadius:9,padding:"9px 11px"}}>
                       <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:3}}>{l}</div>
                       <div style={{fontWeight:700,color:String(c),fontSize:13}}>{v}</div>
@@ -427,12 +446,12 @@ function DashboardTab({ reports, user, setTab, transfers, suppliers, openLowStoc
         </div>
       )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-        <div style={{fontSize:14,fontWeight:700}}>🔄 Recent Transfers</div>
-        <button onClick={()=>setTab("transfers")} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.2)",color:"#3078ff",borderRadius:8,padding:"5px 13px",cursor:"pointer",fontSize:12,fontWeight:600}}>All →</button>
+        <div style={{fontSize:14,fontWeight:700}}>🔄 {t.recentTransfers}</div>
+        <button onClick={()=>setTab("transfers")} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.2)",color:"#3078ff",borderRadius:8,padding:"5px 13px",cursor:"pointer",fontSize:12,fontWeight:600}}>{t.all} →</button>
       </div>
       <div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,overflow:"hidden"}}>
         <table>
-          <thead><tr><th>ID</th><th>Branch</th><th>Value</th><th>Status</th><th>Date</th></tr></thead>
+          <thead><tr><th>ID</th><th>{t.branch}</th><th>{t.value}</th><th>{t.status}</th><th>{t.date}</th></tr></thead>
           <tbody>
             {transfers.slice(0,8).map((t:Transfer)=>{
               const st=ST_CFG[t.status];
@@ -441,12 +460,12 @@ function DashboardTab({ reports, user, setTab, transfers, suppliers, openLowStoc
                   <td style={{fontFamily:"monospace",fontSize:11,color:"#3078ff"}}>{t.id.slice(-8)}</td>
                   <td>{BICON[t.toBranch]} {BNAME[t.toBranch]}</td>
                   <td style={{color:"#3fb950",fontWeight:700}}>{fmtM(t.totalValue)}</td>
-                  <td><span style={{background:st.bg,color:st.c,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>{st.i} {st.l}</span></td>
+                  <td><span style={{background:st.bg,color:st.c,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>{st.i} {stText(tt,t.status)}</span></td>
                   <td style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{fmtD(t.createdAt)}</td>
                 </tr>
               );
             })}
-            {transfers.length===0 && <tr><td colSpan={5} style={{textAlign:"center",color:"rgba(255,255,255,0.4)",padding:30}}>No transfers yet</td></tr>}
+            {transfers.length===0 && <tr><td colSpan={5} style={{textAlign:"center",color:"rgba(255,255,255,0.4)",padding:30}}>{t.noTransfersYet}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -457,7 +476,7 @@ function DashboardTab({ reports, user, setTab, transfers, suppliers, openLowStoc
 // ════════════════════════════════════════════════════════════
 // WAREHOUSE
 // ════════════════════════════════════════════════════════════
-function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStock }:any) {
+function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStock, t }:any) {
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("all");
   const [editProduct, setEditProduct] = useState<Product|null>(null);
@@ -474,27 +493,27 @@ function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStoc
   const saveStock = async () => {
     if (!editProduct) return;
     const qty = parseFloat(newQty);
-    if (isNaN(qty)||qty<0) { showToast("Invalid quantity","error"); return; }
+    if (isNaN(qty)||qty<0) { showToast(t.invalidQuantity,"error"); return; }
     const data = updateStockLocal(editProduct.id, qty);
-    if (data.success) { showToast("Stock updated!"); setEditProduct(null); onRefresh(); }
-    else showToast("Error updating stock","error");
+    if (data.success) { showToast(t.stockUpdated); setEditProduct(null); onRefresh(); }
+    else showToast(t.errorUpdatingStock,"error");
   };
 
   return (
-    <PageWrap title="📦 Warehouse" sub={<>Total value: <strong style={{color:"#3fb950"}}>{fmtM(totalVal)}</strong></>}>
+    <PageWrap title={`📦 ${t.warehouse}`} sub={<>{t.totalValue}: <strong style={{color:"#3fb950"}}>{fmtM(totalVal)}</strong></>}>
       {editProduct && (
         <div className="modal-backdrop">
           <div className="modal" style={{maxWidth:360}}>
-            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>📝 Edit Stock Quantity</div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>📝 {t.editStockQuantity}</div>
             <div style={{background:"rgba(255,255,255,0.04)",borderRadius:10,padding:13,marginBottom:14}}>
               <div style={{fontWeight:700,marginBottom:4}}>{editProduct.name}</div>
-              <div style={{color:"rgba(255,255,255,0.4)",fontSize:12}}>Current: <strong style={{color:"#f0a500"}}>{fmt(stock[editProduct.id]||0)} {editProduct.unit}</strong></div>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:12}}>{t.current}: <strong style={{color:"#f0a500"}}>{fmt(stock[editProduct.id]||0)} {editProduct.unit}</strong></div>
             </div>
-            <label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:7}}>NEW QUANTITY ({editProduct.unit})</label>
+            <label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:7}}>{t.newQuantity} ({editProduct.unit})</label>
             <input type="number" value={newQty} onChange={e=>setNewQty(e.target.value)} style={{marginBottom:16}} />
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setEditProduct(null)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Cancel</button>
-              <button onClick={saveStock} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>💾 Save</button>
+              <button onClick={()=>setEditProduct(null)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>{t.cancel}</button>
+              <button onClick={saveStock} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>💾 {t.save}</button>
             </div>
           </div>
         </div>
@@ -505,8 +524,8 @@ function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStoc
         <div onClick={openLowStock} style={{background:"rgba(248,81,73,0.08)",border:"1px solid rgba(248,81,73,0.25)",borderRadius:11,padding:"12px 16px",display:"flex",alignItems:"center",gap:10,marginBottom:20,cursor:"pointer"}}>
           <span style={{fontSize:20}}>⚠️</span>
           <div style={{flex:1}}>
-            <div style={{color:"#f85149",fontWeight:700,fontSize:13}}>{lowCount} products low in stock! {medCount>0&&`· ${medCount} medium`}</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>Click to see details →</div>
+            <div style={{color:"#f85149",fontWeight:700,fontSize:13}}>{lowCount} {t.lowStockWarning}! {medCount>0&&`· ${medCount} ${t.medium}`}</div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{t.clickDetails} →</div>
           </div>
           <span style={{color:"#f85149",fontSize:18}}>›</span>
         </div>
@@ -514,14 +533,14 @@ function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStoc
 
       {/* LEGEND */}
       <div style={{display:"flex",gap:16,marginBottom:16,flexWrap:"wrap"}}>
-        <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>🟢 Good (&gt;2× min) &nbsp; 🟡 Medium (1–2× min) &nbsp; 🔴 Low (≤ min)</span>
+        <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>🟢 {t.good} (&gt;2× min) &nbsp; 🟡 {t.medium} (1–2× min) &nbsp; 🔴 {t.lowStock} (≤ min)</span>
       </div>
 
       {/* FILTERS */}
       <div style={{display:"flex",gap:10,marginBottom:18,flexWrap:"wrap"}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search product..." style={{flex:1,minWidth:180,maxWidth:300}} />
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={`🔍 ${t.searchProduct}`} style={{flex:1,minWidth:180,maxWidth:300}} />
         <select value={cat} onChange={e=>setCat(e.target.value)} style={{minWidth:150}}>
-          <option value="all">All categories</option>
+          <option value="all">{t.allCategories}</option>
           {cats.filter(c=>c!=="all").map(c=><option key={c} value={c}>{CATICON[c]||"📦"} {c}</option>)}
         </select>
       </div>
@@ -529,7 +548,7 @@ function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStoc
       <div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,overflow:"auto"}}>
         <table>
           <thead>
-            <tr><th>#</th><th>Product</th><th>Category</th><th>Quantity</th><th>Unit</th><th>Total units</th><th>Price</th><th>Value</th><th>Status</th>{isSA&&<th>Action</th>}</tr>
+            <tr><th>#</th><th>{t.product}</th><th>{t.category}</th><th>{t.quantity}</th><th>{t.unit}</th><th>{t.totalUnits}</th><th>{t.price}</th><th>{t.value}</th><th>{t.status}</th>{isSA&&<th>{t.action}</th>}</tr>
           </thead>
           <tbody>
             {filtered.map((p:Product,i:number)=>{
@@ -545,12 +564,12 @@ function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStoc
                   <td>{dona!==null?<><span style={{color:"#a371f7",fontWeight:700}}>{fmt(dona)}</span> <span style={{fontSize:10,color:"rgba(255,255,255,0.4)"}}>{p.boxUnit}</span></>:<span style={{color:"rgba(255,255,255,0.3)"}}>—</span>}</td>
                   <td style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>{fmtM(p.pricePerUnit)}</td>
                   <td style={{fontWeight:700,color:"#3078ff"}}>{fmtM(val)}</td>
-                  <td>{qtyBadge(qty,p.minStock)}</td>
-                  {isSA&&<td><button className="action-btn" onClick={()=>{setEditProduct(p);setNewQty(String(qty));}} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.2)",color:"#3078ff",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:600}}>✏️ Edit</button></td>}
+                  <td>{qtyBadge(qty,p.minStock,t)}</td>
+                  {isSA&&<td><button className="action-btn" onClick={()=>{setEditProduct(p);setNewQty(String(qty));}} style={{background:"rgba(48,120,255,0.1)",border:"1px solid rgba(48,120,255,0.2)",color:"#3078ff",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:600}}>✏️ {t.edit}</button></td>}
                 </tr>
               );
             })}
-            {filtered.length===0&&<tr><td colSpan={10} style={{textAlign:"center",color:"rgba(255,255,255,0.4)",padding:30}}>No products found</td></tr>}
+            {filtered.length===0&&<tr><td colSpan={10} style={{textAlign:"center",color:"rgba(255,255,255,0.4)",padding:30}}>{t.noProductsFound}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -561,7 +580,8 @@ function WarehouseTab({ products, stock, user, onRefresh, showToast, openLowStoc
 // ════════════════════════════════════════════════════════════
 // TRANSFERS
 // ════════════════════════════════════════════════════════════
-function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
+function TransfersTab({ transfers, products, user, onRefresh, showToast, t }:any) {
+  const tt = t;
   const [statusF, setStatusF] = useState("all");
   const [showReq, setShowReq] = useState(false);
   const [detail, setDetail] = useState<Transfer|null>(null);
@@ -574,51 +594,51 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
 
   const submitReq = async () => {
     const valid = reqItems.filter(i=>i.pid&&i.qty>0);
-    if (!valid.length) { showToast("Add at least 1 product","error"); return; }
+    if (!valid.length) { showToast(t.addProduct,"error"); return; }
     setLoading(true);
     const data = createTransferLocal(user.role, valid.map(i=>({productId:i.pid,quantity:i.qty})), user.name, note);
-    if (data.success) { showToast("Request sent! Waiting for approval."); setShowReq(false); setReqItems([{pid:"",qty:1}]); setNote(""); onRefresh(); }
+    if (data.success) { showToast(t.sendRequest); setShowReq(false); setReqItems([{pid:"",qty:1}]); setNote(""); onRefresh(); }
     else showToast(data.message,"error");
     setLoading(false);
   };
 
   const approve = async (id:string) => {
     const data = approveTransferLocal(id, user.name);
-    if(data.success){showToast("Approved! Stock updated.");onRefresh();}else showToast(data.message,"error");
+    if(data.success){showToast(t.approved);onRefresh();}else showToast(data.message,"error");
   };
   const reject = async (id:string) => {
     const data = rejectTransferLocal(id, user.name);
-    if(data.success){showToast("Rejected.","error");onRefresh();}
+    if(data.success){showToast(t.rejected,"error");onRefresh();}
   };
 
   return (
-    <PageWrap title="🔄 Transfers" sub={`${myTr.length} total transfers`}
-      action={!isSA&&<Btn color="blue" onClick={()=>setShowReq(true)}>📤 New Request</Btn>}>
+    <PageWrap title={`🔄 ${t.transfers}`} sub={`${myTr.length} ${t.totalTransfers}`}
+      action={!isSA&&<Btn color="blue" onClick={()=>setShowReq(true)}>📤 {t.newRequest}</Btn>}>
 
       {/* REQUEST MODAL */}
       {showReq && (
         <div className="modal-backdrop">
           <div className="modal" style={{maxWidth:560}}>
-            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>📤 Stock Transfer Request</div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>📤 {t.transferRequest}</div>
             <div style={{background:"rgba(48,120,255,0.08)",border:"1px solid rgba(48,120,255,0.2)",borderRadius:9,padding:"10px 14px",fontSize:12,color:"rgba(255,255,255,0.6)",marginBottom:14}}>
-              Request from <strong style={{color:"#fff"}}>Main Warehouse</strong> to <strong style={{color:"#fff"}}>{user.branchName}</strong>
+              {t.requestFrom}: <strong style={{color:"#fff"}}>{t.mainWarehouse}</strong> → <strong style={{color:"#fff"}}>{user.branchName}</strong>
             </div>
             {reqItems.map((item,i)=>(
               <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 90px 30px",gap:8,marginBottom:8,alignItems:"center"}}>
                 <select value={item.pid} onChange={e=>{const n=[...reqItems];n[i].pid=e.target.value;setReqItems(n);}}>
-                  <option value="">Select product</option>
+                  <option value="">{t.selectProduct}</option>
                   {products.map((p:Product)=><option key={p.id} value={p.id}>{p.name} ({p.unit})</option>)}
                 </select>
-                <input type="number" value={item.qty} min={0.1} step={0.1} onChange={e=>{const n=[...reqItems];n[i].qty=parseFloat(e.target.value)||1;setReqItems(n);}} placeholder="Qty" />
+                <input type="number" value={item.qty} min={0.1} step={0.1} onChange={e=>{const n=[...reqItems];n[i].qty=parseFloat(e.target.value)||1;setReqItems(n);}} placeholder={t.quantity} />
                 <button onClick={()=>setReqItems(reqItems.filter((_,idx)=>idx!==i))} style={{background:"rgba(248,81,73,0.1)",border:"1px solid rgba(248,81,73,0.2)",color:"#f85149",borderRadius:7,padding:6,cursor:"pointer",fontSize:14}}>×</button>
               </div>
             ))}
-            <button onClick={()=>setReqItems([...reqItems,{pid:"",qty:1}])} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed rgba(63,185,80,0.4)",background:"rgba(63,185,80,0.06)",color:"#3fb950",cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:12}}>+ Add product</button>
-            <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Note (optional)..." rows={2} style={{resize:"vertical",marginBottom:14}} />
+            <button onClick={()=>setReqItems([...reqItems,{pid:"",qty:1}])} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed rgba(63,185,80,0.4)",background:"rgba(63,185,80,0.06)",color:"#3fb950",cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:12}}>{t.addProduct}</button>
+            <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={t.note} rows={2} style={{resize:"vertical",marginBottom:14}} />
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setShowReq(false)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Cancel</button>
+              <button onClick={()=>setShowReq(false)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>{t.cancel}</button>
               <button onClick={submitReq} disabled={loading} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>
-                {loading?"Sending...":"📤 Send Request"}
+                {loading?t.sending:`📤 ${t.sendRequest}`}
               </button>
             </div>
           </div>
@@ -629,9 +649,9 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
       {detail && (
         <div className="modal-backdrop">
           <div className="modal" style={{maxWidth:520}}>
-            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>📋 Transfer Details</div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>📋 {t.transferDetails}</div>
             <div className="mobile-stack" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              {[["ID",detail.id,true],["Status",`${ST_CFG[detail.status].i} ${ST_CFG[detail.status].l}`],["Branch",`${BICON[detail.toBranch]} ${BNAME[detail.toBranch]}`],["Requested by",detail.requestedBy],["Approved by",detail.approvedBy||"—"],["Total value",fmtM(detail.totalValue)]].map(([l,v,mono],i)=>(
+              {[["ID",detail.id,true],[t.status,`${ST_CFG[detail.status].i} ${stText(t,detail.status)}`],[t.branch,`${BICON[detail.toBranch]} ${BNAME[detail.toBranch]}`],[t.requestedBy,detail.requestedBy],[t.approvedBy,detail.approvedBy||"—"],[t.totalValue,fmtM(detail.totalValue)]].map(([l,v,mono],i)=>(
                 <div key={i} style={{background:"rgba(255,255,255,0.04)",borderRadius:9,padding:"10px 12px"}}>
                   <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:3}}>{l}</div>
                   <div style={{fontWeight:600,fontSize:12,fontFamily:mono?"monospace":"inherit",color:mono?"#3078ff":"#fff",wordBreak:"break-all"}}>{v}</div>
@@ -639,7 +659,7 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
               ))}
             </div>
             {detail.note&&<div style={{background:"rgba(255,255,255,0.04)",borderRadius:9,padding:"10px 12px",fontSize:12,color:"rgba(255,255,255,0.5)",marginBottom:14}}>📝 {detail.note}</div>}
-            <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>Products:</div>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>{t.products}:</div>
             <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:16}}>
               {detail.items.map((it:any,i:number)=>{
                 const dona=it.perBox>0?<span style={{color:"#a371f7",fontSize:11}}> ({fmt(it.quantity*it.perBox)} {it.boxUnit})</span>:null;
@@ -652,7 +672,7 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
                 );
               })}
             </div>
-            <button onClick={()=>setDetail(null)} style={{width:"100%",padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Close</button>
+            <button onClick={()=>setDetail(null)} style={{width:"100%",padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>{t.close}</button>
           </div>
         </div>
       )}
@@ -662,7 +682,7 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
         {["all","pending","approved","rejected"].map(s=>{
           const cnt=s==="all"?myTr.length:myTr.filter((t:Transfer)=>t.status===s).length;
           return <button key={s} onClick={()=>setStatusF(s)} style={{padding:"7px 14px",borderRadius:8,border:`1px solid ${statusF===s?"rgba(48,120,255,0.4)":"rgba(255,255,255,0.1)"}`,background:statusF===s?"rgba(48,120,255,0.12)":"rgba(255,255,255,0.04)",color:statusF===s?"#3078ff":"rgba(255,255,255,0.6)",cursor:"pointer",fontSize:12,fontWeight:statusF===s?700:400}}>
-            {s==="all"?"All":ST_CFG[s as keyof typeof ST_CFG]?.l||s} <span style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"1px 7px",marginLeft:4,fontSize:10}}>{cnt}</span>
+            {s==="all"?t.all:stText(t,s)} <span style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"1px 7px",marginLeft:4,fontSize:10}}>{cnt}</span>
           </button>;
         })}
       </div>
@@ -676,29 +696,29 @@ function TransfersTab({ transfers, products, user, onRefresh, showToast }:any) {
                 <div style={{flex:1}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
                     <code style={{fontSize:12,color:"#3078ff",background:"rgba(48,120,255,0.1)",padding:"2px 8px",borderRadius:5}}>{t.id}</code>
-                    <span style={{background:st.bg,color:st.c,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>{st.i} {st.l}</span>
+                    <span style={{background:st.bg,color:st.c,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>{st.i} {stText(tt,t.status)}</span>
                   </div>
                   <div style={{display:"flex",gap:14,fontSize:12,color:"rgba(255,255,255,0.5)",flexWrap:"wrap"}}>
                     <span>📍 {BICON[t.toBranch]} {BNAME[t.toBranch]}</span>
                     <span>👤 {t.requestedBy}</span>
-                    <span>📦 {t.items.length} products</span>
+                    <span>📦 {t.items.length} {tt.products}</span>
                     <span style={{color:"#3fb950",fontWeight:700}}>💰 {fmtM(t.totalValue)}</span>
                     <span>🕐 {fmtD(t.createdAt)}</span>
                   </div>
                   {t.note&&<div style={{marginTop:6,fontSize:11,color:"rgba(255,255,255,0.4)",fontStyle:"italic"}}>📝 {t.note}</div>}
                 </div>
                 <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-                  <button className="action-btn" onClick={()=>setDetail(t)} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"7px 12px",fontSize:12}}>🔍 View</button>
+                  <button className="action-btn" onClick={()=>setDetail(t)} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.7)",borderRadius:8,padding:"7px 12px",fontSize:12}}>🔍 {tt.view}</button>
                   {isSA&&t.status==="pending"&&<>
-                    <button className="action-btn" onClick={()=>approve(t.id)} style={{background:"rgba(63,185,80,0.1)",border:"1px solid rgba(63,185,80,0.3)",color:"#3fb950",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700}}>✅ Approve</button>
-                    <button className="action-btn" onClick={()=>reject(t.id)} style={{background:"rgba(248,81,73,0.1)",border:"1px solid rgba(248,81,73,0.3)",color:"#f85149",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700}}>❌ Reject</button>
+                    <button className="action-btn" onClick={()=>approve(t.id)} style={{background:"rgba(63,185,80,0.1)",border:"1px solid rgba(63,185,80,0.3)",color:"#3fb950",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700}}>✅ {tt.approve}</button>
+                    <button className="action-btn" onClick={()=>reject(t.id)} style={{background:"rgba(248,81,73,0.1)",border:"1px solid rgba(248,81,73,0.3)",color:"#f85149",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700}}>❌ {tt.reject}</button>
                   </>}
                 </div>
               </div>
             </div>
           );
         })}
-        {filtered.length===0&&<div style={{textAlign:"center",padding:"60px 20px",color:"rgba(255,255,255,0.3)"}}>📭<br/><span style={{fontSize:16,marginTop:12,display:"block"}}>No transfers</span></div>}
+        {filtered.length===0&&<div style={{textAlign:"center",padding:"60px 20px",color:"rgba(255,255,255,0.3)"}}>📭<br/><span style={{fontSize:16,marginTop:12,display:"block"}}>{t.noTransfers}</span></div>}
       </div>
     </PageWrap>
   );
@@ -849,7 +869,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {(["paid","unpaid","partial"] as const).map(m=>(
                   <button key={m} onClick={()=>setPayMethod(m)} style={{padding:"7px 14px",borderRadius:9,border:`2px solid ${payMethod===m?PAY_CFG[m].c:"rgba(255,255,255,0.1)"}`,background:payMethod===m?PAY_CFG[m].bg:"transparent",color:payMethod===m?PAY_CFG[m].c:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:12,fontWeight:700}}>
-                    {PAY_CFG[m].l}
+                    {payText(t,m)}
                   </button>
                 ))}
               </div>
@@ -859,7 +879,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
               <button className="compact-btn" onClick={()=>{setShowModal(false);setLockedFirm("");}} style={{flex:1,border:"1px solid var(--app-border)",background:"transparent",color:"var(--app-muted)",cursor:"pointer"}}>{t.cancel}</button>
               <button className="compact-btn" onClick={submit} disabled={loading} style={{flex:2,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>
-                {loading?"Saving...":`💾 ${t.saveDelivery}`}
+                {loading?t.loading:`💾 ${t.saveDelivery}`}
               </button>
             </div>
           </div>
@@ -868,7 +888,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
 
       {/* STATS */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:20}}>
-        {[["Total Value",fmtM(totalVal),"#3078ff","💰"],["Paid",fmtM(totalPaid),"#3fb950","✅"],["Debt",fmtM(totalDebt),totalDebt>0?"#f85149":"#3fb950","⚠️"],["Total",suppliers.length+" deliveries","#a371f7","🚚"]].map(([l,v,c,i])=>(
+        {[[t.totalValue,fmtM(totalVal),"#3078ff","💰"],[t.paid,fmtM(totalPaid),"#3fb950","✅"],[t.debt,fmtM(totalDebt),totalDebt>0?"#f85149":"#3fb950","⚠️"],[t.total,`${suppliers.length} ${t.deliveries}`,"#a371f7","🚚"]].map(([l,v,c,i])=>(
           <div key={String(l)} className="stat-card"><div style={{fontSize:22,marginBottom:6}}>{i}</div><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:4}}>{l}</div><div style={{fontWeight:800,color:String(c),fontSize:16}}>{v}</div></div>
         ))}
       </div>
@@ -904,7 +924,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
             </div>
           </button>
         ))}
-        {firmRows.length===0&&<div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:24,color:"rgba(255,255,255,0.35)",textAlign:"center"}}>No firms yet</div>}
+        {firmRows.length===0&&<div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:24,color:"rgba(255,255,255,0.35)",textAlign:"center"}}>{t.firmList}</div>}
       </div>
 
       {selectedFirm&&!showModal&&(
@@ -949,7 +969,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                               <div style={{fontSize:13,fontWeight:900}}>{s.docNumber||t.noDoc}</div>
                               <div style={{fontSize:11,color:"rgba(255,255,255,0.42)",marginTop:2}}>{new Date(s.deliveryDate||s.createdAt).toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric"})}</div>
                             </div>
-                            <span style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"6px 13px",fontSize:11,fontWeight:800}}>{pay.l}</span>
+                            <span style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"6px 13px",fontSize:11,fontWeight:800}}>{payText(t,s.payStatus)}</span>
                           </div>
                           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:10}}>
                             <div style={{background:"rgba(0,0,0,0.12)",borderRadius:8,padding:10}}><div style={{fontSize:10,color:"rgba(255,255,255,0.35)"}}>{t.total}</div><div style={{fontSize:14,fontWeight:900,color:"#3fb950"}}>{fmtM(s.totalPrice)}</div></div>
@@ -998,7 +1018,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                                 <div style={{fontSize:13,fontWeight:900}}>{s.docNumber||fmtD(s.createdAt)}</div>
                                 <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginTop:2}}>{t.total}: {fmtM(s.totalPrice)} · {t.debt}: {fmtM(debt)}</div>
                               </div>
-                              <span style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"6px 10px",fontSize:11,fontWeight:900,textAlign:"center"}}>{pay.l}</span>
+                              <span style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"6px 10px",fontSize:11,fontWeight:900,textAlign:"center"}}>{payText(t,s.payStatus)}</span>
                               <input type="number" min={0} max={s.totalPrice} value={paymentDrafts[s.id] ?? String(s.paidAmount || 0)} onChange={e=>setPaymentDrafts(prev=>({...prev,[s.id]:e.target.value}))} placeholder={t.paidAmount} />
                               <button onClick={()=>saveManualPayment(s)} style={{background:"rgba(48,120,255,0.12)",border:"1px solid rgba(48,120,255,0.3)",color:"#79c0ff",borderRadius:8,padding:"10px 12px",cursor:"pointer",fontSize:12,fontWeight:900}}>{t.save}</button>
                             </div>
@@ -1018,7 +1038,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
       <div style={{display:"flex",gap:8,marginBottom:18,flexWrap:"wrap"}}>
         {(["all","paid","unpaid","partial"] as const).map(f=>(
           <button key={f} onClick={()=>setFilter(f)} style={{padding:"7px 14px",borderRadius:8,border:`1px solid ${filter===f?"rgba(48,120,255,0.4)":"rgba(255,255,255,0.1)"}`,background:filter===f?"rgba(48,120,255,0.12)":"rgba(255,255,255,0.04)",color:filter===f?"#3078ff":"rgba(255,255,255,0.6)",cursor:"pointer",fontSize:12,fontWeight:filter===f?700:400}}>
-            {f==="all"?"All":PAY_CFG[f].l} <span style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"1px 7px",marginLeft:3,fontSize:10}}>{f==="all"?suppliers.length:suppliers.filter((s:Supplier)=>s.payStatus===f).length}</span>
+            {f==="all"?t.all:payText(t,f)} <span style={{background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"1px 7px",marginLeft:3,fontSize:10}}>{f==="all"?suppliers.length:suppliers.filter((s:Supplier)=>s.payStatus===f).length}</span>
           </button>
         ))}
       </div>
@@ -1034,13 +1054,13 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
                   <div style={{fontWeight:800,fontSize:15,marginBottom:2}}>🚚 {s.firm}</div>
                   <div style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>{s.docNumber&&`📄 ${s.docNumber} · `}📅 {new Date(s.createdAt).toLocaleDateString("en-US",{day:"2-digit",month:"short",year:"numeric"})}</div>
                 </div>
-                <button onClick={()=>togglePay(s)} style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"5px 14px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{pay.l}</button>
+                <button onClick={()=>togglePay(s)} style={{background:pay.bg,border:`1px solid ${pay.c}44`,color:pay.c,borderRadius:20,padding:"5px 14px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{payText(t,s.payStatus)}</button>
               </div>
               <div style={{padding:"0 18px 14px",display:"flex",gap:16,fontSize:12,color:"rgba(255,255,255,0.5)",flexWrap:"wrap"}}>
-                <span>📦 {s.items.length} products</span>
-                <span style={{color:"#3fb950",fontWeight:700}}>💰 Total: {fmtM(s.totalPrice)}</span>
-                <span style={{color:"#3078ff"}}>✅ Paid: {fmtM(s.paidAmount)}</span>
-                {debt>0&&<span style={{color:"#f85149",fontWeight:700}}>⚠️ Debt: {fmtM(debt)}</span>}
+                <span>📦 {s.items.length} {t.products}</span>
+                <span style={{color:"#3fb950",fontWeight:700}}>💰 {t.total}: {fmtM(s.totalPrice)}</span>
+                <span style={{color:"#3078ff"}}>✅ {t.paid}: {fmtM(s.paidAmount)}</span>
+                {debt>0&&<span style={{color:"#f85149",fontWeight:700}}>⚠️ {t.debt}: {fmtM(debt)}</span>}
               </div>
               <div style={{padding:"0 18px 14px",display:"flex",flexDirection:"column",gap:7}}>
                 {s.items.map((it:any,i:number)=>{
@@ -1067,7 +1087,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
 // ════════════════════════════════════════════════════════════
 // STAFF
 // ════════════════════════════════════════════════════════════
-function StaffTab({ staffList, user, onRefresh, showToast }:any) {
+function StaffTab({ staffList, user, onRefresh, showToast, t }:any) {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({name:"",role:"",branch:user.role==="superadmin"?"main":user.role,phone:"",salary:"",joinDate:new Date().toISOString().slice(0,10)});
   const isSA = user.role==="superadmin";
@@ -1075,44 +1095,44 @@ function StaffTab({ staffList, user, onRefresh, showToast }:any) {
   const branches = isSA?["main","restaurant1","restaurant2","shop"]:[user.role];
 
   const submit = async () => {
-    if (!form.name||!form.role||!form.phone) { showToast("Fill in all fields","error"); return; }
+    if (!form.name||!form.role||!form.phone) { showToast(t.fillFields,"error"); return; }
     const data = addStaffLocal({...form,salary:parseFloat(form.salary)||0,active:true});
-    if(data.success){showToast("Staff member added!");setShowModal(false);setForm({name:"",role:"",branch:user.role==="superadmin"?"main":user.role,phone:"",salary:"",joinDate:new Date().toISOString().slice(0,10)});onRefresh();}
+    if(data.success){showToast(t.staffAdded);setShowModal(false);setForm({name:"",role:"",branch:user.role==="superadmin"?"main":user.role,phone:"",salary:"",joinDate:new Date().toISOString().slice(0,10)});onRefresh();}
   };
   const toggle = async (id:string) => {
     const data = toggleStaffLocal(id);
-    if(data.success){showToast("Staff status updated");onRefresh();}
+    if(data.success){showToast(t.staffStatusUpdated);onRefresh();}
   };
 
   return (
-    <PageWrap title="👥 Staff" sub={<>Total salary: <strong style={{color:"#f0a500"}}>{fmtM(totalSalary)}/month</strong></>}
-      action={<Btn color="blue" onClick={()=>setShowModal(true)}>+ Add Staff</Btn>}>
+    <PageWrap title={`👥 ${t.staff}`} sub={<>{t.totalSalary}: <strong style={{color:"#f0a500"}}>{fmtM(totalSalary)}/month</strong></>}
+      action={<Btn color="blue" onClick={()=>setShowModal(true)}>{t.addStaff}</Btn>}>
       {showModal&&(
         <div className="modal-backdrop">
           <div className="modal">
-            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>👤 Add New Staff</div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>👤 {t.addNewStaff}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>FULL NAME</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Full Name" /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>POSITION</label><input value={form.role} onChange={e=>setForm({...form,role:e.target.value})} placeholder="Chef, Cashier..." /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>BRANCH</label>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.fullName}</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder={t.fullName} /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.position}</label><input value={form.role} onChange={e=>setForm({...form,role:e.target.value})} placeholder="Chef, Cashier..." /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.branch}</label>
                 <select value={form.branch} onChange={e=>setForm({...form,branch:e.target.value})}>
                   {branches.map(b=><option key={b} value={b}>{BICON[b]} {BNAME[b]}</option>)}
                 </select>
               </div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>PHONE</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="+998 90 000 00 00" /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>SALARY (₩)</label><input type="number" value={form.salary} onChange={e=>setForm({...form,salary:e.target.value})} placeholder="3500000" /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>JOIN DATE</label><input type="date" value={form.joinDate} onChange={e=>setForm({...form,joinDate:e.target.value})} /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.phone}</label><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="+998 90 000 00 00" /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.salary} (₩)</label><input type="number" value={form.salary} onChange={e=>setForm({...form,salary:e.target.value})} placeholder="3500000" /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.joinDate}</label><input type="date" value={form.joinDate} onChange={e=>setForm({...form,joinDate:e.target.value})} /></div>
             </div>
             <div style={{display:"flex",gap:10,marginTop:14}}>
-              <button onClick={()=>setShowModal(false)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Cancel</button>
-              <button onClick={submit} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>💾 Add</button>
+              <button onClick={()=>setShowModal(false)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>{t.cancel}</button>
+              <button onClick={submit} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>💾 {t.addStaff}</button>
             </div>
           </div>
         </div>
       )}
       <div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,overflow:"auto"}}>
         <table>
-          <thead><tr><th>Name</th><th>Position</th><th>Branch</th><th>Phone</th><th>Salary</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>{t.name}</th><th>{t.position}</th><th>{t.branch}</th><th>{t.phone}</th><th>{t.salary}</th><th>{t.status}</th><th>{t.action}</th></tr></thead>
           <tbody>
             {staffList.map((s:Staff)=>(
               <tr key={s.id}>
@@ -1121,8 +1141,8 @@ function StaffTab({ staffList, user, onRefresh, showToast }:any) {
                 <td>{BICON[s.branch]||"👤"} <span style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{BNAME[s.branch]||s.branch}</span></td>
                 <td style={{fontFamily:"monospace",fontSize:11,color:"rgba(255,255,255,0.5)"}}>{s.phone}</td>
                 <td style={{fontWeight:700,color:"#f0a500"}}>{fmtM(s.salary)}</td>
-                <td><span style={{background:s.active?"rgba(63,185,80,0.1)":"rgba(248,81,73,0.1)",color:s.active?"#3fb950":"#f85149",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>{s.active?"✅ Active":"⛔ Inactive"}</span></td>
-                <td><button className="action-btn" onClick={()=>toggle(s.id)} style={{background:s.active?"rgba(248,81,73,0.08)":"rgba(63,185,80,0.08)",border:`1px solid ${s.active?"rgba(248,81,73,0.2)":"rgba(63,185,80,0.2)"}`,color:s.active?"#f85149":"#3fb950",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600}}>{s.active?"Deactivate":"Activate"}</button></td>
+                <td><span style={{background:s.active?"rgba(63,185,80,0.1)":"rgba(248,81,73,0.1)",color:s.active?"#3fb950":"#f85149",padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:700}}>{s.active?`✅ ${t.active}`:`⛔ ${t.inactive}`}</span></td>
+                <td><button className="action-btn" onClick={()=>toggle(s.id)} style={{background:s.active?"rgba(248,81,73,0.08)":"rgba(63,185,80,0.08)",border:`1px solid ${s.active?"rgba(248,81,73,0.2)":"rgba(63,185,80,0.2)"}`,color:s.active?"#f85149":"#3fb950",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600}}>{s.active?t.deactivate:t.activate}</button></td>
               </tr>
             ))}
           </tbody>
@@ -1135,20 +1155,20 @@ function StaffTab({ staffList, user, onRefresh, showToast }:any) {
 // ════════════════════════════════════════════════════════════
 // REPORTS
 // ════════════════════════════════════════════════════════════
-function ReportsTab({ reports, transfers }:any) {
-  if (!reports) return <PageWrap><div style={{color:"rgba(255,255,255,0.4)"}}>Loading...</div></PageWrap>;
+function ReportsTab({ reports, transfers, t }:any) {
+  if (!reports) return <PageWrap><div style={{color:"rgba(255,255,255,0.4)"}}>{t.loading}</div></PageWrap>;
   const approved = transfers.filter((t:Transfer)=>t.status==="approved");
   const totalT = approved.reduce((s:number,t:Transfer)=>s+t.totalValue,0);
   const maxMonth = Math.max(...(reports.monthlyStats||[]).map((m:any)=>m.value),1);
   return (
-    <PageWrap title="📈 Reports">
+    <PageWrap title={`📈 ${t.reports}`}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:24}}>
-        {[["Main Stock Value",fmtM(reports.mainStockValue),"#3fb950","💰"],["Total Transferred",fmtM(totalT),"#3078ff","🔄"],["Total Transfers",transfers.length,"#f0a500","📋"],["Pending",reports.pendingTransfers,"#f85149","⏳"],["Products",reports.totalProducts,"#a371f7","📦"],["Staff",reports.totalStaff,"#79c0ff","👥"]].map(([l,v,c,i])=>(
+        {[[t.mainStockValue,fmtM(reports.mainStockValue),"#3fb950","💰"],[t.totalTransferred,fmtM(totalT),"#3078ff","🔄"],[t.totalTransfers,transfers.length,"#f0a500","📋"],[t.pending,reports.pendingTransfers,"#f85149","⏳"],[t.products,reports.totalProducts,"#a371f7","📦"],[t.staff,reports.totalStaff,"#79c0ff","👥"]].map(([l,v,c,i])=>(
           <div key={String(l)} className="stat-card card"><div style={{fontSize:22,marginBottom:6}}>{i}</div><div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginBottom:4}}>{l}</div><div style={{fontWeight:800,color:String(c),fontSize:18}}>{v}</div></div>
         ))}
       </div>
       <div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:20,marginBottom:20}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:16}}>📅 Monthly Transfers (₩)</div>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:16}}>📅 {t.monthlyTransfers} (₩)</div>
         <div style={{display:"flex",gap:10,alignItems:"flex-end",height:140}}>
           {(reports.monthlyStats||[]).map((m:any,i:number)=>{
             const h = Math.max((m.value/maxMonth)*120,4);
@@ -1162,10 +1182,10 @@ function ReportsTab({ reports, transfers }:any) {
           })}
         </div>
       </div>
-      <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>🏢 Branch Comparison</div>
+      <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>🏢 {t.branchComparison}</div>
       <div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,overflow:"auto"}}>
         <table>
-          <thead><tr><th>Branch</th><th>Approved</th><th>Total received</th><th>Stock value</th><th>Staff</th><th>Low stock</th></tr></thead>
+          <thead><tr><th>{t.branch}</th><th>{t.approved}</th><th>{t.totalReceived}</th><th>{t.stockValue}</th><th>{t.staff}</th><th>{t.lowStock}</th></tr></thead>
           <tbody>
             {(reports.branchStats||[]).map((b:any)=>(
               <tr key={b.branch}>
@@ -1187,58 +1207,58 @@ function ReportsTab({ reports, transfers }:any) {
 // ════════════════════════════════════════════════════════════
 // PRODUCTS (superadmin only)
 // ════════════════════════════════════════════════════════════
-function ProductsTab({ products, stock, onRefresh, showToast }:any) {
+function ProductsTab({ products, stock, onRefresh, showToast, t }:any) {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({name:"",category:"gosht",unit:"kg",minStock:"10",pricePerUnit:"",perBox:"",boxUnit:"",qrCode:""});
-  const preview = parseInt(form.perBox)>0 ? `📦 10 ${form.unit} = ${10*parseInt(form.perBox)} ${form.boxUnit||"units"}` : null;
+  const preview = parseInt(form.perBox)>0 ? `📦 10 ${form.unit} = ${10*parseInt(form.perBox)} ${form.boxUnit||t.unit}` : null;
 
   const submit = async () => {
-    if (!form.name||!form.pricePerUnit) { showToast("Enter name and price","error"); return; }
+    if (!form.name||!form.pricePerUnit) { showToast(`${t.name}, ${t.price}`,"error"); return; }
     const data = addProductLocal({...form,minStock:parseFloat(form.minStock)||10,pricePerUnit:parseFloat(form.pricePerUnit),perBox:parseInt(form.perBox)||0});
-    if(data.success){showToast("Product added!");setShowModal(false);setForm({name:"",category:"gosht",unit:"kg",minStock:"10",pricePerUnit:"",perBox:"",boxUnit:"",qrCode:""});onRefresh();}
+    if(data.success){showToast(t.addNewProduct);setShowModal(false);setForm({name:"",category:"gosht",unit:"kg",minStock:"10",pricePerUnit:"",perBox:"",boxUnit:"",qrCode:""});onRefresh();}
     else showToast(data.message||"Error adding product","error");
   };
 
   return (
-    <PageWrap title={`🏷️ Products (${products.length})`} action={<Btn color="blue" onClick={()=>setShowModal(true)}>+ Add Product</Btn>}>
+    <PageWrap title={`🏷️ ${t.productsTitle} (${products.length})`} action={<Btn color="blue" onClick={()=>setShowModal(true)}>{t.addProduct}</Btn>}>
       {showModal&&(
         <div className="modal-backdrop">
           <div className="modal">
-            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>🏷️ Add New Product</div>
-            <div style={{marginBottom:12}}><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>NAME</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Snickers, Beef..." /></div>
-            <div style={{marginBottom:12}}><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>QR CODE</label><input value={form.qrCode} onChange={e=>setForm({...form,qrCode:e.target.value})} placeholder="QR-P029" /></div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:16}}>🏷️ {t.addNewProduct}</div>
+            <div style={{marginBottom:12}}><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.name}</label><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Snickers, Beef..." /></div>
+            <div style={{marginBottom:12}}><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.qrCode}</label><input value={form.qrCode} onChange={e=>setForm({...form,qrCode:e.target.value})} placeholder="QR-P029" /></div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>CATEGORY</label>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.category}</label>
                 <select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>
                   {["gosht","sabzavot","don","sut","meva","ziravorlar","boshqa"].map(c=><option key={c} value={c}>{CATICON[c]} {c}</option>)}
                 </select>
               </div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>UNIT</label>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.unit}</label>
                 <select value={form.unit} onChange={e=>setForm({...form,unit:e.target.value})}>
                   {["kg","g","l","ml","dona","qop","quti"].map(u=><option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>MIN STOCK</label><input type="number" value={form.minStock} onChange={e=>setForm({...form,minStock:e.target.value})} /></div>
-              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>PRICE (₩)</label><input type="number" value={form.pricePerUnit} onChange={e=>setForm({...form,pricePerUnit:e.target.value})} placeholder="85000" /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.minStock}</label><input type="number" value={form.minStock} onChange={e=>setForm({...form,minStock:e.target.value})} /></div>
+              <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.price} (₩)</label><input type="number" value={form.pricePerUnit} onChange={e=>setForm({...form,pricePerUnit:e.target.value})} placeholder="85000" /></div>
             </div>
             <div style={{background:"rgba(48,120,255,0.06)",border:"1px solid rgba(48,120,255,0.2)",borderRadius:10,padding:13,marginBottom:14}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#79c0ff",marginBottom:9}}>📦 Box/Package Settings (optional)</div>
+              <div style={{fontSize:12,fontWeight:700,color:"#79c0ff",marginBottom:9}}>📦 {t.boxPackage}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>UNITS PER BOX</label><input type="number" value={form.perBox} onChange={e=>setForm({...form,perBox:e.target.value})} placeholder="24" /></div>
-                <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>UNIT NAME</label><input value={form.boxUnit} onChange={e=>setForm({...form,boxUnit:e.target.value})} placeholder="pcs, bottles..." /></div>
+                <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.unitsPerBox}</label><input type="number" value={form.perBox} onChange={e=>setForm({...form,perBox:e.target.value})} placeholder="24" /></div>
+                <div><label style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:1,display:"block",marginBottom:6}}>{t.unitName}</label><input value={form.boxUnit} onChange={e=>setForm({...form,boxUnit:e.target.value})} placeholder="pcs, bottles..." /></div>
               </div>
               {preview&&<div style={{background:"rgba(48,120,255,0.08)",borderRadius:7,padding:"7px 10px",fontSize:12,color:"rgba(255,255,255,0.6)",marginTop:8}}>{preview}</div>}
             </div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>setShowModal(false)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Cancel</button>
-              <button onClick={submit} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>💾 Add Product</button>
+              <button onClick={()=>setShowModal(false)} style={{flex:1,padding:11,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>{t.cancel}</button>
+              <button onClick={submit} style={{flex:2,padding:11,borderRadius:10,border:"none",background:"linear-gradient(135deg,#3078ff,#1a56db)",color:"#fff",fontWeight:700,cursor:"pointer"}}>💾 {t.addProduct}</button>
             </div>
           </div>
         </div>
       )}
       <div style={{background:"#161b22",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,overflow:"auto"}}>
         <table>
-          <thead><tr><th>#</th><th>Name</th><th>QR</th><th>Category</th><th>Unit</th><th>Box/Unit</th><th>Min stock</th><th>Price</th><th>Main stock</th><th>Total units</th></tr></thead>
+          <thead><tr><th>#</th><th>{t.name}</th><th>QR</th><th>{t.category}</th><th>{t.unit}</th><th>{t.boxPackage}</th><th>{t.minStock}</th><th>{t.price}</th><th>{t.mainStock}</th><th>{t.totalUnits}</th></tr></thead>
           <tbody>
             {products.map((p:Product,i:number)=>{
               const qty=stock[p.id]||0; const hasBox=p.perBox>0;
