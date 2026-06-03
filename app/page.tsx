@@ -310,9 +310,9 @@ export default function CRMApp() {
           </div>
         <div className="sidebar-controls theme-soft" style={{margin:"0 10px 10px",padding:8,background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:10}}>
             <div style={{fontSize:10,color:"var(--app-muted)",marginBottom:7,fontWeight:700}}>{t.mode}</div>
-            <button onClick={()=>setTheme(theme==="dark"?"light":"dark")} style={{width:"100%",border:"1px solid var(--app-border)",background:theme==="dark"?"rgba(48,120,255,0.14)":"rgba(15,23,42,0.04)",color:"var(--app-text)",borderRadius:8,padding:"8px 10px",fontSize:11,fontWeight:800,cursor:"pointer"}}>
-              {theme==="dark"?t.dark:t.light}
-            </button>
+            <div className="theme-toggle" aria-label={t.mode}>
+              <button type="button" onClick={()=>setTheme(theme==="dark"?"light":"dark")} title={theme==="dark"?t.light:t.dark} aria-label={theme==="dark"?t.light:t.dark}>{theme==="dark"?"☀️":"🌙"}</button>
+            </div>
           </div>
         <nav style={{flex:1,padding:6}}>
           {translatedTabs.map(nav=>(
@@ -332,8 +332,8 @@ export default function CRMApp() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 overflow-auto pb-24 md:pb-0">
-        <div className="sticky top-0 z-[130] mx-3 mb-2 mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2 text-[var(--app-text)] shadow-sm md:hidden">
+      <div className="mobile-main flex-1 overflow-auto pb-24 md:pb-0">
+        <div className="mobile-topbar mx-3 mb-2 mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2 text-[var(--app-text)] shadow-sm md:hidden">
           <div className="flex min-w-0 items-center gap-2">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--app-panel-soft)] text-lg">{user.branchIcon}</span>
             <div>
@@ -343,7 +343,9 @@ export default function CRMApp() {
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <button className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-2.5 py-2 text-[11px] font-black text-[var(--app-text)]" onClick={()=>setLang(lang==="uz"?"ko":"uz")}>{lang==="uz"?"UZ":"KO"}</button>
-            <button className="rounded-lg border border-[var(--app-border)] bg-[var(--app-panel-soft)] px-2.5 py-2 text-[11px] font-black text-[var(--app-text)]" onClick={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?t.dark:t.light}</button>
+            <div className="theme-toggle" aria-label={t.mode}>
+              <button type="button" data-testid="mobile-theme-toggle" onClick={()=>setTheme(theme==="dark"?"light":"dark")} title={theme==="dark"?t.light:t.dark} aria-label={theme==="dark"?t.light:t.dark}>{theme==="dark"?"☀️":"🌙"}</button>
+            </div>
             <button className="rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-2 text-[11px] font-black text-red-500" onClick={()=>setUser(null)}>{t.logout}</button>
           </div>
         </div>
@@ -929,7 +931,7 @@ function SuppliersTab({ suppliers, products, user, onRefresh, showToast, t }:any
 
       {selectedFirm&&!showModal&&(
         <div className="modal-backdrop">
-          <div className="modal" style={{maxWidth:980,padding:0,overflow:"hidden"}}>
+          <div className="modal firm-window-modal" style={{maxWidth:980,padding:0,overflow:"hidden"}}>
             <div className="firm-window-grid" style={{minHeight:560}}>
               <aside className="firm-window-side" style={{background:"var(--app-bg)",borderRight:"1px solid var(--app-border)",padding:18}}>
                 <div style={{fontSize:18,fontWeight:900,marginBottom:4}}>{selectedFirm}</div>
