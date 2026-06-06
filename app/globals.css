@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 :root {
+  --font-ui: "Segoe UI", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+  --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   --app-bg: #f4f7fb;
   --app-panel: #ffffff;
   --app-panel-soft: #f8fafc;
   --app-glass: rgba(255, 255, 255, 0.78);
   --app-border: rgba(15, 23, 42, 0.1);
   --app-text: #0f172a;
-  --app-muted: rgba(15, 23, 42, 0.56);
+  --app-muted: #475569;
   --app-input: #ffffff;
   --app-shadow: rgba(15, 23, 42, 0.12);
   --app-inset: #f1f5f9;
@@ -22,7 +24,7 @@
   --app-glass: rgba(13, 17, 23, 0.72);
   --app-border: rgba(255, 255, 255, 0.08);
   --app-text: #e6edf3;
-  --app-muted: rgba(255, 255, 255, 0.52);
+  --app-muted: #aeb9c7;
   --app-input: rgba(255, 255, 255, 0.05);
   --app-shadow: rgba(0, 0, 0, 0.34);
   --app-inset: rgba(255, 255, 255, 0.04);
@@ -39,12 +41,20 @@ body {
   margin: 0;
   background: var(--app-bg);
   color: var(--app-text);
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .theme-shell {
   background: var(--app-bg) !important;
   color: var(--app-text) !important;
+  font-family: var(--font-ui) !important;
+  letter-spacing: 0;
 }
 
 .theme-panel,
@@ -61,6 +71,7 @@ body {
 
 .theme-muted {
   color: var(--app-muted) !important;
+  font-weight: 600;
 }
 
 .crm-input,
@@ -70,6 +81,8 @@ body {
   background: var(--app-input) !important;
   color: var(--app-text) !important;
   border-color: var(--app-border) !important;
+  font-family: var(--font-ui) !important;
+  font-weight: 600;
 }
 
 .app-sidebar {
@@ -102,8 +115,9 @@ body {
   max-width: 78px;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 10px;
-  line-height: 1.1;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .app-sidebar .sidebar-controls {
@@ -244,6 +258,7 @@ body {
 .theme-shell:not(.dark) [style*="color: rgba(255, 255, 255, 0.68)"],
 .theme-shell:not(.dark) [style*="color: rgba(255, 255, 255, 0.7)"] {
   color: var(--app-muted) !important;
+  font-weight: 600;
 }
 
 .theme-shell:not(.dark) [style*="rgba(255,255,255,0.03)"],
@@ -280,6 +295,34 @@ body {
 
 .theme-shell:not(.dark) table {
   color: var(--app-text);
+}
+
+.theme-shell th {
+  color: var(--app-muted) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+}
+
+.theme-shell td {
+  font-weight: 550;
+}
+
+.theme-shell code,
+.theme-shell [style*="font-family: monospace"] {
+  font-family: var(--font-mono) !important;
+  font-weight: 600;
+}
+
+.theme-shell [style*="font-size: 9px"] {
+  font-size: 11px !important;
+}
+
+.theme-shell [style*="font-size: 10px"] {
+  font-size: 11px !important;
+}
+
+.theme-shell [style*="font-size: 11px"] {
+  line-height: 1.35;
 }
 
 .theme-shell:not(.dark) tbody tr:hover td {

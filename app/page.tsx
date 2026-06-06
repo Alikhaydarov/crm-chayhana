@@ -330,7 +330,7 @@ export default function CRMApp() {
   }));
 
   return (
-    <div className={`${theme} theme-shell app-shell`} style={{display:"flex",minHeight:"100vh",background:"var(--app-bg)",fontFamily:"Inter,sans-serif",color:"var(--app-text)"}}>
+    <div className={`${theme} theme-shell app-shell`} style={{display:"flex",minHeight:"100vh",background:"var(--app-bg)",fontFamily:"var(--font-ui)",color:"var(--app-text)"}}>
       <style>{`
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#30363d;border-radius:2px}
@@ -339,12 +339,12 @@ export default function CRMApp() {
         .tab-item{transition:all .15s;cursor:pointer} .tab-item:hover{background:rgba(48,120,255,0.08)!important}
         .action-btn{transition:all .15s;cursor:pointer} .action-btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
         .card{animation:fadeIn .35s ease forwards}
-        input,select,textarea{background:var(--app-input)!important;color:var(--app-text)!important;border:1px solid var(--app-border)!important;border-radius:8px!important;padding:10px 13px!important;font-size:13px!important;outline:none!important;font-family:Inter,sans-serif!important;width:100%}
+        input,select,textarea{background:var(--app-input)!important;color:var(--app-text)!important;border:1px solid var(--app-border)!important;border-radius:8px!important;padding:10px 13px!important;font-size:13px!important;font-weight:600!important;outline:none!important;font-family:var(--font-ui)!important;width:100%}
         input:focus,select:focus,textarea:focus{border-color:rgba(48,120,255,0.5)!important}
         select option{background:var(--app-panel);color:var(--app-text)}
         table{width:100%;border-collapse:collapse}
-        th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--app-muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--app-border);white-space:nowrap}
-        td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--app-border);vertical-align:middle}
+        th{padding:10px 14px;text-align:left;font-size:11px;font-weight:800;color:var(--app-muted);letter-spacing:0;text-transform:uppercase;border-bottom:1px solid var(--app-border);white-space:nowrap}
+        td{padding:11px 14px;font-size:13px;font-weight:550;border-bottom:1px solid var(--app-border);vertical-align:middle}
         tr:hover td{background:rgba(48,120,255,0.04)}
         .stat-card{background:var(--app-panel);border:1px solid var(--app-border);border-radius:14px;padding:18px 16px;transition:all .2s;color:var(--app-text)}
         .stat-card:hover{border-color:rgba(48,120,255,0.28)}
@@ -1391,5 +1391,5 @@ function PageWrap({ title, sub, action, children }:{ title?:any; sub?:any; actio
 }
 function Btn({ color, onClick, children }:{ color:"blue"|"green"|"red"; onClick:()=>void; children:any }) {
   const colors = { blue:"linear-gradient(135deg,#3078ff,#1a56db)", green:"linear-gradient(135deg,#3fb950,#27a73c)", red:"linear-gradient(135deg,#f85149,#c0392b)" };
-  return <button className="compact-btn" onClick={onClick} style={{background:colors[color],color:"#fff",border:"none",cursor:"pointer",fontWeight:800,fontFamily:"Inter,sans-serif",boxShadow:`0 4px 12px rgba(0,0,0,0.18)`}}>{children}</button>;
+  return <button className="compact-btn" onClick={onClick} style={{background:colors[color],color:"#fff",border:"none",cursor:"pointer",fontWeight:800,fontFamily:"var(--font-ui)",boxShadow:`0 4px 12px rgba(0,0,0,0.18)`}}>{children}</button>;
 }
