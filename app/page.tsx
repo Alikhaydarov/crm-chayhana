@@ -146,10 +146,21 @@ function LoginPage({ onLogin }:{ onLogin:(u:UserInfo)=>void }) {
 function IdLoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; theme:ThemeMode; setTheme:(theme:ThemeMode)=>void }) {
   const [userId, setUserId] = useState("super");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const demoAccounts = [
+    { id:"super", password:"super123", label:"Bosh admin", icon:"HQ" },
+    { id:"rest1", password:"rest1", label:"Restoran 1", icon:"R1" },
+    { id:"rest2", password:"rest2", label:"Restoran 2", icon:"R2" },
+    { id:"shop1", password:"shop1", label:"Do'kon", icon:"SH" },
+  ];
 
   const handleLogin = async () => {
+    if (!userId.trim() || !password) {
+      setError("ID va parolni kiriting");
+      return;
+    }
     setLoading(true);
     setError("");
     const data = loginLocal(userId.trim(), password);
@@ -159,35 +170,110 @@ function IdLoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; 
   };
 
   return (
-    <div className={`${theme} theme-shell min-h-screen px-4 py-8 flex items-center justify-center bg-slate-100 text-slate-950 dark:bg-[#0d1117] dark:text-slate-100`}>
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/70 dark:border-white/10 dark:bg-[#161b22] dark:shadow-black/40 sm:p-8">
-        <div className="mb-7 flex items-start justify-between gap-4">
-          <div>
-            <div className="mb-2 text-4xl">🏭</div>
-            <h1 className="text-2xl font-black tracking-tight">Oshxona CRM</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-white/45">Warehouse Management System</p>
+    <div className={`${theme} theme-shell min-h-screen bg-[var(--app-bg)] px-4 py-5 text-[var(--app-text)] sm:px-6 sm:py-8`}>
+      <div className="mx-auto flex min-h-[calc(100vh-40px)] w-full max-w-lg items-center sm:min-h-[calc(100vh-64px)]">
+        <main className="w-full overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] shadow-[0_24px_70px_var(--app-shadow)]">
+          <header className="flex items-start justify-between gap-4 border-b border-[var(--app-border)] px-5 py-5 sm:px-7">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-600 text-sm font-black text-white shadow-lg shadow-blue-600/20">CRM</div>
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-black">Oshxona CRM</h1>
+                <p className="mt-0.5 text-xs font-medium text-[var(--app-muted)]">Sklad va filiallar boshqaruvi</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTheme(theme==="dark" ? "light" : "dark")}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--app-border)] bg-[var(--app-panel-soft)] text-[10px] font-black transition hover:border-blue-500/40 hover:bg-blue-500/10"
+              title={theme==="dark" ? "Kunduzgi rejim" : "Tungi rejim"}
+              aria-label={theme==="dark" ? "Kunduzgi rejim" : "Tungi rejim"}
+            >
+              {theme==="dark" ? "SUN" : "MOON"}
+            </button>
+          </header>
+
+          <div className="px-5 py-6 sm:px-7 sm:py-7">
+            <div className="mb-6">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]" />
+                <span className="text-[11px] font-black uppercase text-emerald-600 dark:text-emerald-400">Tizim tayyor</span>
+              </div>
+              <h2 className="text-2xl font-black">Hisobingizga kiring</h2>
+              <p className="mt-1 text-sm text-[var(--app-muted)]">Davom etish uchun foydalanuvchi ID va parolingizni kiriting.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="login-id" className="mb-2 block text-xs font-black text-[var(--app-muted)]">Foydalanuvchi ID</label>
+                <input
+                  id="login-id"
+                  className="crm-input h-12 w-full rounded-xl border px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  value={userId}
+                  onChange={e=>setUserId(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+                  placeholder="ID kiriting"
+                  autoComplete="username"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label htmlFor="login-password" className="text-xs font-black text-[var(--app-muted)]">Parol</label>
+                  <button type="button" onClick={()=>setShowPassword(value=>!value)} className="text-xs font-black text-blue-600 hover:text-blue-500">
+                    {showPassword ? "Yashirish" : "Ko'rsatish"}
+                  </button>
+                </div>
+                <input
+                  id="login-password"
+                  className="crm-input h-12 w-full rounded-xl border px-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={e=>setPassword(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+                  placeholder="Parolni kiriting"
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+
+            {error && <div role="alert" className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500">{error}</div>}
+
+            <button type="button" onClick={handleLogin} disabled={loading} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60">
+              {loading ? "Kirilmoqda..." : "Kirish"}
+            </button>
+
+            <div className="my-6 flex items-center gap-3">
+              <span className="h-px flex-1 bg-[var(--app-border)]" />
+              <span className="text-[10px] font-black uppercase text-[var(--app-muted)]">Demo hisoblar</span>
+              <span className="h-px flex-1 bg-[var(--app-border)]" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {demoAccounts.map(account=>(
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={()=>{
+                    setUserId(account.id);
+                    setPassword(account.password);
+                    setError("");
+                  }}
+                  className={`flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition ${
+                    userId===account.id
+                      ? "border-blue-500/50 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                      : "border-[var(--app-border)] bg-[var(--app-panel-soft)] hover:border-blue-500/30"
+                  }`}
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--app-panel)] text-[10px] font-black">{account.icon}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-black">{account.label}</span>
+                    <span className="block truncate text-[10px] font-semibold text-[var(--app-muted)]">{account.id}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-          <button onClick={() => setTheme(theme==="dark" ? "light" : "dark")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5">
-            {theme==="dark" ? "Light" : "Dark"}
-          </button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/45">ID</label>
-            <input className="crm-input w-full rounded-lg border px-3 py-3 text-sm outline-none focus:border-blue-500" value={userId} onChange={e=>setUserId(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="super, rest1, rest2, shop1" />
-          </div>
-          <div>
-            <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/45">Parol</label>
-            <input className="crm-input w-full rounded-lg border px-3 py-3 text-sm outline-none focus:border-blue-500" type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Parolni kiriting" />
-          </div>
-        </div>
-        {error && <div className="mt-4 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-500">{error}</div>}
-        <button onClick={handleLogin} disabled={loading} className="mt-5 w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/25 disabled:opacity-60">
-          {loading ? "Kirilmoqda..." : "Kirish"}
-        </button>
-        <div className="mt-4 rounded-xl bg-slate-100 p-3 text-xs text-slate-500 dark:bg-white/5 dark:text-white/40">
-          <strong className="text-slate-700 dark:text-white/60">Demo:</strong> super / super123 · rest1 / rest1 · rest2 / rest2 · shop1 / shop1
-        </div>
+        </main>
       </div>
     </div>
   );
