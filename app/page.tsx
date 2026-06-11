@@ -9,7 +9,7 @@ import {
   getLocalSnapshot, loginLocal, rejectTransferLocal, toggleStaffLocal,
   updateStockLocal, updateSupplierPayLocal, addCompanyLocal, createOrderLocal, payOrderLocal,
 } from "@/lib/localStore";
-import type { Company, Order, CompanyPayment } from "@/lib/localStore";
+import type { Company, Order, CompanyPayment, OrderReceipt } from "@/lib/localStore";
 
 type Role = "superadmin"|"restaurant1"|"restaurant2"|"shop";
 type UserInfo = { id:string; name:string; role:Role; branchName:string; branchIcon:string };
@@ -868,7 +868,19 @@ function TransferCard({ t, isSA, onDetail, onApprove, onReject, lang }:any) {
 // ════════════════════════════════════════════════════════════
 function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) {
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ companyId:"", note:"", payStatus:"unpaid" as "paid"|"unpaid" });
+  const todayValue = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0,10);
+  };
+  const emptyForm = () => ({
+    companyId:"",
+    note:"",
+    payStatus:"unpaid" as "paid"|"unpaid",
+    orderDate:todayValue(),
+    receipt:null as OrderReceipt|null,
+  });
+  const [form, setForm] = useState(emptyForm);
   const [items, setItems] = useState([{pid:"",qty:1,price:0}]);
   const [loading, setLoading] = useState(false);
 
@@ -876,13 +888,27 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
 
   const submit = async () => {
     if (!form.companyId) { showToast("Firma tanlang","error"); return; }
+    if (!form.orderDate) { showToast("Order sanasini kiriting","error"); return; }
     const valid = items.filter(i=>i.pid&&i.qty>0&&i.price>0);
     if (!valid.length) { showToast("Mahsulot va narx kiriting","error"); return; }
     setLoading(true);
-    const d = createOrderLocal({ companyId:form.companyId, items:valid.map(i=>({productId:i.pid,quantity:i.qty,pricePerUnit:i.price})), note:form.note, payStatus:form.payStatus, paidAmount:0 });
-    if (d.success) { showToast("Order saqlandi ✅"); setShowModal(false); setForm({companyId:"",note:"",payStatus:"unpaid"}); setItems([{pid:"",qty:1,price:0}]); fetchAll(); }
+    const d = createOrderLocal({ companyId:form.companyId, items:valid.map(i=>({productId:i.pid,quantity:i.qty,pricePerUnit:i.price})), note:form.note, payStatus:form.payStatus, paidAmount:0, orderDate:form.orderDate, receipt:form.receipt||undefined });
+    if (d.success) { showToast("Order saqlandi ✅"); setShowModal(false); setForm(emptyForm()); setItems([{pid:"",qty:1,price:0}]); fetchAll(); }
     else showToast(d.message||"Xatolik","error");
     setLoading(false);
+  };
+
+  const selectReceipt = (file?:File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      showToast("Chek faqat rasm yoki PDF bo'lishi mumkin","error");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) { showToast("Chek fayli 2 MB dan kichik bo'lishi kerak","error"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm(current=>({...current,receipt:{name:file.name,type:file.type,dataUrl:String(reader.result)}}));
+    reader.onerror = () => showToast("Chek faylini o'qib bo'lmadi","error");
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -903,6 +929,11 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
           </div>
 
           {form.companyId && <>
+            <div className="form-group">
+              <label className="form-label">ORDER SANASI</label>
+              <input className="crm-input" type="date" value={form.orderDate} onChange={e=>setForm({...form,orderDate:e.target.value})} />
+            </div>
+
             <div className="form-group">
               <label className="form-label">MAHSULOTLAR</label>
               {items.map((item,i)=>{
@@ -934,13 +965,29 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
               <label className="form-label">TO'LOV HOLATI</label>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 {(["paid","unpaid"] as const).map(m=>(
-                  <button key={m} onClick={()=>setForm({...form,payStatus:m})}
+                  <button key={m} onClick={()=>setForm({...form,payStatus:m,receipt:m==="paid"?form.receipt:null})}
                     style={{padding:"8px 16px",borderRadius:10,border:`2px solid ${form.payStatus===m?PAY_CFG[m].c:"var(--app-border)"}`,background:form.payStatus===m?PAY_CFG[m].bg:"transparent",color:form.payStatus===m?PAY_CFG[m].c:"var(--app-muted)",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",transition:"all .15s"}}>
                     {PAY_CFG[m].l}
                   </button>
                 ))}
               </div>
             </div>
+            {form.payStatus==="paid"&&<div className="form-group">
+              <label className="form-label">TO'LOV CHEKI</label>
+              <input id="order-receipt" type="file" accept="image/*,application/pdf" onChange={e=>selectReceipt(e.target.files?.[0])} style={{display:"none"}} />
+              <div style={{display:"flex",gap:8,alignItems:"stretch",flexWrap:"wrap"}}>
+                <label htmlFor="order-receipt" className="btn-ghost" style={{cursor:"pointer",display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:40}}>
+                  📎 {form.receipt?"Chekni almashtirish":"Chek qo'shish"}
+                </label>
+                {form.receipt&&<>
+                  <a href={form.receipt.dataUrl} download={form.receipt.name} className="btn-ghost" style={{display:"inline-flex",alignItems:"center",textDecoration:"none",minWidth:0,maxWidth:240,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={form.receipt.name}>
+                    {form.receipt.name}
+                  </a>
+                  <button className="btn-ghost" onClick={()=>setForm({...form,receipt:null})} aria-label="Chekni olib tashlash" title="Chekni olib tashlash">×</button>
+                </>}
+              </div>
+              <div style={{fontSize:11,color:"var(--app-muted)",marginTop:6}}>Rasm yoki PDF, maksimal 2 MB</div>
+            </div>}
             <div className="form-group">
               <label className="form-label">ESLATMA</label>
               <textarea className="crm-input" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} rows={2} style={{resize:"vertical"}} />
@@ -969,7 +1016,10 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
                     <div style={{fontWeight:900,color:"#3fb950"}}>{fmtM(o.totalPrice)}</div>
                     {debt>0&&<div style={{fontSize:11,color:"#f85149"}}>Qarz: {fmtM(debt)}</div>}
                   </td>
-                  <td><span className="badge" style={{background:pay.bg,color:pay.c}}>{pay.l}</span></td>
+                  <td>
+                    <span className="badge" style={{background:pay.bg,color:pay.c}}>{pay.l}</span>
+                    {o.receipt&&<a href={o.receipt.dataUrl} download={o.receipt.name} style={{display:"block",fontSize:11,color:"#7367f0",fontWeight:700,marginTop:5,textDecoration:"none"}} title={o.receipt.name}>📎 Chek</a>}
+                  </td>
                   <td className="hide-mobile" style={{fontSize:11,color:"var(--app-muted)"}}>{fmtDate(o.createdAt)}</td>
                 </tr>
               );
@@ -1230,6 +1280,7 @@ function FirmsTab({ companies, orders, companyPayments, fetchAll, showToast, t }
                         <div style={{fontWeight:800}}>Order <span style={{fontFamily:"monospace",color:"#7367f0",fontSize:12}}>#{o.id.slice(-8)}</span></div>
                         <div style={{fontSize:11,color:"var(--app-muted)",marginTop:2}}>{fmtDate(o.createdAt)} · {fmtM(o.totalPrice)}</div>
                         {debt>0&&<div style={{fontSize:12,color:"#f85149",fontWeight:700,marginTop:2}}>Qarz: {fmtM(debt)}</div>}
+                        {o.receipt&&<a href={o.receipt.dataUrl} download={o.receipt.name} onClick={e=>e.stopPropagation()} style={{display:"inline-block",fontSize:11,color:"#7367f0",fontWeight:700,marginTop:5,textDecoration:"none"}} title={o.receipt.name}>📎 Chekni yuklash</a>}
                       </div>
                       <div style={{display:"flex",gap:8,alignItems:"center"}}>
                         <span className="badge" style={{background:pay.bg,color:pay.c}}>{pay.l}</span>

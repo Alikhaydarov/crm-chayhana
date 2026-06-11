@@ -27,6 +27,12 @@ export type OrderItem = {
   pricePerUnit: number;
 };
 
+export type OrderReceipt = {
+  name: string;
+  type: string;
+  dataUrl: string;
+};
+
 export type Order = {
   id: string;
   companyId: string;
@@ -36,6 +42,7 @@ export type Order = {
   paidAmount: number;
   payStatus: PayStatus;
   note: string;
+  receipt?: OrderReceipt;
   createdAt: string;
 };
 
@@ -568,7 +575,7 @@ export function addCompanyLocal(data: Omit<Company, "id" | "createdAt">) {
 }
 
 // ─── ORDERS ──────────────────────────────────────────────────
-export function createOrderLocal(data: { companyId: string; items: { productId: string; quantity: number; pricePerUnit: number }[]; note: string; payStatus: PayStatus; paidAmount: number }) {
+export function createOrderLocal(data: { companyId: string; items: { productId: string; quantity: number; pricePerUnit: number }[]; note: string; payStatus: PayStatus; paidAmount: number; orderDate: string; receipt?: OrderReceipt }) {
   const state = readCRMState();
   const company = state.companies.find(c => c.id === data.companyId);
   if (!company) return { success: false, message: "Firma topilmadi" };
@@ -589,7 +596,8 @@ export function createOrderLocal(data: { companyId: string; items: { productId: 
     paidAmount: data.payStatus === "paid" ? totalPrice : data.paidAmount,
     payStatus: data.payStatus,
     note: data.note,
-    createdAt: new Date().toISOString(),
+    receipt: data.payStatus === "paid" ? data.receipt : undefined,
+    createdAt: new Date(`${data.orderDate}T12:00:00`).toISOString(),
   };
 
   // Auto add to mainStock
