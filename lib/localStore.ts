@@ -46,6 +46,7 @@ export type ShopSaleImport = {
   totalCost: number;
   totalProfit: number;
   shortageCount: number;
+  skippedRows?: { barcode: string; sourceName: string; quantity: number }[];
   createdAt: string;
 };
 
@@ -457,18 +458,6 @@ export function getLocalSnapshot(user: UserInfo) {
   };
 }
 
-export function saveProductBarcodeLocal(productId: string, barcode: string) {
-  const state = readCRMState();
-  const product = state.products.find(item => item.id === productId);
-  if (!product) return { success: false, message: "Mahsulot topilmadi" };
-  const normalized = barcode.trim();
-  const duplicate = state.products.find(item => item.id !== productId && item.qrCode?.trim() === normalized);
-  if (duplicate) return { success: false, message: `Bu shtrix-kod "${duplicate.name}" mahsulotiga biriktirilgan` };
-  product.qrCode = normalized;
-  writeCRMState(state);
-  return { success: true };
-}
-
 export function importShopSalesLocal(data: {
   sourceKey: string;
   fileName: string;
@@ -484,9 +473,10 @@ export function importShopSalesLocal(data: {
     profitAmount: number;
     averagePrice: number;
   }[];
+  skippedRows?: { barcode: string; sourceName: string; quantity: number }[];
 }) {
   const state = readCRMState();
-  if (state.shopSales.some(item => item.sourceKey === data.sourceKey)) {
+  if (state.shopSales.some(item => item.sourceKey === data.sourceKey || item.fileName === data.fileName)) {
     return { success: false, message: "Bu Excel fayl avval import qilingan" };
   }
   if (!data.saleDate || !data.rows.length) return { success: false, message: "Import ma'lumoti bo'sh" };
@@ -521,6 +511,7 @@ export function importShopSalesLocal(data: {
     totalCost: items.reduce((sum, item) => sum + item.costAmount, 0),
     totalProfit: items.reduce((sum, item) => sum + item.profitAmount, 0),
     shortageCount: items.filter(item => item.shortage > 0).length,
+    skippedRows: data.skippedRows || [],
     createdAt: new Date().toISOString(),
   };
   state.shopSales.unshift(saleImport);

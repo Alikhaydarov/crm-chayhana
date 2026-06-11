@@ -9,7 +9,7 @@ import {
   addProductLocal, addStaffLocal, approveTransferLocal, createTransferLocal,
   getLocalSnapshot, loginLocal, rejectTransferLocal, toggleStaffLocal,
   updateStockLocal, updateSupplierPayLocal, addCompanyLocal, createOrderLocal, payOrderLocal,
-  importShopSalesLocal, saveProductBarcodeLocal,
+  importShopSalesLocal,
 } from "@/lib/localStore";
 import type { Company, Order, CompanyPayment, OrderReceipt, ShopSaleImport } from "@/lib/localStore";
 
@@ -663,14 +663,6 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
   );
 }
 
-function fileDate(fileName:string) {
-  const match = fileName.match(/(20\d{2})[_-](\d{2})[_-](\d{2})/);
-  if (match) return `${match[1]}-${match[2]}-${match[3]}`;
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now.getTime()-offset).toISOString().slice(0,10);
-}
-
 function sourceHash(text:string) {
   let hash = 2166136261;
   for (let index=0;index<text.length;index++) {
@@ -686,7 +678,12 @@ async function parseShopWorkbook(file:File, products:Product[]):Promise<ParsedSh
   await workbook.xlsx.load(await file.arrayBuffer());
   const worksheet = workbook.worksheets[0];
   const rows:any[][] = [];
-  worksheet.eachRow({includeEmpty:true},row=>rows.push((row.values as any[]).slice(1)));
+  worksheet.eachRow({includeEmpty:true},row=>{
+    rows.push(Array.from({length:worksheet.columnCount},(_,index)=>{
+      const cell = row.getCell(index+1);
+      return index===0 ? cell.text.trim() : cell.value;
+    }));
+  });
   const headerIndex = rows.findIndex((row,index)=>{
     const next = rows[index+1];
     return index<10 && Boolean(row?.[0]) && Boolean(next?.[0]) && Number(next?.[6])>0 && !Number(row?.[6]);
@@ -748,6 +745,9 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
     map[item.productId]=current;
     return map;
   },{})).sort((a,b)=>b.sales-a.sales);
+  const matchedRows = rows.filter(row=>row.productId);
+  const unmatchedRows = rows.filter(row=>!row.productId);
+  const matchedSales = matchedRows.reduce((sum,row)=>sum+row.salesAmount,0);
 
   const resetImport = () => {
     setRows([]); setFileName(""); setSourceKey(""); setSaleDate(""); setShowImport(false);
@@ -760,9 +760,8 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
     try {
       const parsed = await parseShopWorkbook(file,products);
       if (!parsed.length) throw new Error("Sotilgan mahsulot qatorlari topilmadi");
-      const date = fileDate(file.name);
-      const fingerprint = sourceHash(`${date}|${parsed.map(item=>`${item.barcode}:${item.quantity}:${item.salesAmount}`).join("|")}`);
-      setRows(parsed); setFileName(file.name); setSaleDate(date); setSourceKey(fingerprint); setShowImport(true);
+      const fingerprint = sourceHash(parsed.map(item=>`${item.barcode}:${item.quantity}:${item.salesAmount}`).join("|"));
+      setRows(parsed); setFileName(file.name); setSaleDate(""); setSourceKey(fingerprint); setShowImport(true);
     } catch (error:any) {
       showToast(error?.message||"Excel faylni o'qib bo'lmadi","error");
     } finally {
@@ -770,34 +769,17 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
     }
   };
 
-  const mapRow = (index:number,productId:string) => {
-    setRows(current=>current.map((row,rowIndex)=>rowIndex===index?{...row,productId}:row));
-  };
-
   const submitImport = () => {
-    const unresolved = rows.filter(row=>!row.productId);
-    if (unresolved.length) { showToast(`${unresolved.length} ta shtrix-kodni mahsulotga bog'lang`,"error"); return; }
-    const mappedCodes = new Map<string,string>();
-    for (const row of rows) {
-      const previousCode = mappedCodes.get(row.productId);
-      if (previousCode && previousCode!==row.barcode) {
-        const product = products.find((item:Product)=>item.id===row.productId);
-        showToast(`"${product?.name||row.productId}" mahsulotiga bir nechta shtrix-kod tanlangan`,"error");
-        return;
-      }
-      mappedCodes.set(row.productId,row.barcode);
-    }
+    if (!saleDate) { showToast("Savdo sanasini tanlang","error"); return; }
+    if (!matchedRows.length) { showToast("Excelda sklad bazasiga mos shtrix-kod topilmadi","error"); return; }
     setSaving(true);
-    for (const row of rows) {
-      const product = products.find((item:Product)=>item.id===row.productId);
-      if (product?.qrCode?.trim()!==row.barcode) {
-        const mapped = saveProductBarcodeLocal(row.productId,row.barcode);
-        if (!mapped.success) { showToast(mapped.message||"Shtrix-kod saqlanmadi","error"); setSaving(false); return; }
-      }
-    }
-    const result = importShopSalesLocal({sourceKey,fileName,saleDate,rows});
+    const result = importShopSalesLocal({
+      sourceKey,fileName,saleDate,
+      rows:matchedRows,
+      skippedRows:unmatchedRows.map(row=>({barcode:row.barcode,sourceName:row.sourceName,quantity:row.quantity})),
+    });
     if (result.success) {
-      showToast(`${rows.length} ta mahsulot savdosi import qilindi`);
+      showToast(`${matchedRows.length} ta mahsulot skladdan ayrildi${unmatchedRows.length?`, ${unmatchedRows.length} ta topilmadi`:""}`);
       resetImport(); fetchAll();
     } else showToast(result.message||"Import amalga oshmadi","error");
     setSaving(false);
@@ -885,24 +867,24 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
         <div className="modal-title" style={{display:"flex",alignItems:"center",gap:9}}><FileSpreadsheet size={20}/> Excel importni tekshirish</div>
         <div className="import-summary-grid">
           <div><span>Fayl</span><strong title={fileName}>{fileName}</strong></div>
-          <div><span>Sana</span><input className="crm-input" type="date" value={saleDate} onChange={event=>setSaleDate(event.target.value)} /></div>
-          <div><span>Qatorlar</span><strong>{rows.length} ta</strong></div>
-          <div><span>Topilmagan</span><strong style={{color:rows.some(row=>!row.productId)?"#ea5455":"#28c76f"}}>{rows.filter(row=>!row.productId).length} ta</strong></div>
+          <div><span>SAVDO SANASI</span><input className="crm-input" type="date" value={saleDate} onChange={event=>setSaleDate(event.target.value)} required /></div>
+          <div><span>Topildi</span><strong style={{color:"#28c76f"}}>{matchedRows.length} ta</strong></div>
+          <div><span>Topilmadi</span><strong style={{color:unmatchedRows.length?"#ea5455":"#28c76f"}}>{unmatchedRows.length} ta</strong></div>
         </div>
         <div className="import-preview">
-          {rows.map((row,index)=><div key={`${row.barcode}-${index}`} className={`mapping-row${row.productId?" matched":" unresolved"}`}>
-            <div style={{minWidth:0}}><div style={{fontWeight:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.sourceName}</div><div style={{fontFamily:"monospace",fontSize:11,color:"var(--app-muted)",marginTop:3}}>{row.barcode} · {fmt(row.quantity)} dona</div></div>
-            <div style={{fontWeight:800,textAlign:"right"}}>{fmtKRW(row.salesAmount)}</div>
-            <select className="crm-input" value={row.productId} onChange={event=>mapRow(index,event.target.value)}>
-              <option value="">Mahsulotni tanlang</option>
-              {products.map((product:Product)=><option key={product.id} value={product.id}>{product.name} · {product.qrCode}</option>)}
-            </select>
-          </div>)}
+          {rows.map((row,index)=>{
+            const product = products.find((item:Product)=>item.id===row.productId);
+            return <div key={`${row.barcode}-${index}`} className={`mapping-row${row.productId?" matched":" unresolved"}`}>
+              <div style={{minWidth:0}}><div style={{fontWeight:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.sourceName}</div><div style={{fontFamily:"monospace",fontSize:11,color:"var(--app-muted)",marginTop:3}}>{row.barcode} · {fmt(row.quantity)} dona</div></div>
+              <div style={{fontWeight:800,textAlign:"right"}}>{fmtKRW(row.salesAmount)}</div>
+              <div className="barcode-match-status" style={{color:product?"#28c76f":"#ea5455"}}>{product?`✓ ${product.name}`:"Topilmadi · skladga ta'sir qilmaydi"}</div>
+            </div>;
+          })}
         </div>
-        <div className="import-warning">Import tasdiqlanganda sotilgan miqdor Do'kon skladidan ayiriladi. Manfiy sklad alohida qizil ko'rsatiladi.</div>
+        <div className="import-warning">Faqat shtrix-kodi bazadagi mahsulot bilan aynan mos kelgan qatorlar Do'kon skladidan ayiriladi. Topilmagan qatorlar o‘tkazib yuboriladi.</div>
         <div style={{display:"flex",gap:10}}>
           <button className="btn-ghost" onClick={resetImport} style={{flex:1}}>Bekor</button>
-          <button className="btn-primary" onClick={submitImport} disabled={saving||rows.some(row=>!row.productId)} style={{flex:2}}>{saving?"Saqlanmoqda...":`Import qilish · ${fmtKRW(rows.reduce((sum,row)=>sum+row.salesAmount,0))}`}</button>
+          <button className="btn-primary" onClick={submitImport} disabled={saving||!saleDate||!matchedRows.length} style={{flex:2}}>{saving?"Saqlanmoqda...":`Import qilish · ${matchedRows.length} mahsulot · ${fmtKRW(matchedSales)}`}</button>
         </div>
       </Modal>}
 
@@ -914,6 +896,7 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
           <div><span>Foyda</span><strong style={{color:detail.totalProfit>=0?"#28c76f":"#ea5455"}}>{fmtKRW(detail.totalProfit)}</strong></div>
           <div><span>Sotildi</span><strong>{fmt(detail.totalQuantity)} dona</strong></div>
         </div>
+        {!!detail.skippedRows?.length&&<div className="import-warning">{detail.skippedRows.length} ta shtrix-kod bazada topilmagani uchun skladga qo'llanmagan.</div>}
         <div className="import-preview">
           {detail.items.map(item=><div key={`${detail.id}-${item.barcode}`} className="mapping-row matched">
             <div><div style={{fontWeight:800}}>{item.productName}</div><div style={{fontSize:11,color:"var(--app-muted)",marginTop:3}}>{item.barcode} · {fmt(item.quantity)} dona</div></div>
