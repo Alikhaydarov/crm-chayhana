@@ -2,6 +2,43 @@ export type Role = "superadmin" | "restaurant1" | "restaurant2" | "shop";
 export type PayStatus = "paid" | "unpaid" | "partial";
 export type TransferStatus = "pending" | "approved" | "rejected";
 
+export type Company = {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  createdAt: string;
+};
+
+export type CompanyPayment = {
+  id: string;
+  companyId: string;
+  orderId: string;
+  amount: number;
+  note: string;
+  createdAt: string;
+};
+
+export type OrderItem = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  pricePerUnit: number;
+};
+
+export type Order = {
+  id: string;
+  companyId: string;
+  companyName: string;
+  items: OrderItem[];
+  totalPrice: number;
+  paidAmount: number;
+  payStatus: PayStatus;
+  note: string;
+  createdAt: string;
+};
+
 export type UserInfo = {
   id: string;
   name: string;
@@ -70,6 +107,9 @@ type CRMState = {
   transfers: Transfer[];
   suppliers: Supplier[];
   staff: Staff[];
+  companies: Company[];
+  orders: Order[];
+  companyPayments: CompanyPayment[];
 };
 
 const STORAGE_KEY = "oshxona-crm-local-storage-v1";
@@ -200,6 +240,13 @@ function createInitialState(): CRMState {
       { id: "st6", name: "Sarvinoz Aliyeva", role: "Sklad mudiri", branch: "main", phone: "+998901234572", salary: 4000000, joinDate: "2022-08-01", active: true },
       { id: "st7", name: "Doniyor Xasanov", role: "Haydovchi", branch: "main", phone: "+998901234573", salary: 3000000, joinDate: "2023-07-20", active: true },
     ],
+    companies: [
+      { id: "c1", name: "Mars LLC", address: "Toshkent, Chilonzor", phone: "+998712345678", createdAt: "2024-01-01T00:00:00.000Z" },
+      { id: "c2", name: "Coca-Cola Uzbekistan", address: "Toshkent, Yunusobod", phone: "+998712345679", createdAt: "2024-01-01T00:00:00.000Z" },
+      { id: "c3", name: "Mahalliy fermer", address: "Toshkent viloyati", phone: "+998901234500", createdAt: "2024-01-01T00:00:00.000Z" },
+    ],
+    orders: [],
+    companyPayments: [],
   };
 }
 
@@ -237,6 +284,9 @@ function normalizeState(value: Partial<CRMState> | null): CRMState {
     transfers: value.transfers || base.transfers,
     suppliers: value.suppliers || base.suppliers,
     staff: value.staff || base.staff,
+    companies: value.companies || base.companies,
+    orders: value.orders || base.orders,
+    companyPayments: value.companyPayments || base.companyPayments,
   };
 }
 
@@ -359,6 +409,9 @@ export function getLocalSnapshot(user: UserInfo) {
     suppliers: state.suppliers,
     staff,
     reports: buildReports(state),
+    companies: state.companies,
+    orders: state.orders,
+    companyPayments: state.companyPayments,
   };
 }
 
@@ -503,4 +556,64 @@ export function addProductLocal(data: Omit<Product, "id">) {
   });
   writeCRMState(state);
   return { success: true, product };
+}
+
+// ─── COMPANIES ───────────────────────────────────────────────
+export function addCompanyLocal(data: Omit<Company, "id" | "createdAt">) {
+  const state = readCRMState();
+  const company: Company = { ...data, id: makeId("CO"), createdAt: new Date().toISOString() };
+  state.companies.push(company);
+  writeCRMState(state);
+  return { success: true, company };
+}
+
+// ─── ORDERS ──────────────────────────────────────────────────
+export function createOrderLocal(data: { companyId: string; items: { productId: string; quantity: number; pricePerUnit: number }[]; note: string; payStatus: PayStatus; paidAmount: number }) {
+  const state = readCRMState();
+  const company = state.companies.find(c => c.id === data.companyId);
+  if (!company) return { success: false, message: "Firma topilmadi" };
+
+  const orderItems: OrderItem[] = data.items.map(item => {
+    const product = state.products.find(p => p.id === item.productId)!;
+    return { productId: item.productId, productName: product.name, quantity: item.quantity, unit: product.unit, pricePerUnit: item.pricePerUnit };
+  });
+
+  const totalPrice = orderItems.reduce((sum, i) => sum + i.quantity * i.pricePerUnit, 0);
+
+  const order: Order = {
+    id: makeId("ORD"),
+    companyId: data.companyId,
+    companyName: company.name,
+    items: orderItems,
+    totalPrice,
+    paidAmount: data.payStatus === "paid" ? totalPrice : data.paidAmount,
+    payStatus: data.payStatus,
+    note: data.note,
+    createdAt: new Date().toISOString(),
+  };
+
+  // Auto add to mainStock
+  orderItems.forEach(item => {
+    state.mainStock[item.productId] = (state.mainStock[item.productId] || 0) + item.quantity;
+  });
+
+  state.orders.unshift(order);
+  writeCRMState(state);
+  return { success: true, order };
+}
+
+// ─── COMPANY PAYMENTS ────────────────────────────────────────
+export function payOrderLocal(orderId: string, amount: number, note: string) {
+  const state = readCRMState();
+  const order = state.orders.find(o => o.id === orderId);
+  if (!order) return { success: false, message: "Order topilmadi" };
+
+  const payment: CompanyPayment = { id: makeId("PAY"), companyId: order.companyId, orderId, amount, note, createdAt: new Date().toISOString() };
+  state.companyPayments.push(payment);
+
+  order.paidAmount = Math.min(order.totalPrice, order.paidAmount + amount);
+  order.payStatus = order.paidAmount >= order.totalPrice ? "paid" : order.paidAmount > 0 ? "partial" : "unpaid";
+
+  writeCRMState(state);
+  return { success: true };
 }
