@@ -868,7 +868,7 @@ function TransferCard({ t, isSA, onDetail, onApprove, onReject, lang }:any) {
 // ════════════════════════════════════════════════════════════
 function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) {
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ companyId:"", note:"", payStatus:"unpaid" as "paid"|"unpaid"|"partial", paidAmount:"" });
+  const [form, setForm] = useState({ companyId:"", note:"", payStatus:"unpaid" as "paid"|"unpaid" });
   const [items, setItems] = useState([{pid:"",qty:1,price:0}]);
   const [loading, setLoading] = useState(false);
 
@@ -879,8 +879,8 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
     const valid = items.filter(i=>i.pid&&i.qty>0&&i.price>0);
     if (!valid.length) { showToast("Mahsulot va narx kiriting","error"); return; }
     setLoading(true);
-    const d = createOrderLocal({ companyId:form.companyId, items:valid.map(i=>({productId:i.pid,quantity:i.qty,pricePerUnit:i.price})), note:form.note, payStatus:form.payStatus, paidAmount:form.payStatus==="partial"?parseFloat(form.paidAmount)||0:0 });
-    if (d.success) { showToast("Order saqlandi ✅"); setShowModal(false); setForm({companyId:"",note:"",payStatus:"unpaid",paidAmount:""}); setItems([{pid:"",qty:1,price:0}]); fetchAll(); }
+    const d = createOrderLocal({ companyId:form.companyId, items:valid.map(i=>({productId:i.pid,quantity:i.qty,pricePerUnit:i.price})), note:form.note, payStatus:form.payStatus, paidAmount:0 });
+    if (d.success) { showToast("Order saqlandi ✅"); setShowModal(false); setForm({companyId:"",note:"",payStatus:"unpaid"}); setItems([{pid:"",qty:1,price:0}]); fetchAll(); }
     else showToast(d.message||"Xatolik","error");
     setLoading(false);
   };
@@ -933,7 +933,7 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
             <div className="form-group">
               <label className="form-label">TO'LOV HOLATI</label>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {(["paid","unpaid","partial"] as const).map(m=>(
+                {(["paid","unpaid"] as const).map(m=>(
                   <button key={m} onClick={()=>setForm({...form,payStatus:m})}
                     style={{padding:"8px 16px",borderRadius:10,border:`2px solid ${form.payStatus===m?PAY_CFG[m].c:"var(--app-border)"}`,background:form.payStatus===m?PAY_CFG[m].bg:"transparent",color:form.payStatus===m?PAY_CFG[m].c:"var(--app-muted)",cursor:"pointer",fontSize:12,fontWeight:800,fontFamily:"inherit",transition:"all .15s"}}>
                     {PAY_CFG[m].l}
@@ -941,10 +941,6 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
                 ))}
               </div>
             </div>
-            {form.payStatus==="partial"&&<div className="form-group">
-              <label className="form-label">BERILGAN SUMMA</label>
-              <input className="crm-input" type="number" value={form.paidAmount} onChange={e=>setForm({...form,paidAmount:e.target.value})} placeholder="Summa..." />
-            </div>}
             <div className="form-group">
               <label className="form-label">ESLATMA</label>
               <textarea className="crm-input" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} rows={2} style={{resize:"vertical"}} />
