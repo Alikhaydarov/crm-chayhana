@@ -1,4 +1,4 @@
-# CRM Chayhana
+# CRM-JUTSU
 
 Next.js frontend CRM. Ma'lumotlar hozircha brauzer `localStorage` ichida saqlanadi.
 

@@ -308,7 +308,7 @@ function LoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; th
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:36}}>
           <div style={{width:72,height:72,borderRadius:22,background:"linear-gradient(135deg,#7367f0,#655bd3)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 12px 32px rgba(115,103,240,.4)",fontSize:32}}>🍽️</div>
-          <div style={{fontSize:28,fontWeight:900,color:"var(--app-text)",letterSpacing:-.5}}>Chayhana CRM</div>
+          <div style={{fontSize:28,fontWeight:900,color:"var(--app-text)",letterSpacing:-.5}}>CRM-JUTSU</div>
           <div style={{fontSize:13,color:"var(--app-muted)",marginTop:6}}>Restoran boshqaruv tizimi</div>
         </div>
 
@@ -429,7 +429,7 @@ export default function CRMApp() {
         <div className="brand-row" style={{padding:"18px 16px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:36,height:36,borderRadius:8,background:"linear-gradient(135deg,var(--app-primary),#8f85f3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0,color:"#fff",fontWeight:900}}>C</div>
           <div>
-            <div style={{fontWeight:900,fontSize:14,letterSpacing:-.3}}>Chayhana CRM</div>
+            <div style={{fontWeight:900,fontSize:14,letterSpacing:-.3}}>CRM-JUTSU</div>
             <div style={{fontSize:10,color:"var(--app-muted)"}}>v3.0</div>
           </div>
         </div>
