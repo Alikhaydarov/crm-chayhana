@@ -715,7 +715,7 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
   const [rows,setRows] = useState<ParsedShopSale[]>([]);
   const [fileName,setFileName] = useState("");
   const [sourceKey,setSourceKey] = useState("");
-  const [saleDate,setSaleDate] = useState("");
+  const [importDate,setImportDate] = useState("");
   const [reading,setReading] = useState(false);
   const [saving,setSaving] = useState(false);
   const [dateFilter,setDateFilter] = useState("all");
@@ -750,18 +750,19 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
   const matchedSales = matchedRows.reduce((sum,row)=>sum+row.salesAmount,0);
 
   const resetImport = () => {
-    setRows([]); setFileName(""); setSourceKey(""); setSaleDate(""); setShowImport(false);
+    setRows([]); setFileName(""); setSourceKey(""); setShowImport(false);
   };
 
   const readFile = async (file?:File) => {
     if (!file) return;
+    if (!importDate) { showToast("Avval asosiy sahifada import sanasini tanlang","error"); return; }
     if (!/\.xlsx$/i.test(file.name)) { showToast("Faqat Excel .xlsx fayl tanlang","error"); return; }
     setReading(true);
     try {
       const parsed = await parseShopWorkbook(file,products);
       if (!parsed.length) throw new Error("Sotilgan mahsulot qatorlari topilmadi");
       const fingerprint = sourceHash(parsed.map(item=>`${item.barcode}:${item.quantity}:${item.salesAmount}`).join("|"));
-      setRows(parsed); setFileName(file.name); setSaleDate(""); setSourceKey(fingerprint); setShowImport(true);
+      setRows(parsed); setFileName(file.name); setSourceKey(fingerprint); setShowImport(true);
     } catch (error:any) {
       showToast(error?.message||"Excel faylni o'qib bo'lmadi","error");
     } finally {
@@ -770,11 +771,11 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
   };
 
   const submitImport = () => {
-    if (!saleDate) { showToast("Savdo sanasini tanlang","error"); return; }
+    if (!importDate) { showToast("Import sanasini tanlang","error"); return; }
     if (!matchedRows.length) { showToast("Excelda sklad bazasiga mos shtrix-kod topilmadi","error"); return; }
     setSaving(true);
     const result = importShopSalesLocal({
-      sourceKey,fileName,saleDate,
+      sourceKey,fileName,saleDate:importDate,
       rows:matchedRows,
       skippedRows:unmatchedRows.map(row=>({barcode:row.barcode,sourceName:row.sourceName,quantity:row.quantity})),
     });
@@ -796,7 +797,11 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
 
       <div className="sales-filter-row">
         <div>
-          <div className="form-label" style={{marginBottom:6}}>DAVR</div>
+          <div className="form-label" style={{marginBottom:6}}>IMPORT SANASI</div>
+          <input className="crm-input" type="date" value={importDate} onChange={event=>setImportDate(event.target.value)} style={{minWidth:190}} />
+        </div>
+        <div>
+          <div className="form-label" style={{marginBottom:6}}>DAVR BO'YICHA QIDIRISH</div>
           <select className="crm-input" value={dateFilter} onChange={event=>setDateFilter(event.target.value)} style={{minWidth:190}}>
             <option value="all">Barcha sanalar</option>
             {daily.map(item=><option key={item.date} value={item.date}>{fmtDate(`${item.date}T12:00:00`)}</option>)}
@@ -867,7 +872,7 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
         <div className="modal-title" style={{display:"flex",alignItems:"center",gap:9}}><FileSpreadsheet size={20}/> Excel importni tekshirish</div>
         <div className="import-summary-grid">
           <div><span>Fayl</span><strong title={fileName}>{fileName}</strong></div>
-          <div><span>SAVDO SANASI</span><input className="crm-input" type="date" value={saleDate} onChange={event=>setSaleDate(event.target.value)} required /></div>
+          <div><span>Savdo sanasi</span><strong>{fmtDate(`${importDate}T12:00:00`)}</strong></div>
           <div><span>Topildi</span><strong style={{color:"#28c76f"}}>{matchedRows.length} ta</strong></div>
           <div><span>Topilmadi</span><strong style={{color:unmatchedRows.length?"#ea5455":"#28c76f"}}>{unmatchedRows.length} ta</strong></div>
         </div>
@@ -884,7 +889,7 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
         <div className="import-warning">Faqat shtrix-kodi bazadagi mahsulot bilan aynan mos kelgan qatorlar Do'kon skladidan ayiriladi. Topilmagan qatorlar o‘tkazib yuboriladi.</div>
         <div style={{display:"flex",gap:10}}>
           <button className="btn-ghost" onClick={resetImport} style={{flex:1}}>Bekor</button>
-          <button className="btn-primary" onClick={submitImport} disabled={saving||!saleDate||!matchedRows.length} style={{flex:2}}>{saving?"Saqlanmoqda...":`Import qilish · ${matchedRows.length} mahsulot · ${fmtKRW(matchedSales)}`}</button>
+          <button className="btn-primary" onClick={submitImport} disabled={saving||!importDate||!matchedRows.length} style={{flex:2}}>{saving?"Saqlanmoqda...":`Import qilish · ${matchedRows.length} mahsulot · ${fmtKRW(matchedSales)}`}</button>
         </div>
       </Modal>}
 
