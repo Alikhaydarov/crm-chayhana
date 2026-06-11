@@ -3,33 +3,36 @@
 :root {
   --font-ui: "Segoe UI", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
   --font-mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  --app-bg: #f4f7fb;
+  --app-bg: #f7f7fb;
   --app-panel: #ffffff;
-  --app-panel-soft: #f8fafc;
-  --app-glass: rgba(255, 255, 255, 0.78);
-  --app-border: rgba(15, 23, 42, 0.1);
-  --app-text: #0f172a;
-  --app-muted: #475569;
+  --app-panel-soft: #f5f4fa;
+  --app-glass: rgba(255, 255, 255, 0.86);
+  --app-border: rgba(47, 43, 61, 0.12);
+  --app-text: #2f2b3d;
+  --app-muted: #6f6b7d;
   --app-input: #ffffff;
-  --app-shadow: rgba(15, 23, 42, 0.12);
-  --app-inset: #f1f5f9;
-  --app-inset-strong: #e8eef6;
-  --app-blue-text: #2563eb;
+  --app-shadow: rgba(47, 43, 61, 0.12);
+  --app-inset: #f4f3f8;
+  --app-inset-strong: #eceaf3;
+  --app-blue-text: #7367f0;
+  --app-primary: #7367f0;
+  --app-primary-strong: #655bd3;
+  --app-primary-soft: rgba(115, 103, 240, 0.12);
 }
 
 .dark {
-  --app-bg: #0d1117;
-  --app-panel: #161b22;
-  --app-panel-soft: #111820;
-  --app-glass: rgba(13, 17, 23, 0.72);
-  --app-border: rgba(255, 255, 255, 0.08);
-  --app-text: #e6edf3;
-  --app-muted: #aeb9c7;
-  --app-input: rgba(255, 255, 255, 0.05);
+  --app-bg: #25293c;
+  --app-panel: #2f3349;
+  --app-panel-soft: #292d40;
+  --app-glass: rgba(47, 51, 73, 0.88);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-text: #e7e7f0;
+  --app-muted: #b6b5c3;
+  --app-input: #292d40;
   --app-shadow: rgba(0, 0, 0, 0.34);
-  --app-inset: rgba(255, 255, 255, 0.04);
+  --app-inset: rgba(255, 255, 255, 0.05);
   --app-inset-strong: rgba(0, 0, 0, 0.16);
-  --app-blue-text: #79c0ff;
+  --app-blue-text: #a8a1ff;
 }
 
 html,
@@ -86,49 +89,12 @@ body {
 }
 
 .app-sidebar {
-  width: 98px !important;
+  width: 240px !important;
   position: sticky;
   top: 0;
   height: 100vh;
-  background: var(--app-glass) !important;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 8px 0 28px var(--app-shadow);
-}
-
-.app-sidebar .sidebar-meta,
-.app-sidebar .sidebar-card {
-  display: none !important;
-}
-
-.app-sidebar .tab-item {
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px !important;
-  min-height: 54px;
-  padding: 7px 6px !important;
-  text-align: center;
-}
-
-.app-sidebar .sidebar-text {
-  display: block !important;
-  max-width: 78px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.app-sidebar .sidebar-controls {
-  display: block !important;
-  margin-left: 6px !important;
-  margin-right: 6px !important;
-  padding: 6px !important;
-}
-
-.app-sidebar .sidebar-control-grid {
-  display: grid !important;
+  background: var(--app-panel) !important;
+  box-shadow: 6px 0 24px rgba(47, 43, 61, 0.05);
 }
 
 .compact-btn {
@@ -205,9 +171,43 @@ body {
 
 .mobile-topbar {
   background: var(--app-glass) !important;
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  box-shadow: 0 12px 30px var(--app-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(47, 43, 61, 0.08);
+}
+
+.app-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 150;
+  min-height: 64px;
+  margin: 14px 18px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background: var(--app-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(47, 43, 61, 0.08);
+}
+
+.topbar-control {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel-soft);
+  color: var(--app-text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.topbar-control:hover {
+  color: var(--app-primary);
+  border-color: rgba(115, 103, 240, 0.35);
+  background: var(--app-primary-soft);
 }
 
 /*
@@ -356,15 +356,16 @@ body {
   }
 
   .mobile-main {
-    padding-top: calc(76px + env(safe-area-inset-top));
+    padding-top: 0;
   }
 
-  .mobile-topbar {
-    position: fixed !important;
-    top: calc(8px + env(safe-area-inset-top)) !important;
-    left: 10px !important;
-    right: 10px !important;
-    z-index: 220 !important;
+  .app-topbar {
+    position: sticky;
+    top: 0;
+    margin: 8px 10px 0;
+    min-height: 58px;
+    padding: 8px 10px;
+    z-index: 220;
   }
 
   .app-sidebar {
@@ -382,7 +383,7 @@ body {
     -webkit-backdrop-filter: blur(22px);
     border-right: 0 !important;
     border: 1px solid var(--app-border) !important;
-    border-radius: 18px 18px 0 0;
+    border-radius: 12px 12px 0 0;
     padding-bottom: env(safe-area-inset-bottom);
     box-shadow: 0 -16px 38px var(--app-shadow);
     overflow: hidden !important;
@@ -413,6 +414,10 @@ body {
     min-height: 44px;
     justify-content: center;
     border-radius: 12px !important;
+  }
+
+  .desktop-only {
+    display: none !important;
   }
 
   .mobile-stack {

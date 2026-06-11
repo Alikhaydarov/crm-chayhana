@@ -135,36 +135,36 @@ const GLOBAL_CSS = `
     transition: border-color .15s, box-shadow .15s !important;
   }
   .crm-input:focus {
-    border-color: #f97316 !important;
-    box-shadow: 0 0 0 3px rgba(249,115,22,.12) !important;
+    border-color: var(--app-primary) !important;
+    box-shadow: 0 0 0 3px var(--app-primary-soft) !important;
   }
   select.crm-input option { background: var(--app-panel); color: var(--app-text); }
 
   /* Buttons */
   .btn-primary {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    background: linear-gradient(135deg, #f97316, #ea580c);
-    border: none; color: #fff; border-radius: 11px;
-    padding: 11px 20px; font-weight: 800; cursor: pointer; font-size: 13px;
-    transition: all .18s; box-shadow: 0 4px 16px rgba(249,115,22,.3);
+    background: var(--app-primary);
+    border: none; color: #fff; border-radius: 8px;
+    padding: 9px 14px; min-height: 36px; font-weight: 700; cursor: pointer; font-size: 12px;
+    transition: all .18s; box-shadow: 0 4px 12px rgba(115,103,240,.24);
     white-space: nowrap; font-family: inherit;
   }
-  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(249,115,22,.4); }
+  .btn-primary:hover:not(:disabled) { background: var(--app-primary-strong); box-shadow: 0 6px 18px rgba(115,103,240,.3); }
   .btn-primary:active { transform: translateY(0); }
   .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
 
   .btn-ghost {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     background: var(--app-panel-soft); border: 1.5px solid var(--app-border);
-    color: var(--app-muted); border-radius: 11px;
-    padding: 11px 20px; font-weight: 700; cursor: pointer; font-size: 13px;
+    color: var(--app-muted); border-radius: 8px;
+    padding: 9px 14px; min-height: 36px; font-weight: 700; cursor: pointer; font-size: 12px;
     transition: all .15s; white-space: nowrap; font-family: inherit;
   }
-  .btn-ghost:hover { border-color: rgba(249,115,22,.4); color: var(--app-text); }
+  .btn-ghost:hover { border-color: rgba(115,103,240,.4); color: var(--app-primary); }
 
   .btn-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 9px; padding: 7px 12px; cursor: pointer; font-size: 12px;
+    border-radius: 7px; padding: 7px 10px; cursor: pointer; font-size: 12px;
     font-weight: 700; border: 1.5px solid transparent; transition: all .15s;
     font-family: inherit; white-space: nowrap;
   }
@@ -181,16 +181,16 @@ const GLOBAL_CSS = `
   }
   .crm-table tr:last-child td { border-bottom: none; }
   .crm-table tbody tr { transition: background .12s; }
-  .crm-table tbody tr:hover td { background: rgba(249,115,22,.04); }
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 16px; border: 1px solid var(--app-border); background: var(--app-panel); }
+  .crm-table tbody tr:hover td { background: var(--app-primary-soft); }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--app-border); background: var(--app-panel); }
 
   /* Cards */
   .stat-card {
     background: var(--app-panel); border: 1px solid var(--app-border);
-    border-radius: 16px; padding: 20px 18px;
+    border-radius: 8px; padding: 18px;
     transition: all .2s; cursor: default;
   }
-  .stat-card:hover { border-color: rgba(249,115,22,.35); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+  .stat-card:hover { border-color: rgba(115,103,240,.35); box-shadow: 0 8px 24px var(--app-shadow); }
 
   /* Modal */
   .modal-backdrop {
@@ -201,7 +201,7 @@ const GLOBAL_CSS = `
   }
   .modal-box {
     background: var(--app-panel); border: 1px solid var(--app-border);
-    border-radius: 22px 22px 0 0;
+    border-radius: 12px 12px 0 0;
     width: 100%; max-width: 620px; max-height: 92vh;
     overflow-y: auto; color: var(--app-text);
     padding: 28px 24px 32px;
@@ -226,10 +226,10 @@ const GLOBAL_CSS = `
     font-size: 13px; font-weight: 500; color: var(--app-muted);
     white-space: nowrap; overflow: hidden;
   }
-  .nav-item:hover { background: rgba(249,115,22,.07); color: var(--app-text); }
+  .nav-item:hover { background: var(--app-primary-soft); color: var(--app-primary); }
   .nav-item.active {
-    background: rgba(249,115,22,.12); color: #f97316; font-weight: 800;
-    border-color: rgba(249,115,22,.25);
+    background: linear-gradient(90deg, var(--app-primary), #8f85f3); color: #fff; font-weight: 700;
+    border-color: transparent; box-shadow: 0 5px 14px rgba(115,103,240,.25);
   }
   .nav-icon { font-size: 18px; flex-shrink: 0; }
 
@@ -246,7 +246,7 @@ const GLOBAL_CSS = `
     border: none; background: transparent; color: var(--app-muted);
     font-family: inherit; transition: all .15s;
   }
-  .bnav-btn.active { color: #f97316; background: rgba(249,115,22,.1); }
+  .bnav-btn.active { color: var(--app-primary); background: var(--app-primary-soft); }
   .bnav-icon { font-size: 22px; line-height: 1; }
   .bnav-label { font-size: 9px; font-weight: 800; letter-spacing: .2px; }
 
@@ -258,7 +258,7 @@ const GLOBAL_CSS = `
   .form-group { margin-bottom: 14px; }
 
   /* Sidebar */
-  .sidebar { display: flex; flex-direction: column; flex-shrink: 0; width: 230px; background: var(--app-panel); border-right: 1px solid var(--app-border); }
+  .sidebar { display: flex; flex-direction: column; flex-shrink: 0; width: 240px; background: var(--app-panel); border-right: 1px solid var(--app-border); }
 
   /* Responsive */
   @media (max-width: 768px) {
@@ -266,7 +266,7 @@ const GLOBAL_CSS = `
     .bottom-nav { display: block !important; }
     .page-pad { padding: 16px 14px 100px !important; }
     .modal-backdrop { align-items: flex-end; }
-    .modal-box { border-radius: 22px 22px 0 0; max-height: 88vh; }
+    .modal-box { border-radius: 12px 12px 0 0; max-height: 88vh; }
     .hide-mobile { display: none !important; }
     .stat-row { grid-template-columns: 1fr 1fr !important; }
     .firm-grid { grid-template-columns: 1fr !important; }
@@ -276,7 +276,7 @@ const GLOBAL_CSS = `
   }
   @media (min-width: 769px) {
     .modal-backdrop { align-items: center; padding: 20px; }
-    .modal-box { border-radius: 22px; max-height: 90vh; }
+    .modal-box { border-radius: 12px; max-height: 90vh; }
   }
 `;
 
@@ -290,7 +290,7 @@ function LoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; th
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
   const demos = [
-    { id:"super", password:"super123", label:"Bosh Admin", icon:"🏭", color:"#f97316" },
+    { id:"super", password:"super123", label:"Bosh Admin", icon:"🏭", color:"#7367f0" },
     { id:"rest1", password:"rest1",    label:"Oshxona-1",  icon:"🍽️", color:"#3fb950" },
     { id:"rest2", password:"rest2",    label:"Oshxona-2",  icon:"🍜", color:"#3b82f6" },
     { id:"shop1", password:"shop1",    label:"Do'kon",     icon:"🏪", color:"#a855f7" },
@@ -307,7 +307,7 @@ function LoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; th
       <div style={{width:"100%",maxWidth:400}}>
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:36}}>
-          <div style={{width:72,height:72,borderRadius:22,background:"linear-gradient(135deg,#f97316,#ea580c)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 12px 32px rgba(249,115,22,.4)",fontSize:32}}>🍽️</div>
+          <div style={{width:72,height:72,borderRadius:22,background:"linear-gradient(135deg,#7367f0,#655bd3)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 12px 32px rgba(115,103,240,.4)",fontSize:32}}>🍽️</div>
           <div style={{fontSize:28,fontWeight:900,color:"var(--app-text)",letterSpacing:-.5}}>Chayhana CRM</div>
           <div style={{fontSize:13,color:"var(--app-muted)",marginTop:6}}>Restoran boshqaruv tizimi</div>
         </div>
@@ -321,7 +321,7 @@ function LoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; th
           <div className="form-group">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
               <label className="form-label" style={{margin:0}}>Parol</label>
-              <button style={{fontSize:11,color:"#f97316",fontWeight:800,background:"none",border:"none",cursor:"pointer",padding:0}} onClick={()=>setShowPass(!showPass)}>{showPass?"Yashirish":"Ko'rish"}</button>
+              <button style={{fontSize:11,color:"#7367f0",fontWeight:800,background:"none",border:"none",cursor:"pointer",padding:0}} onClick={()=>setShowPass(!showPass)}>{showPass?"Yashirish":"Ko'rish"}</button>
             </div>
             <input className="crm-input" type={showPass?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Parolni kiriting" />
           </div>
@@ -424,10 +424,10 @@ export default function CRMApp() {
       )}
 
       {/* DESKTOP SIDEBAR */}
-      <aside className="sidebar">
+      <aside className="sidebar app-sidebar">
         {/* Brand */}
-        <div style={{padding:"18px 16px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#f97316,#ea580c)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🍽️</div>
+        <div className="brand-row" style={{padding:"18px 16px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:36,height:36,borderRadius:8,background:"linear-gradient(135deg,var(--app-primary),#8f85f3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0,color:"#fff",fontWeight:900}}>C</div>
           <div>
             <div style={{fontWeight:900,fontSize:14,letterSpacing:-.3}}>Chayhana CRM</div>
             <div style={{fontSize:10,color:"var(--app-muted)"}}>v3.0</div>
@@ -435,25 +435,27 @@ export default function CRMApp() {
         </div>
 
         {/* User card */}
-        <div style={{margin:"12px 10px",padding:"12px 14px",background:"linear-gradient(135deg,rgba(249,115,22,.1),rgba(234,88,12,.05))",border:"1px solid rgba(249,115,22,.2)",borderRadius:14}}>
-          <div style={{fontSize:22,marginBottom:4}}>{user.branchIcon}</div>
-          <div style={{fontWeight:800,fontSize:13}}>{user.name}</div>
-          <div style={{fontSize:11,color:"var(--app-muted)",marginTop:2}}>{user.branchName}</div>
+        <div className="sidebar-card" style={{margin:"12px 10px",padding:"12px",background:"var(--app-panel-soft)",border:"1px solid var(--app-border)",borderRadius:8,display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:34,height:34,borderRadius:8,background:"var(--app-primary-soft)",color:"var(--app-primary)",display:"grid",placeItems:"center",fontWeight:800}}>{user.branchIcon}</div>
+          <div style={{minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.name}</div>
+            <div style={{fontSize:11,color:"var(--app-muted)",marginTop:2}}>{user.branchName}</div>
+          </div>
         </div>
 
         {/* Nav */}
         <nav style={{flex:1,padding:"6px 8px",overflowY:"auto"}}>
           {TABS.map(nav=>(
-            <div key={nav.id} className={`nav-item${tab===nav.id?" active":""}`} onClick={()=>setTab(nav.id)}>
+            <div key={nav.id} className={`nav-item tab-item${tab===nav.id?" active":""}`} onClick={()=>setTab(nav.id)}>
               <span className="nav-icon">{nav.icon}</span>
-              <span style={{flex:1}}>{nav.label}</span>
-              {(nav.badge||0)>0 && <span style={{background:"#f97316",color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:10,fontWeight:900}}>{nav.badge}</span>}
+              <span className="sidebar-text" style={{flex:1}}>{nav.label}</span>
+              {(nav.badge||0)>0 && <span style={{background:tab===nav.id?"#fff":"var(--app-primary)",color:tab===nav.id?"var(--app-primary)":"#fff",borderRadius:20,padding:"1px 7px",fontSize:10,fontWeight:900}}>{nav.badge}</span>}
             </div>
           ))}
         </nav>
 
         {/* Footer */}
-        <div style={{padding:"8px 8px 12px",borderTop:"1px solid var(--app-border)"}}>
+        <div className="sidebar-footer" style={{padding:"8px 8px 12px",borderTop:"1px solid var(--app-border)"}}>
           <button onClick={()=>setTheme(theme==="dark"?"light":"dark")} style={{width:"100%",padding:"9px 12px",borderRadius:10,background:"var(--app-panel-soft)",border:"1.5px solid var(--app-border)",color:"var(--app-muted)",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:6,display:"flex",alignItems:"center",gap:8,fontFamily:"inherit"}}>
             <span>{theme==="dark"?"☀️":"🌙"}</span>{theme==="dark"?"Kunduzgi":"Tungi"} rejim
           </button>
@@ -467,7 +469,21 @@ export default function CRMApp() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main style={{flex:1,overflowY:"auto",minWidth:0}}>
+      <main className="mobile-main" style={{flex:1,overflowY:"auto",minWidth:0}}>
+        <header className="app-topbar mobile-topbar" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+            <div style={{width:34,height:34,borderRadius:8,background:"var(--app-primary)",color:"#fff",display:"grid",placeItems:"center",fontWeight:900,flexShrink:0}}>C</div>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{TABS.find(item=>item.id===tab)?.label}</div>
+              <div style={{fontSize:11,color:"var(--app-muted)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.name} · {user.branchName}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button className="topbar-control" title={lang==="uz"?"Koreys tiliga o'tish":"O'zbek tiliga o'tish"} onClick={()=>setLang(lang==="uz"?"ko":"uz")}>{lang==="uz"?"UZ":"KO"}</button>
+            <button className="topbar-control" title={theme==="dark"?"Kunduzgi rejim":"Tungi rejim"} onClick={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?"☀":"☾"}</button>
+            <button className="topbar-control" title={t.logout} onClick={()=>setUser(null)} style={{color:"#ea5455"}}>↪</button>
+          </div>
+        </header>
         {tab==="dashboard"  && <DashboardTab  {...tabProps} />}
         {tab==="warehouse"  && <WarehouseTab  {...tabProps} />}
         {tab==="transfers"  && <TransfersTab  {...tabProps} />}
@@ -535,12 +551,12 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
 
   const stats = isSA ? [
     { l:"Sklad qiymati",  v:fmtM(reports.mainStockValue), c:"#3fb950", bg:"rgba(63,185,80,.08)",  i:"💰" },
-    { l:"Mahsulot turlari",v:String(reports.totalProducts), c:"#f97316", bg:"rgba(249,115,22,.08)",i:"📦" },
+    { l:"Mahsulot turlari",v:String(reports.totalProducts), c:"#7367f0", bg:"rgba(115,103,240,.08)",i:"📦" },
     { l:"Jami xodimlar",  v:String(reports.totalStaff),    c:"#3b82f6", bg:"rgba(59,130,246,.08)",i:"👥" },
     { l:"Order qarzi",    v:fmtM(totalDebt),               c:totalDebt>0?"#f85149":"#3fb950", bg:totalDebt>0?"rgba(248,81,73,.08)":"rgba(63,185,80,.08)", i:"🏢" },
   ] : [
     { l:"Skladim",        v:fmtM(reports.branchStats?.find((b:any)=>b.branch===user.role)?.stockValue||0), c:"#3fb950", bg:"rgba(63,185,80,.08)", i:"💰" },
-    { l:"So'rovlarim",    v:String(transfers.length),      c:"#f97316", bg:"rgba(249,115,22,.08)",i:"🔄" },
+    { l:"So'rovlarim",    v:String(transfers.length),      c:"#7367f0", bg:"rgba(115,103,240,.08)",i:"🔄" },
     { l:"Kutilayotgan",   v:String(transfers.filter((t:any)=>t.status==="pending").length), c:"#f0a500", bg:"rgba(240,165,0,.08)", i:"⏳" },
     { l:"Firmalar",       v:String(companies.length),      c:"#a855f7", bg:"rgba(168,85,247,.08)",i:"🏢" },
   ];
@@ -566,7 +582,7 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
             {reports.branchStats.map((b:any,i:number)=>(
               <div key={b.branch} className="fade-up" style={{animationDelay:`${i*80}ms`,background:"var(--app-panel)",border:"1px solid var(--app-border)",borderRadius:16,padding:18,transition:"all .2s"}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-                  <div style={{width:40,height:40,borderRadius:12,background:"rgba(249,115,22,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{BICON[b.branch]}</div>
+                  <div style={{width:40,height:40,borderRadius:12,background:"rgba(115,103,240,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{BICON[b.branch]}</div>
                   <div>
                     <div style={{fontWeight:800,fontSize:14}}>{b.branchName}</div>
                     <div style={{fontSize:11,color:"var(--app-muted)"}}>{b.staffCount} xodim</div>
@@ -589,7 +605,7 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
       {/* Recent transfers */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
         <div style={{fontSize:15,fontWeight:800}}>🔄 Oxirgi transferlar</div>
-        <button className="btn-icon" onClick={()=>setTab("transfers")} style={{color:"#f97316",background:"rgba(249,115,22,.1)",borderColor:"rgba(249,115,22,.2)"}}>Barchasi →</button>
+        <button className="btn-icon" onClick={()=>setTab("transfers")} style={{color:"#7367f0",background:"rgba(115,103,240,.1)",borderColor:"rgba(115,103,240,.2)"}}>Barchasi →</button>
       </div>
       <div className="table-wrap">
         <table className="crm-table">
@@ -599,7 +615,7 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
               const st=ST_CFG[t.status as keyof typeof ST_CFG];
               return (
                 <tr key={t.id}>
-                  <td><span style={{fontFamily:"monospace",fontSize:11,color:"#f97316",background:"rgba(249,115,22,.08)",padding:"2px 8px",borderRadius:6}}>{t.id.slice(-8)}</span></td>
+                  <td><span style={{fontFamily:"monospace",fontSize:11,color:"#7367f0",background:"rgba(115,103,240,.08)",padding:"2px 8px",borderRadius:6}}>{t.id.slice(-8)}</span></td>
                   <td>{BICON[t.toBranch]} {BNAME[t.toBranch]}</td>
                   <td style={{color:"#3fb950",fontWeight:800}}>{fmtM(t.totalValue)}</td>
                   <td><span className="badge" style={{background:st.bg,color:st.c}}>{st.i} {st.l}</span></td>
@@ -683,7 +699,7 @@ function WarehouseTab({ products, stock, user, fetchAll, showToast, t }:any) {
                   <td><span style={{fontWeight:900,color:c,fontSize:15}}>{fmt(qty)}</span></td>
                   <td><span className="badge" style={{background:`${c}18`,color:c}}>{badge}</span></td>
                   {isSA&&<td>
-                    <button className="btn-icon" onClick={()=>{setEditP(p);setNewQty(String(stock[p.id]||0));}} style={{color:"#f97316",background:"rgba(249,115,22,.1)",borderColor:"rgba(249,115,22,.2)"}}>{t.edit}</button>
+                    <button className="btn-icon" onClick={()=>{setEditP(p);setNewQty(String(stock[p.id]||0));}} style={{color:"#7367f0",background:"rgba(115,103,240,.1)",borderColor:"rgba(115,103,240,.2)"}}>{t.edit}</button>
                   </td>}
                 </tr>
               );
@@ -747,7 +763,7 @@ function TransfersTab({ transfers, products, user, fetchAll, showToast, t }:any)
                 <button onClick={()=>setItems(items.filter((_,idx)=>idx!==i))} style={{background:"rgba(248,81,73,.1)",border:"1.5px solid rgba(248,81,73,.25)",color:"#f85149",borderRadius:9,cursor:"pointer",fontWeight:900,fontSize:16}}>×</button>
               </div>
             ))}
-            <button onClick={()=>setItems([...items,{pid:"",qty:1}])} style={{width:"100%",padding:"9px",borderRadius:10,border:"1.5px dashed rgba(249,115,22,.4)",background:"rgba(249,115,22,.05)",color:"#f97316",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit"}}>+ Mahsulot qo'shish</button>
+            <button onClick={()=>setItems([...items,{pid:"",qty:1}])} style={{width:"100%",padding:"9px",borderRadius:10,border:"1.5px dashed rgba(115,103,240,.4)",background:"rgba(115,103,240,.05)",color:"#7367f0",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit"}}>+ Mahsulot qo'shish</button>
           </div>
           <div className="form-group">
             <label className="form-label">ESLATMA</label>
@@ -817,7 +833,7 @@ function TransferCard({ t, isSA, onDetail, onApprove, onReject, lang }:any) {
   const st = ST_CFG[t.status as keyof typeof ST_CFG];
   return (
     <div style={{background:"var(--app-panel)",border:"1px solid var(--app-border)",borderRadius:14,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,transition:"all .2s"}}
-      onMouseEnter={e=>(e.currentTarget.style.borderColor="rgba(249,115,22,.3)")}
+      onMouseEnter={e=>(e.currentTarget.style.borderColor="rgba(115,103,240,.3)")}
       onMouseLeave={e=>(e.currentTarget.style.borderColor="var(--app-border)")}>
       <div>
         <div style={{fontWeight:800,marginBottom:4,display:"flex",alignItems:"center",gap:8}}>
@@ -828,7 +844,7 @@ function TransferCard({ t, isSA, onDetail, onApprove, onReject, lang }:any) {
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <span className="badge" style={{background:st.bg,color:st.c}}>{st.i} {st.l}</span>
-        <button className="btn-icon" onClick={onDetail} style={{color:"#f97316",background:"rgba(249,115,22,.1)",borderColor:"rgba(249,115,22,.2)"}}>Ko'rish</button>
+        <button className="btn-icon" onClick={onDetail} style={{color:"#7367f0",background:"rgba(115,103,240,.1)",borderColor:"rgba(115,103,240,.2)"}}>Ko'rish</button>
         {isSA&&t.status==="pending"&&<>
           <button className="btn-icon" onClick={onApprove} style={{color:"#3fb950",background:"rgba(63,185,80,.1)",borderColor:"rgba(63,185,80,.2)"}}>✅</button>
           <button className="btn-icon" onClick={onReject}  style={{color:"#f85149",background:"rgba(248,81,73,.1)",borderColor:"rgba(248,81,73,.2)"}}>❌</button>
@@ -897,7 +913,7 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
                   </div>
                 );
               })}
-              <button onClick={()=>setItems([...items,{pid:"",qty:1,price:0}])} style={{width:"100%",padding:"9px",borderRadius:10,border:"1.5px dashed rgba(249,115,22,.4)",background:"rgba(249,115,22,.05)",color:"#f97316",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit"}}>+ Mahsulot</button>
+              <button onClick={()=>setItems([...items,{pid:"",qty:1,price:0}])} style={{width:"100%",padding:"9px",borderRadius:10,border:"1.5px dashed rgba(115,103,240,.4)",background:"rgba(115,103,240,.05)",color:"#7367f0",cursor:"pointer",fontWeight:700,fontSize:13,fontFamily:"inherit"}}>+ Mahsulot</button>
             </div>
 
             {total>0&&<div style={{background:"linear-gradient(135deg,rgba(63,185,80,.08),rgba(63,185,80,.04))",border:"1px solid rgba(63,185,80,.25)",borderRadius:12,padding:"14px 16px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -941,7 +957,7 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
               const pay=PAY_CFG[o.payStatus]; const debt=o.totalPrice-o.paidAmount;
               return (
                 <tr key={o.id}>
-                  <td><span style={{fontFamily:"monospace",fontSize:11,color:"#f97316",background:"rgba(249,115,22,.08)",padding:"2px 8px",borderRadius:6}}>{o.id.slice(-8)}</span></td>
+                  <td><span style={{fontFamily:"monospace",fontSize:11,color:"#7367f0",background:"rgba(115,103,240,.08)",padding:"2px 8px",borderRadius:6}}>{o.id.slice(-8)}</span></td>
                   <td style={{fontWeight:700}}>🏢 {o.companyName}</td>
                   <td className="hide-mobile" style={{color:"var(--app-muted)",fontSize:12}}>{o.items.length} ta</td>
                   <td>
@@ -1059,10 +1075,10 @@ function ProductsTab({ products, stock, companies, fetchAll, showToast, t }:any)
                 <tr key={p.id}>
                   <td style={{color:"var(--app-muted)",fontSize:11,width:36}}>{i+1}</td>
                   <td style={{fontWeight:700}}>{p.name}</td>
-                  <td className="hide-mobile"><span className="badge" style={{background:"rgba(249,115,22,.08)",color:"#f97316"}}>{p.category}</span></td>
+                  <td className="hide-mobile"><span className="badge" style={{background:"rgba(115,103,240,.08)",color:"#7367f0"}}>{p.category}</span></td>
                   <td style={{color:"var(--app-muted)"}}>{p.unit}{p.perBox>0&&<span style={{marginLeft:6,fontSize:10,background:"rgba(59,130,246,.1)",color:"#3b82f6",padding:"2px 7px",borderRadius:8}}>1={p.perBox}{p.boxUnit}</span>}</td>
                   <td className="hide-mobile" style={{fontFamily:"monospace",fontSize:11,color:"var(--app-muted)"}}>{p.qrCode||<span style={{color:"var(--app-border)"}}>—</span>}</td>
-                  <td style={{color:"#f97316",fontWeight:800}}>{fmtM(p.pricePerUnit)}</td>
+                  <td style={{color:"#7367f0",fontWeight:800}}>{fmtM(p.pricePerUnit)}</td>
                   <td><span style={{fontWeight:900,color:c,fontSize:14}}>{fmt(qty)}</span> <span style={{fontSize:10,color:"var(--app-muted)"}}>{p.unit}</span></td>
                 </tr>
               );
@@ -1133,9 +1149,9 @@ function FirmsTab({ companies, orders, companyPayments, fetchAll, showToast, t }
       {payModal && (
         <Modal onClose={()=>setPayModal(null)}>
           <div className="modal-title">💳 To'lov kiritish</div>
-          <div style={{background:"linear-gradient(135deg,rgba(249,115,22,.1),rgba(234,88,12,.05))",border:"1px solid rgba(249,115,22,.25)",borderRadius:14,padding:"18px 20px",marginBottom:20,textAlign:"center"}}>
+          <div style={{background:"linear-gradient(135deg,rgba(115,103,240,.1),rgba(101,91,211,.05))",border:"1px solid rgba(115,103,240,.25)",borderRadius:14,padding:"18px 20px",marginBottom:20,textAlign:"center"}}>
             <div style={{fontSize:12,color:"var(--app-muted)",marginBottom:6,fontWeight:700}}>Order #{payModal.id.slice(-8)} · Qolgan qarz</div>
-            <div style={{fontWeight:900,fontSize:32,color:"#f97316"}}>{fmtM(payModal.totalPrice-payModal.paidAmount)}</div>
+            <div style={{fontWeight:900,fontSize:32,color:"#7367f0"}}>{fmtM(payModal.totalPrice-payModal.paidAmount)}</div>
           </div>
           <div className="form-group">
             <label className="form-label">TO'LOV SUMMASI</label>
@@ -1171,7 +1187,7 @@ function FirmsTab({ companies, orders, companyPayments, fetchAll, showToast, t }
           {/* View tabs */}
           <div style={{display:"flex",gap:6,marginBottom:20,background:"var(--app-panel-soft)",borderRadius:12,padding:4}}>
             {(["info","pay","history"] as const).map(v=>(
-              <button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"9px 4px",borderRadius:9,border:"none",background:view===v?"var(--app-panel)":"transparent",color:view===v?"#f97316":"var(--app-muted)",fontWeight:800,cursor:"pointer",fontSize:12,fontFamily:"inherit",boxShadow:view===v?"0 2px 8px rgba(0,0,0,.15)":"none",transition:"all .15s"}}>
+              <button key={v} onClick={()=>setView(v)} style={{flex:1,padding:"9px 4px",borderRadius:9,border:"none",background:view===v?"var(--app-panel)":"transparent",color:view===v?"#7367f0":"var(--app-muted)",fontWeight:800,cursor:"pointer",fontSize:12,fontFamily:"inherit",boxShadow:view===v?"0 2px 8px rgba(0,0,0,.15)":"none",transition:"all .15s"}}>
                 {v==="info"?t.info:v==="pay"?t.pay:t.history}
               </button>
             ))}
@@ -1206,7 +1222,7 @@ function FirmsTab({ companies, orders, companyPayments, fetchAll, showToast, t }
                   return (
                     <div key={o.id} style={{background:"var(--app-panel-soft)",borderRadius:12,padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                       <div>
-                        <div style={{fontWeight:800}}>Order <span style={{fontFamily:"monospace",color:"#f97316",fontSize:12}}>#{o.id.slice(-8)}</span></div>
+                        <div style={{fontWeight:800}}>Order <span style={{fontFamily:"monospace",color:"#7367f0",fontSize:12}}>#{o.id.slice(-8)}</span></div>
                         <div style={{fontSize:11,color:"var(--app-muted)",marginTop:2}}>{fmtDate(o.createdAt)} · {fmtM(o.totalPrice)}</div>
                         {debt>0&&<div style={{fontSize:12,color:"#f85149",fontWeight:700,marginTop:2}}>Qarz: {fmtM(debt)}</div>}
                       </div>
@@ -1234,7 +1250,7 @@ function FirmsTab({ companies, orders, companyPayments, fetchAll, showToast, t }
                       <tbody>
                         {cHistory(selected.id).map((p:CompanyPayment)=>(
                           <tr key={p.id}>
-                            <td style={{fontFamily:"monospace",fontSize:11,color:"#f97316"}}>{p.orderId.slice(-8)}</td>
+                            <td style={{fontFamily:"monospace",fontSize:11,color:"#7367f0"}}>{p.orderId.slice(-8)}</td>
                             <td style={{color:"#3fb950",fontWeight:800}}>+{fmtM(p.amount)}</td>
                             <td style={{color:"var(--app-muted)",fontSize:12}}>{p.note||"—"}</td>
                             <td style={{fontSize:11,color:"var(--app-muted)"}}>{fmtDate(p.createdAt)}</td>
@@ -1256,7 +1272,7 @@ function FirmsTab({ companies, orders, companyPayments, fetchAll, showToast, t }
           return (
             <div key={c.id} className="fade-up" style={{animationDelay:`${i*50}ms`,background:"var(--app-panel)",border:`1px solid ${debt>0?"rgba(248,81,73,.25)":"var(--app-border)"}`,borderRadius:18,padding:"20px 20px",cursor:"pointer",transition:"all .2s"}}
               onClick={()=>{setSelected(c);setView("info");}}
-              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 12px 32px rgba(0,0,0,.2)";e.currentTarget.style.borderColor=debt>0?"rgba(248,81,73,.4)":"rgba(249,115,22,.35)";}}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 12px 32px rgba(0,0,0,.2)";e.currentTarget.style.borderColor=debt>0?"rgba(248,81,73,.4)":"rgba(115,103,240,.35)";}}
               onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";e.currentTarget.style.borderColor=debt>0?"rgba(248,81,73,.25)":"var(--app-border)";}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16}}>
                 <div>
