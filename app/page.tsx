@@ -1,6 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import {
+  ArrowLeftRight, Boxes, ChevronLeft, ChevronRight, Languages,
+  LayoutDashboard, LogOut, Moon, Package, ShoppingCart, Store, Sun, Warehouse,
+} from "lucide-react";
+import {
   addProductLocal, addStaffLocal, approveTransferLocal, createTransferLocal,
   getLocalSnapshot, loginLocal, rejectTransferLocal, toggleStaffLocal,
   updateStockLocal, updateSupplierPayLocal, addCompanyLocal, createOrderLocal, payOrderLocal,
@@ -373,6 +377,7 @@ export default function CRMApp() {
   const [tab, setTab]       = useState("dashboard");
   const [theme, setTheme]   = useState<ThemeMode>("dark");
   const [lang, setLang]     = useState<Lang>("uz");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const t = I18N[lang];
   const [products, setProducts]   = useState<Product[]>([]);
   const [stock, setStock]         = useState<StockMap>({});
@@ -397,17 +402,19 @@ export default function CRMApp() {
   useEffect(()=>{ localStorage.setItem("crm-theme",theme); },[theme]);
   useEffect(()=>{ const s=localStorage.getItem("crm-lang") as Lang|null; if(s==="uz"||s==="ko") setLang(s); },[]);
   useEffect(()=>{ localStorage.setItem("crm-lang",lang); },[lang]);
+  useEffect(()=>{ setSidebarCollapsed(localStorage.getItem("crm-sidebar")!=="open"); },[]);
+  useEffect(()=>{ localStorage.setItem("crm-sidebar",sidebarCollapsed?"collapsed":"open"); },[sidebarCollapsed]);
 
   if (!user) return <LoginPage onLogin={setUser} theme={theme} setTheme={setTheme} />;
 
   const pending = transfers.filter((t:any)=>t.status==="pending").length;
   const TABS = [
-    { id:"dashboard", icon:"📊", label:t.dashboard },
-    { id:"warehouse",  icon:"📦", label:t.warehouse },
-    { id:"transfers",  icon:"🔄", label:t.transfers, badge: pending||0 },
-    { id:"orders",     icon:"🛒", label:t.orders },
-    { id:"products",   icon:"🏷️", label:t.products },
-    { id:"suppliers",  icon:"🏢", label:t.suppliers },
+    { id:"dashboard", icon:LayoutDashboard, label:t.dashboard },
+    { id:"warehouse", icon:Warehouse, label:t.warehouse },
+    { id:"transfers", icon:ArrowLeftRight, label:t.transfers, badge: pending||0 },
+    { id:"orders", icon:ShoppingCart, label:t.orders },
+    { id:"products", icon:Package, label:t.products },
+    { id:"suppliers", icon:Store, label:t.suppliers },
   ];
 
   const tabProps = { products, stock, transfers, reports, companies, orders, companyPayments, user, fetchAll, showToast, setTab, t, lang };
@@ -424,14 +431,17 @@ export default function CRMApp() {
       )}
 
       {/* DESKTOP SIDEBAR */}
-      <aside className="sidebar app-sidebar">
+      <aside className={`sidebar app-sidebar${sidebarCollapsed?" collapsed":""}`}>
         {/* Brand */}
-        <div className="brand-row" style={{padding:"18px 16px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:36,height:36,borderRadius:8,background:"linear-gradient(135deg,var(--app-primary),#8f85f3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0,color:"#fff",fontWeight:900}}>C</div>
-          <div>
+        <div className="brand-row" style={{padding:"16px 14px",borderBottom:"1px solid var(--app-border)",display:"flex",alignItems:"center",gap:10}}>
+          <button className="sidebar-toggle" title={sidebarCollapsed?"Menyuni ochish":"Menyuni yopish"} onClick={()=>setSidebarCollapsed(value=>!value)}>
+            <Boxes size={20} />
+          </button>
+          <div className="sidebar-brand-copy">
             <div style={{fontWeight:900,fontSize:14,letterSpacing:-.3}}>CRM-JUTSU</div>
             <div style={{fontSize:10,color:"var(--app-muted)"}}>v3.0</div>
           </div>
+          <button className="sidebar-collapse-action" title="Menyuni yopish" onClick={()=>setSidebarCollapsed(true)}><ChevronLeft size={17} /></button>
         </div>
 
         {/* User card */}
@@ -446,25 +456,23 @@ export default function CRMApp() {
         {/* Nav */}
         <nav style={{flex:1,padding:"6px 8px",overflowY:"auto"}}>
           {TABS.map(nav=>(
-            <div key={nav.id} className={`nav-item tab-item${tab===nav.id?" active":""}`} onClick={()=>setTab(nav.id)}>
-              <span className="nav-icon">{nav.icon}</span>
+            <button key={nav.id} title={nav.label} className={`nav-item tab-item${tab===nav.id?" active":""}`} onClick={()=>setTab(nav.id)}>
+              <span className="nav-icon"><nav.icon size={20} strokeWidth={1.8} /></span>
               <span className="sidebar-text" style={{flex:1}}>{nav.label}</span>
               {(nav.badge||0)>0 && <span style={{background:tab===nav.id?"#fff":"var(--app-primary)",color:tab===nav.id?"var(--app-primary)":"#fff",borderRadius:20,padding:"1px 7px",fontSize:10,fontWeight:900}}>{nav.badge}</span>}
-            </div>
+            </button>
           ))}
         </nav>
 
         {/* Footer */}
         <div className="sidebar-footer" style={{padding:"8px 8px 12px",borderTop:"1px solid var(--app-border)"}}>
-          <button onClick={()=>setTheme(theme==="dark"?"light":"dark")} style={{width:"100%",padding:"9px 12px",borderRadius:10,background:"var(--app-panel-soft)",border:"1.5px solid var(--app-border)",color:"var(--app-muted)",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:6,display:"flex",alignItems:"center",gap:8,fontFamily:"inherit"}}>
-            <span>{theme==="dark"?"☀️":"🌙"}</span>{theme==="dark"?"Kunduzgi":"Tungi"} rejim
+          <button className="sidebar-footer-button" title={theme==="dark"?"Kunduzgi rejim":"Tungi rejim"} onClick={()=>setTheme(theme==="dark"?"light":"dark")}>
+            {theme==="dark"?<Sun size={18}/>:<Moon size={18}/>}<span className="sidebar-text">{theme==="dark"?"Kunduzgi":"Tungi"} rejim</span>
           </button>
-          <button onClick={()=>setLang(lang==="uz"?"ko":"uz")} style={{width:"100%",padding:"9px 12px",borderRadius:10,background:lang==="ko"?"rgba(59,130,246,.1)":"var(--app-panel-soft)",border:`1.5px solid ${lang==="ko"?"rgba(59,130,246,.3)":"var(--app-border)"}`,color:lang==="ko"?"#3b82f6":"var(--app-muted)",fontSize:12,fontWeight:800,cursor:"pointer",marginBottom:6,display:"flex",alignItems:"center",gap:8,fontFamily:"inherit"}}>
-            <span>{lang==="uz"?"🇺🇿":"🇰🇷"}</span>{lang==="uz"?"O'zbek 🇺🇿":"한국어 🇰🇷"}
+          <button className="sidebar-footer-button" title={lang==="uz"?"Koreys tili":"O'zbek tili"} onClick={()=>setLang(lang==="uz"?"ko":"uz")}>
+            <Languages size={18}/><span className="sidebar-text">{lang==="uz"?"O'zbek":"한국어"}</span>
           </button>
-          <div className="nav-item" onClick={()=>setUser(null)} style={{color:"#f85149",border:"none"}}>
-            <span className="nav-icon">🚪</span> {t.logout}
-          </div>
+          <button className="sidebar-footer-button danger" title={t.logout} onClick={()=>setUser(null)}><LogOut size={18}/><span className="sidebar-text">{t.logout}</span></button>
         </div>
       </aside>
 
@@ -472,6 +480,7 @@ export default function CRMApp() {
       <main className="mobile-main" style={{flex:1,overflowY:"auto",minWidth:0}}>
         <header className="app-topbar mobile-topbar" style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+            <button className="topbar-control desktop-only" title={sidebarCollapsed?"Menyuni ochish":"Menyuni yopish"} onClick={()=>setSidebarCollapsed(value=>!value)}>{sidebarCollapsed?<ChevronRight size={18}/>:<ChevronLeft size={18}/>}</button>
             <div style={{width:34,height:34,borderRadius:8,background:"var(--app-primary)",color:"#fff",display:"grid",placeItems:"center",fontWeight:900,flexShrink:0}}>C</div>
             <div style={{minWidth:0}}>
               <div style={{fontSize:13,fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{TABS.find(item=>item.id===tab)?.label}</div>
@@ -498,7 +507,7 @@ export default function CRMApp() {
           {TABS.map(nav=>(
             <button key={nav.id} className={`bnav-btn${tab===nav.id?" active":""}`} onClick={()=>setTab(nav.id)}>
               <span className="bnav-icon" style={{position:"relative"}}>
-                {nav.icon}
+                <nav.icon size={21} strokeWidth={1.9} />
                 {(nav.badge||0)>0 && <span style={{position:"absolute",top:-4,right:-6,background:"#f85149",color:"#fff",borderRadius:20,padding:"0 4px",fontSize:8,fontWeight:900,lineHeight:"14px"}}>{nav.badge}</span>}
               </span>
               <span className="bnav-label">{nav.label.split(" ")[0]}</span>

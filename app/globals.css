@@ -95,6 +95,126 @@ body {
   height: 100vh;
   background: var(--app-panel) !important;
   box-shadow: 6px 0 24px rgba(47, 43, 61, 0.05);
+  transition: width 0.22s ease;
+  overflow: hidden;
+}
+
+.app-sidebar.collapsed {
+  width: 82px !important;
+}
+
+.sidebar-toggle,
+.sidebar-collapse-action {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: var(--app-primary);
+  color: #fff;
+  cursor: pointer;
+}
+
+.sidebar-collapse-action {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+  margin-left: auto;
+  background: var(--app-panel-soft);
+  color: var(--app-muted);
+  border: 1px solid var(--app-border);
+}
+
+.app-sidebar.collapsed .brand-row {
+  justify-content: center;
+  padding-inline: 12px !important;
+}
+
+.app-sidebar.collapsed .sidebar-brand-copy,
+.app-sidebar.collapsed .sidebar-collapse-action,
+.app-sidebar.collapsed .sidebar-card,
+.app-sidebar.collapsed .sidebar-text {
+  display: none !important;
+}
+
+.app-sidebar .nav-item {
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  font-family: inherit;
+}
+
+.app-sidebar.collapsed nav {
+  padding-inline: 12px !important;
+}
+
+.app-sidebar.collapsed .nav-item {
+  position: relative;
+  width: 54px;
+  height: 48px;
+  min-height: 48px;
+  justify-content: center;
+  padding: 0;
+  margin: 4px auto;
+  border-radius: 8px;
+}
+
+.app-sidebar.collapsed .nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  width: 3px;
+  height: 24px;
+  border-radius: 0 3px 3px 0;
+  background: #fff;
+}
+
+.app-sidebar.collapsed .nav-item > span:last-child:not(.nav-icon) {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  padding: 0 4px !important;
+  line-height: 16px;
+  text-align: center;
+}
+
+.sidebar-footer-button {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding: 8px 11px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel-soft);
+  color: var(--app-muted);
+  font: 700 12px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.sidebar-footer-button:hover {
+  color: var(--app-primary);
+  background: var(--app-primary-soft);
+}
+
+.sidebar-footer-button.danger {
+  color: #ea5455;
+}
+
+.app-sidebar.collapsed .sidebar-footer {
+  padding-inline: 12px !important;
+}
+
+.app-sidebar.collapsed .sidebar-footer-button {
+  width: 54px;
+  height: 42px;
+  justify-content: center;
+  padding: 0;
 }
 
 .compact-btn {
