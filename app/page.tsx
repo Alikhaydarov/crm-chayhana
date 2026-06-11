@@ -1,15 +1,17 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import {
-  ArrowLeftRight, Boxes, ChevronLeft, ChevronRight, Languages,
-  LayoutDashboard, LogOut, Moon, Package, ShoppingCart, Store, Sun, Warehouse,
+  ArrowLeft, ArrowLeftRight, Boxes, ChevronLeft, ChevronRight, FileSpreadsheet,
+  Languages, LayoutDashboard, LogOut, Moon, Package, ShoppingCart, Store, Sun,
+  TrendingUp, Upload, Warehouse,
 } from "lucide-react";
 import {
   addProductLocal, addStaffLocal, approveTransferLocal, createTransferLocal,
   getLocalSnapshot, loginLocal, rejectTransferLocal, toggleStaffLocal,
   updateStockLocal, updateSupplierPayLocal, addCompanyLocal, createOrderLocal, payOrderLocal,
+  importShopSalesLocal, saveProductBarcodeLocal,
 } from "@/lib/localStore";
-import type { Company, Order, CompanyPayment, OrderReceipt } from "@/lib/localStore";
+import type { Company, Order, CompanyPayment, OrderReceipt, ShopSaleImport } from "@/lib/localStore";
 
 type Role = "superadmin"|"restaurant1"|"restaurant2"|"shop";
 type UserInfo = { id:string; name:string; role:Role; branchName:string; branchIcon:string };
@@ -18,6 +20,17 @@ type StockMap = Record<string,number>;
 type Transfer = { id:string; toBranch:string; items:any[]; totalValue:number; requestedBy:string; approvedBy?:string; status:"pending"|"approved"|"rejected"; note?:string; createdAt:string; updatedAt:string };
 type ThemeMode = "dark"|"light";
 type Lang = "uz"|"ko";
+type ParsedShopSale = {
+  barcode:string;
+  sourceName:string;
+  supplier:string;
+  quantity:number;
+  salesAmount:number;
+  costAmount:number;
+  profitAmount:number;
+  averagePrice:number;
+  productId:string;
+};
 
 const I18N:Record<Lang,Record<string,string>> = {
   uz: {
@@ -100,6 +113,7 @@ const PAY_CFG = {
 };
 const fmt   = (n:number) => n.toLocaleString("uz-UZ");
 const fmtM  = (n:number) => `${fmt(n)} so'm`;
+const fmtKRW = (n:number) => `₩${fmt(n)}`;
 const fmtD  = (s:string) => new Date(s).toLocaleString("uz-UZ",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
 const fmtDate = (s:string) => new Date(s).toLocaleDateString("uz-UZ",{day:"2-digit",month:"short",year:"numeric"});
 
@@ -381,20 +395,24 @@ export default function CRMApp() {
   const t = I18N[lang];
   const [products, setProducts]   = useState<Product[]>([]);
   const [stock, setStock]         = useState<StockMap>({});
+  const [shopStock, setShopStock] = useState<StockMap>({});
   const [transfers, setTransfers] = useState<any[]>([]);
   const [reports, setReports]     = useState<any>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [orders, setOrders]       = useState<Order[]>([]);
   const [companyPayments, setCompanyPayments] = useState<CompanyPayment[]>([]);
+  const [shopSales, setShopSales] = useState<ShopSaleImport[]>([]);
   const { toast, show: showToast } = useToast();
 
   const fetchAll = useCallback(()=>{
     if (!user) return;
     const d:any = getLocalSnapshot(user);
     setProducts(d.products||[]); setStock(d.stock||{});
+    setShopStock(d.shopStock||{});
     setTransfers(d.transfers||[]); setReports(d.reports);
     setCompanies(d.companies||[]); setOrders(d.orders||[]);
     setCompanyPayments(d.companyPayments||[]);
+    setShopSales(d.shopSales||[]);
   },[user]);
 
   useEffect(()=>{ if(user) fetchAll(); },[user,fetchAll]);
@@ -417,7 +435,7 @@ export default function CRMApp() {
     { id:"suppliers", icon:Store, label:t.suppliers },
   ];
 
-  const tabProps = { products, stock, transfers, reports, companies, orders, companyPayments, user, fetchAll, showToast, setTab, t, lang };
+  const tabProps = { products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, user, fetchAll, showToast, setTab, t, lang };
 
   return (
     <div className={`${theme} theme-shell`} style={{display:"flex",height:"100vh",background:"var(--app-bg)",fontFamily:"var(--font-ui)",color:"var(--app-text)",overflow:"hidden"}}>
@@ -483,7 +501,7 @@ export default function CRMApp() {
             <button className="topbar-control desktop-only" title={sidebarCollapsed?"Menyuni ochish":"Menyuni yopish"} onClick={()=>setSidebarCollapsed(value=>!value)}>{sidebarCollapsed?<ChevronRight size={18}/>:<ChevronLeft size={18}/>}</button>
             <div style={{width:34,height:34,borderRadius:8,background:"var(--app-primary)",color:"#fff",display:"grid",placeItems:"center",fontWeight:900,flexShrink:0}}>C</div>
             <div style={{minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{TABS.find(item=>item.id===tab)?.label}</div>
+              <div style={{fontSize:13,fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tab==="shop-sales"?"Do'kon savdosi":TABS.find(item=>item.id===tab)?.label}</div>
               <div style={{fontSize:11,color:"var(--app-muted)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user.name} · {user.branchName}</div>
             </div>
           </div>
@@ -499,6 +517,7 @@ export default function CRMApp() {
         {tab==="orders"     && <OrdersTab     {...tabProps} />}
         {tab==="products"   && <ProductsTab   {...tabProps} />}
         {tab==="suppliers"  && <FirmsTab      {...tabProps} />}
+        {tab==="shop-sales" && <ShopSalesTab  {...tabProps} />}
       </main>
 
       {/* MOBILE BOTTOM NAV */}
@@ -571,7 +590,8 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
   ];
 
   return (
-    <PageWrap title={`${user.branchIcon} ${user.branchName}`} sub={today}>
+    <PageWrap title={`${user.branchIcon} ${user.branchName}`} sub={today}
+      action={user.role==="shop"?<button className="btn-primary" onClick={()=>setTab("shop-sales")}><TrendingUp size={16}/> Savdo tahlili</button>:undefined}>
       {/* Stats */}
       <div className="stat-row" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:28}}>
         {stats.map((s,i)=>(
@@ -589,13 +609,16 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
           <div style={{fontSize:15,fontWeight:800,marginBottom:14,display:"flex",alignItems:"center",gap:8}}>🏢 Filiallar <span style={{color:"var(--app-muted)",fontWeight:500,fontSize:13}}>holati</span></div>
           <div className="branch-grid" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
             {reports.branchStats.map((b:any,i:number)=>(
-              <div key={b.branch} className="fade-up" style={{animationDelay:`${i*80}ms`,background:"var(--app-panel)",border:"1px solid var(--app-border)",borderRadius:16,padding:18,transition:"all .2s"}}>
+              <button key={b.branch} className="fade-up branch-summary-card" onClick={()=>b.branch==="shop"&&setTab("shop-sales")}
+                disabled={b.branch!=="shop"}
+                style={{animationDelay:`${i*80}ms`,background:"var(--app-panel)",border:"1px solid var(--app-border)",borderRadius:8,padding:18,transition:"all .2s",color:"var(--app-text)",fontFamily:"inherit",textAlign:"left",cursor:b.branch==="shop"?"pointer":"default",width:"100%"}}>
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-                  <div style={{width:40,height:40,borderRadius:12,background:"rgba(115,103,240,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{BICON[b.branch]}</div>
-                  <div>
+                  <div style={{width:40,height:40,borderRadius:8,background:"rgba(115,103,240,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{BICON[b.branch]}</div>
+                  <div style={{flex:1}}>
                     <div style={{fontWeight:800,fontSize:14}}>{b.branchName}</div>
                     <div style={{fontSize:11,color:"var(--app-muted)"}}>{b.staffCount} xodim</div>
                   </div>
+                  {b.branch==="shop"&&<ChevronRight size={18} color="var(--app-primary)" />}
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                   {[["Sklad",fmtM(b.stockValue),"#3fb950"],["Kam qoldi",b.lowStockCount,b.lowStockCount>0?"#f85149":"#3fb950"]].map(([l,v,c])=>(
@@ -605,7 +628,7 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
                     </div>
                   ))}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -636,6 +659,270 @@ function DashboardTab({ reports, user, setTab, transfers, orders, companies, t }
           </tbody>
         </table>
       </div>
+    </PageWrap>
+  );
+}
+
+function fileDate(fileName:string) {
+  const match = fileName.match(/(20\d{2})[_-](\d{2})[_-](\d{2})/);
+  if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime()-offset).toISOString().slice(0,10);
+}
+
+function sourceHash(text:string) {
+  let hash = 2166136261;
+  for (let index=0;index<text.length;index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash,16777619);
+  }
+  return (hash>>>0).toString(36);
+}
+
+async function parseShopWorkbook(file:File, products:Product[]):Promise<ParsedShopSale[]> {
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(await file.arrayBuffer());
+  const worksheet = workbook.worksheets[0];
+  const rows:any[][] = [];
+  worksheet.eachRow({includeEmpty:true},row=>rows.push((row.values as any[]).slice(1)));
+  const headerIndex = rows.findIndex((row,index)=>{
+    const next = rows[index+1];
+    return index<10 && Boolean(row?.[0]) && Boolean(next?.[0]) && Number(next?.[6])>0 && !Number(row?.[6]);
+  });
+  if (headerIndex<0) throw new Error("Excel savdo ustunlari tanilmadi");
+
+  return rows.slice(headerIndex+1).flatMap(row=>{
+    const barcode = String(row?.[0]??"").trim();
+    const sourceName = String(row?.[1]??"").trim();
+    const quantity = Number(row?.[6]||0);
+    if (!barcode||!sourceName||quantity<=0) return [];
+    const product = products.find(item=>item.qrCode?.trim()===barcode);
+    return [{
+      barcode,
+      sourceName,
+      supplier:String(row?.[2]??"").trim(),
+      quantity,
+      salesAmount:Number(row?.[16]??row?.[3]??0),
+      averagePrice:Number(row?.[7]||0),
+      costAmount:Number(row?.[24]||0),
+      profitAmount:Number(row?.[25]||0),
+      productId:product?.id||"",
+    }];
+  });
+}
+
+function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, setTab }:any) {
+  const [showImport,setShowImport] = useState(false);
+  const [rows,setRows] = useState<ParsedShopSale[]>([]);
+  const [fileName,setFileName] = useState("");
+  const [sourceKey,setSourceKey] = useState("");
+  const [saleDate,setSaleDate] = useState("");
+  const [reading,setReading] = useState(false);
+  const [saving,setSaving] = useState(false);
+  const [dateFilter,setDateFilter] = useState("all");
+  const [detail,setDetail] = useState<ShopSaleImport|null>(null);
+
+  const imports = shopSales as ShopSaleImport[];
+  const filteredImports = dateFilter==="all" ? imports : imports.filter(item=>item.saleDate===dateFilter);
+  const totalSales = filteredImports.reduce((sum,item)=>sum+item.totalSales,0);
+  const totalCost = filteredImports.reduce((sum,item)=>sum+item.totalCost,0);
+  const totalProfit = filteredImports.reduce((sum,item)=>sum+item.totalProfit,0);
+  const totalQuantity = filteredImports.reduce((sum,item)=>sum+item.totalQuantity,0);
+  const margin = totalSales>0 ? totalProfit/totalSales*100 : 0;
+
+  const daily = Object.values(imports.reduce((map:Record<string,{date:string;sales:number;profit:number;quantity:number}>,item)=>{
+    const current = map[item.saleDate]||{date:item.saleDate,sales:0,profit:0,quantity:0};
+    current.sales += item.totalSales;
+    current.profit += item.totalProfit;
+    current.quantity += item.totalQuantity;
+    map[item.saleDate]=current;
+    return map;
+  },{})).sort((a,b)=>b.date.localeCompare(a.date));
+  const maxDaily = Math.max(1,...daily.map(item=>item.sales));
+
+  const productStats = Object.values(filteredImports.flatMap(item=>item.items).reduce((map:Record<string,{id:string;name:string;barcode:string;quantity:number;sales:number;profit:number}>,item)=>{
+    const current=map[item.productId]||{id:item.productId,name:item.productName,barcode:item.barcode,quantity:0,sales:0,profit:0};
+    current.quantity+=item.quantity; current.sales+=item.salesAmount; current.profit+=item.profitAmount;
+    map[item.productId]=current;
+    return map;
+  },{})).sort((a,b)=>b.sales-a.sales);
+
+  const resetImport = () => {
+    setRows([]); setFileName(""); setSourceKey(""); setSaleDate(""); setShowImport(false);
+  };
+
+  const readFile = async (file?:File) => {
+    if (!file) return;
+    if (!/\.xlsx$/i.test(file.name)) { showToast("Faqat Excel .xlsx fayl tanlang","error"); return; }
+    setReading(true);
+    try {
+      const parsed = await parseShopWorkbook(file,products);
+      if (!parsed.length) throw new Error("Sotilgan mahsulot qatorlari topilmadi");
+      const date = fileDate(file.name);
+      const fingerprint = sourceHash(`${date}|${parsed.map(item=>`${item.barcode}:${item.quantity}:${item.salesAmount}`).join("|")}`);
+      setRows(parsed); setFileName(file.name); setSaleDate(date); setSourceKey(fingerprint); setShowImport(true);
+    } catch (error:any) {
+      showToast(error?.message||"Excel faylni o'qib bo'lmadi","error");
+    } finally {
+      setReading(false);
+    }
+  };
+
+  const mapRow = (index:number,productId:string) => {
+    setRows(current=>current.map((row,rowIndex)=>rowIndex===index?{...row,productId}:row));
+  };
+
+  const submitImport = () => {
+    const unresolved = rows.filter(row=>!row.productId);
+    if (unresolved.length) { showToast(`${unresolved.length} ta shtrix-kodni mahsulotga bog'lang`,"error"); return; }
+    const mappedCodes = new Map<string,string>();
+    for (const row of rows) {
+      const previousCode = mappedCodes.get(row.productId);
+      if (previousCode && previousCode!==row.barcode) {
+        const product = products.find((item:Product)=>item.id===row.productId);
+        showToast(`"${product?.name||row.productId}" mahsulotiga bir nechta shtrix-kod tanlangan`,"error");
+        return;
+      }
+      mappedCodes.set(row.productId,row.barcode);
+    }
+    setSaving(true);
+    for (const row of rows) {
+      const product = products.find((item:Product)=>item.id===row.productId);
+      if (product?.qrCode?.trim()!==row.barcode) {
+        const mapped = saveProductBarcodeLocal(row.productId,row.barcode);
+        if (!mapped.success) { showToast(mapped.message||"Shtrix-kod saqlanmadi","error"); setSaving(false); return; }
+      }
+    }
+    const result = importShopSalesLocal({sourceKey,fileName,saleDate,rows});
+    if (result.success) {
+      showToast(`${rows.length} ta mahsulot savdosi import qilindi`);
+      resetImport(); fetchAll();
+    } else showToast(result.message||"Import amalga oshmadi","error");
+    setSaving(false);
+  };
+
+  return (
+    <PageWrap
+      title={<span style={{display:"flex",alignItems:"center",gap:10}}><button className="topbar-control" onClick={()=>setTab("dashboard")} title="Dashboardga qaytish"><ArrowLeft size={18}/></button> Do'kon savdo tahlili</span>}
+      sub="Excel savdolar, foyda va sklad harakati"
+      action={<label className="btn-primary" style={{display:"inline-flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+        <Upload size={17}/>{reading?"O'qilmoqda...":"Excel import"}
+        <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event=>readFile(event.target.files?.[0])} disabled={reading} style={{display:"none"}} />
+      </label>}>
+
+      <div className="sales-filter-row">
+        <div>
+          <div className="form-label" style={{marginBottom:6}}>DAVR</div>
+          <select className="crm-input" value={dateFilter} onChange={event=>setDateFilter(event.target.value)} style={{minWidth:190}}>
+            <option value="all">Barcha sanalar</option>
+            {daily.map(item=><option key={item.date} value={item.date}>{fmtDate(`${item.date}T12:00:00`)}</option>)}
+          </select>
+        </div>
+        <div style={{fontSize:12,color:"var(--app-muted)",alignSelf:"end",paddingBottom:10}}>{filteredImports.length} ta import</div>
+      </div>
+
+      <div className="shop-kpi-grid">
+        {[
+          {label:"Jami savdo",value:fmtKRW(totalSales),color:"#3b82f6",icon:<TrendingUp size={20}/>},
+          {label:"Sof foyda",value:fmtKRW(totalProfit),color:totalProfit>=0?"#28c76f":"#ea5455",icon:<span>₩</span>},
+          {label:"Foyda marjasi",value:`${margin.toFixed(1)}%`,color:"#7367f0",icon:<span>%</span>},
+          {label:"Sotilgan",value:`${fmt(totalQuantity)} dona`,color:"#ff9f43",icon:<Package size={20}/>},
+        ].map(item=><div key={item.label} className="sales-kpi">
+          <div className="sales-kpi-icon" style={{color:item.color,background:`${item.color}16`}}>{item.icon}</div>
+          <div><div style={{fontSize:11,color:"var(--app-muted)",fontWeight:700}}>{item.label}</div><div style={{fontSize:18,fontWeight:900,color:item.color,marginTop:4}}>{item.value}</div></div>
+        </div>)}
+      </div>
+
+      <div className="shop-sales-layout">
+        <section className="sales-panel">
+          <div className="sales-panel-head"><div><div className="sales-panel-title">Kunlik natija</div><div className="sales-panel-sub">Savdo va foyda dinamikasi</div></div></div>
+          <div className="daily-chart">
+            {daily.slice(0,14).reverse().map(item=><button key={item.date} className="daily-bar-item" onClick={()=>setDateFilter(item.date)} title={`${item.date}: ${fmtKRW(item.sales)}`}>
+              <div className="daily-bar-value">{fmt(item.sales)}</div>
+              <div className="daily-bar-track"><div className="daily-bar-fill" style={{height:`${Math.max(8,item.sales/maxDaily*100)}%`}} /></div>
+              <div className="daily-bar-date">{item.date.slice(5).replace("-","/")}</div>
+            </button>)}
+            {!daily.length&&<div className="empty-sales"><FileSpreadsheet size={34}/><strong>Hali savdo import qilinmagan</strong><span>Excel faylni yuklang</span></div>}
+          </div>
+        </section>
+
+        <section className="sales-panel">
+          <div className="sales-panel-head"><div><div className="sales-panel-title">Importlar tarixi</div><div className="sales-panel-sub">Skladga qo'llangan fayllar</div></div></div>
+          <div className="import-history">
+            {imports.slice(0,8).map(item=><button key={item.id} className="import-history-row" onClick={()=>setDetail(item)}>
+              <div className="file-square"><FileSpreadsheet size={18}/></div>
+              <div style={{minWidth:0,flex:1}}><div className="history-file">{item.fileName}</div><div className="history-meta">{fmtDate(`${item.saleDate}T12:00:00`)} · {item.items.length} mahsulot</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontWeight:900,color:"#28c76f",fontSize:13}}>{fmtKRW(item.totalProfit)}</div><div style={{fontSize:10,color:"var(--app-muted)"}}>{fmt(item.totalQuantity)} dona</div></div>
+            </button>)}
+            {!imports.length&&<div style={{padding:28,textAlign:"center",color:"var(--app-muted)",fontSize:13}}>Importlar yo'q</div>}
+          </div>
+        </section>
+      </div>
+
+      <section className="sales-panel" style={{marginTop:16}}>
+        <div className="sales-panel-head"><div><div className="sales-panel-title">Mahsulotlar bo'yicha savdo</div><div className="sales-panel-sub">Tanlangan davr natijalari</div></div></div>
+        <div className="table-wrap">
+          <table className="crm-table">
+            <thead><tr><th>Mahsulot</th><th>Shtrix-kod</th><th>Sotildi</th><th>Savdo</th><th>Foyda</th><th>Do'kon skladi</th></tr></thead>
+            <tbody>
+              {productStats.map(item=><tr key={item.id}>
+                <td style={{fontWeight:800}}>{item.name}</td>
+                <td style={{fontFamily:"monospace",fontSize:11,color:"var(--app-muted)"}}>{item.barcode}</td>
+                <td>{fmt(item.quantity)}</td>
+                <td style={{fontWeight:800}}>{fmtKRW(item.sales)}</td>
+                <td style={{fontWeight:900,color:item.profit>=0?"#28c76f":"#ea5455"}}>{fmtKRW(item.profit)}</td>
+                <td style={{fontWeight:800,color:(shopStock[item.id]||0)<0?"#ea5455":"var(--app-text)"}}>{fmt(shopStock[item.id]||0)}</td>
+              </tr>)}
+              {!productStats.length&&<tr><td colSpan={6} style={{padding:36,textAlign:"center",color:"var(--app-muted)"}}>Tanlangan davrda savdo yo'q</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {showImport&&<Modal onClose={resetImport}>
+        <div className="modal-title" style={{display:"flex",alignItems:"center",gap:9}}><FileSpreadsheet size={20}/> Excel importni tekshirish</div>
+        <div className="import-summary-grid">
+          <div><span>Fayl</span><strong title={fileName}>{fileName}</strong></div>
+          <div><span>Sana</span><input className="crm-input" type="date" value={saleDate} onChange={event=>setSaleDate(event.target.value)} /></div>
+          <div><span>Qatorlar</span><strong>{rows.length} ta</strong></div>
+          <div><span>Topilmagan</span><strong style={{color:rows.some(row=>!row.productId)?"#ea5455":"#28c76f"}}>{rows.filter(row=>!row.productId).length} ta</strong></div>
+        </div>
+        <div className="import-preview">
+          {rows.map((row,index)=><div key={`${row.barcode}-${index}`} className={`mapping-row${row.productId?" matched":" unresolved"}`}>
+            <div style={{minWidth:0}}><div style={{fontWeight:800,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.sourceName}</div><div style={{fontFamily:"monospace",fontSize:11,color:"var(--app-muted)",marginTop:3}}>{row.barcode} · {fmt(row.quantity)} dona</div></div>
+            <div style={{fontWeight:800,textAlign:"right"}}>{fmtKRW(row.salesAmount)}</div>
+            <select className="crm-input" value={row.productId} onChange={event=>mapRow(index,event.target.value)}>
+              <option value="">Mahsulotni tanlang</option>
+              {products.map((product:Product)=><option key={product.id} value={product.id}>{product.name} · {product.qrCode}</option>)}
+            </select>
+          </div>)}
+        </div>
+        <div className="import-warning">Import tasdiqlanganda sotilgan miqdor Do'kon skladidan ayiriladi. Manfiy sklad alohida qizil ko'rsatiladi.</div>
+        <div style={{display:"flex",gap:10}}>
+          <button className="btn-ghost" onClick={resetImport} style={{flex:1}}>Bekor</button>
+          <button className="btn-primary" onClick={submitImport} disabled={saving||rows.some(row=>!row.productId)} style={{flex:2}}>{saving?"Saqlanmoqda...":`Import qilish · ${fmtKRW(rows.reduce((sum,row)=>sum+row.salesAmount,0))}`}</button>
+        </div>
+      </Modal>}
+
+      {detail&&<Modal onClose={()=>setDetail(null)}>
+        <div className="modal-title">{fmtDate(`${detail.saleDate}T12:00:00`)} savdosi</div>
+        <div className="import-summary-grid">
+          <div><span>Savdo</span><strong>{fmtKRW(detail.totalSales)}</strong></div>
+          <div><span>Tannarx</span><strong>{fmtKRW(detail.totalCost)}</strong></div>
+          <div><span>Foyda</span><strong style={{color:detail.totalProfit>=0?"#28c76f":"#ea5455"}}>{fmtKRW(detail.totalProfit)}</strong></div>
+          <div><span>Sotildi</span><strong>{fmt(detail.totalQuantity)} dona</strong></div>
+        </div>
+        <div className="import-preview">
+          {detail.items.map(item=><div key={`${detail.id}-${item.barcode}`} className="mapping-row matched">
+            <div><div style={{fontWeight:800}}>{item.productName}</div><div style={{fontSize:11,color:"var(--app-muted)",marginTop:3}}>{item.barcode} · {fmt(item.quantity)} dona</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontWeight:800}}>{fmtKRW(item.salesAmount)}</div><div style={{fontSize:11,color:item.profitAmount>=0?"#28c76f":"#ea5455"}}>{fmtKRW(item.profitAmount)} foyda</div></div>
+            <div style={{textAlign:"right",fontSize:12,color:item.shortage>0?"#ea5455":"var(--app-muted)"}}>Sklad {fmt(item.stockBefore)} → {fmt(item.stockAfter)}</div>
+          </div>)}
+        </div>
+        <button className="btn-primary" onClick={()=>setDetail(null)} style={{width:"100%"}}>Yopish</button>
+      </Modal>}
     </PageWrap>
   );
 }

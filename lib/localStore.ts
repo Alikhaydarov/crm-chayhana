@@ -19,6 +19,36 @@ export type CompanyPayment = {
   createdAt: string;
 };
 
+export type ShopSaleItem = {
+  barcode: string;
+  sourceName: string;
+  supplier: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  salesAmount: number;
+  costAmount: number;
+  profitAmount: number;
+  averagePrice: number;
+  stockBefore: number;
+  stockAfter: number;
+  shortage: number;
+};
+
+export type ShopSaleImport = {
+  id: string;
+  sourceKey: string;
+  fileName: string;
+  saleDate: string;
+  items: ShopSaleItem[];
+  totalQuantity: number;
+  totalSales: number;
+  totalCost: number;
+  totalProfit: number;
+  shortageCount: number;
+  createdAt: string;
+};
+
 export type OrderItem = {
   productId: string;
   productName: string;
@@ -117,6 +147,7 @@ type CRMState = {
   companies: Company[];
   orders: Order[];
   companyPayments: CompanyPayment[];
+  shopSales: ShopSaleImport[];
 };
 
 const STORAGE_KEY = "oshxona-crm-local-storage-v1";
@@ -254,6 +285,7 @@ function createInitialState(): CRMState {
     ],
     orders: [],
     companyPayments: [],
+    shopSales: [],
   };
 }
 
@@ -294,6 +326,7 @@ function normalizeState(value: Partial<CRMState> | null): CRMState {
     companies: value.companies || base.companies,
     orders: value.orders || base.orders,
     companyPayments: value.companyPayments || base.companyPayments,
+    shopSales: value.shopSales || base.shopSales,
   };
 }
 
@@ -412,6 +445,7 @@ export function getLocalSnapshot(user: UserInfo) {
   return {
     products: state.products,
     stock: getBranchStock(state, branch),
+    shopStock: state.branchStock.shop,
     transfers,
     suppliers: state.suppliers,
     staff,
@@ -419,7 +453,79 @@ export function getLocalSnapshot(user: UserInfo) {
     companies: state.companies,
     orders: state.orders,
     companyPayments: state.companyPayments,
+    shopSales: state.shopSales,
   };
+}
+
+export function saveProductBarcodeLocal(productId: string, barcode: string) {
+  const state = readCRMState();
+  const product = state.products.find(item => item.id === productId);
+  if (!product) return { success: false, message: "Mahsulot topilmadi" };
+  const normalized = barcode.trim();
+  const duplicate = state.products.find(item => item.id !== productId && item.qrCode?.trim() === normalized);
+  if (duplicate) return { success: false, message: `Bu shtrix-kod "${duplicate.name}" mahsulotiga biriktirilgan` };
+  product.qrCode = normalized;
+  writeCRMState(state);
+  return { success: true };
+}
+
+export function importShopSalesLocal(data: {
+  sourceKey: string;
+  fileName: string;
+  saleDate: string;
+  rows: {
+    barcode: string;
+    sourceName: string;
+    supplier: string;
+    productId: string;
+    quantity: number;
+    salesAmount: number;
+    costAmount: number;
+    profitAmount: number;
+    averagePrice: number;
+  }[];
+}) {
+  const state = readCRMState();
+  if (state.shopSales.some(item => item.sourceKey === data.sourceKey)) {
+    return { success: false, message: "Bu Excel fayl avval import qilingan" };
+  }
+  if (!data.saleDate || !data.rows.length) return { success: false, message: "Import ma'lumoti bo'sh" };
+
+  const items: ShopSaleItem[] = [];
+  for (const row of data.rows) {
+    const product = state.products.find(item => item.id === row.productId);
+    if (!product) return { success: false, message: `"${row.sourceName}" mahsuloti bazada topilmadi` };
+    const stockBefore = state.branchStock.shop[product.id] || 0;
+    const stockAfter = stockBefore - row.quantity;
+    items.push({
+      ...row,
+      productName: product.name,
+      stockBefore,
+      stockAfter,
+      shortage: Math.max(0, -stockAfter),
+    });
+  }
+
+  items.forEach(item => {
+    state.branchStock.shop[item.productId] = item.stockAfter;
+  });
+
+  const saleImport: ShopSaleImport = {
+    id: makeId("SALE"),
+    sourceKey: data.sourceKey,
+    fileName: data.fileName,
+    saleDate: data.saleDate,
+    items,
+    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    totalSales: items.reduce((sum, item) => sum + item.salesAmount, 0),
+    totalCost: items.reduce((sum, item) => sum + item.costAmount, 0),
+    totalProfit: items.reduce((sum, item) => sum + item.profitAmount, 0),
+    shortageCount: items.filter(item => item.shortage > 0).length,
+    createdAt: new Date().toISOString(),
+  };
+  state.shopSales.unshift(saleImport);
+  writeCRMState(state);
+  return { success: true, saleImport };
 }
 
 export function updateStockLocal(productId: string, quantity: number) {
