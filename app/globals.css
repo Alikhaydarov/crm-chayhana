@@ -746,6 +746,27 @@ body {
 }
 
 @media (max-width: 720px) {
+  .sales-filter-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .sales-filter-row > div {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .sales-filter-row .crm-input {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .sales-filter-row > div:last-child {
+    align-self: auto !important;
+    padding-bottom: 0 !important;
+  }
+
   .shop-kpi-grid {
     gap: 8px;
   }
@@ -753,12 +774,43 @@ body {
   .sales-kpi {
     min-height: 82px;
     padding: 12px;
+    min-width: 0;
   }
 
   .sales-kpi-icon {
     width: 34px;
     height: 34px;
     flex-basis: 34px;
+  }
+
+  .sales-kpi > div:last-child {
+    min-width: 0;
+  }
+
+  .sales-kpi > div:last-child > div:last-child {
+    font-size: 15px !important;
+    white-space: nowrap;
+  }
+
+  .daily-chart {
+    min-height: 220px;
+    padding: 14px 12px 12px;
+    justify-content: flex-start;
+  }
+
+  .daily-bar-item {
+    min-width: 50px;
+    flex: 0 0 50px;
+  }
+
+  .daily-bar-track {
+    min-height: 125px;
+    padding: 0 6px;
+  }
+
+  .sales-panel-head {
+    min-height: 58px;
+    padding: 12px 14px;
   }
 
   .mapping-row {
