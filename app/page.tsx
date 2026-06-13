@@ -6,11 +6,11 @@ import {
   TrendingUp, Upload, Warehouse,
 } from "lucide-react";
 import {
-  addProductLocal, addStaffLocal, approveTransferLocal, createTransferLocal,
-  getLocalSnapshot, loginLocal, rejectTransferLocal, toggleStaffLocal,
-  updateStockLocal, updateSupplierPayLocal, addCompanyLocal, createOrderLocal, payOrderLocal,
-  importShopSalesLocal,
-} from "@/lib/localStore";
+  addCompanyApi, addProductApi, addStaffApi, approveTransferApi, createOrderApi,
+  createTransferApi, getSnapshotApi, importShopSalesApi, loginApi, logoutApi,
+  payOrderApi, rejectTransferApi, restoreSessionApi, toggleStaffApi,
+  updateStockApi, updateSupplierPayApi,
+} from "@/lib/api";
 import type { Company, Order, CompanyPayment, OrderReceipt, ShopSaleImport } from "@/lib/localStore";
 
 type Role = "superadmin"|"restaurant1"|"restaurant2"|"shop";
@@ -119,7 +119,7 @@ const fmtDate = (s:string) => new Date(s).toLocaleDateString("uz-UZ",{day:"2-dig
 
 function useToast() {
   const [toast, setToast] = useState<{msg:string;type:"success"|"error"}|null>(null);
-  const show = (msg:string, type:"success"|"error"="success") => { setToast({msg,type}); setTimeout(()=>setToast(null),3200); };
+  const show = useCallback((msg:string, type:"success"|"error"="success") => { setToast({msg,type}); setTimeout(()=>setToast(null),3200); },[]);
   return { toast, show };
 }
 
@@ -313,9 +313,9 @@ function LoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; th
     { id:"rest2", password:"rest2",    label:"Oshxona-2",  icon:"🍜", color:"#3b82f6" },
     { id:"shop1", password:"shop1",    label:"Do'kon",     icon:"🏪", color:"#a855f7" },
   ];
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setLoading(true); setError("");
-    const d = loginLocal(userId.trim(), password);
+    const d = await loginApi(userId.trim(), password);
     if (d.success) onLogin(d.user); else setError(d.message);
     setLoading(false);
   };
@@ -388,6 +388,7 @@ function LoginPage({ onLogin, theme, setTheme }:{ onLogin:(u:UserInfo)=>void; th
 // ════════════════════════════════════════════════════════════
 export default function CRMApp() {
   const [user, setUser]     = useState<UserInfo|null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [tab, setTab]       = useState("dashboard");
   const [theme, setTheme]   = useState<ThemeMode>("dark");
   const [lang, setLang]     = useState<Lang>("uz");
@@ -404,18 +405,30 @@ export default function CRMApp() {
   const [shopSales, setShopSales] = useState<ShopSaleImport[]>([]);
   const { toast, show: showToast } = useToast();
 
-  const fetchAll = useCallback(()=>{
+  const fetchAll = useCallback(async ()=>{
     if (!user) return;
-    const d:any = getLocalSnapshot(user);
-    setProducts(d.products||[]); setStock(d.stock||{});
-    setShopStock(d.shopStock||{});
-    setTransfers(d.transfers||[]); setReports(d.reports);
-    setCompanies(d.companies||[]); setOrders(d.orders||[]);
-    setCompanyPayments(d.companyPayments||[]);
-    setShopSales(d.shopSales||[]);
-  },[user]);
+    try {
+      const d:any = await getSnapshotApi();
+      setProducts(d.products||[]); setStock(d.stock||{});
+      setShopStock(d.shopStock||{});
+      setTransfers(d.transfers||[]); setReports(d.reports);
+      setCompanies(d.companies||[]); setOrders(d.orders||[]);
+      setCompanyPayments(d.companyPayments||[]);
+      setShopSales(d.shopSales||[]);
+    } catch (error:any) {
+      showToast(error?.message||"Ma'lumotlarni yuklab bo'lmadi","error");
+      if (/credential|token|auth|sessiya/i.test(error?.message||"")) setUser(null);
+    }
+  },[user,showToast]);
 
   useEffect(()=>{ if(user) fetchAll(); },[user,fetchAll]);
+  useEffect(()=>{
+    let active = true;
+    restoreSessionApi().then(result=>{
+      if (active && result.success) setUser(result.user);
+    }).finally(()=>{ if(active) setSessionReady(true); });
+    return ()=>{ active=false; };
+  },[]);
   useEffect(()=>{ const s=localStorage.getItem("crm-theme") as ThemeMode|null; if(s) setTheme(s); },[]);
   useEffect(()=>{ localStorage.setItem("crm-theme",theme); },[theme]);
   useEffect(()=>{ const s=localStorage.getItem("crm-lang") as Lang|null; if(s==="uz"||s==="ko") setLang(s); },[]);
@@ -423,6 +436,12 @@ export default function CRMApp() {
   useEffect(()=>{ setSidebarCollapsed(localStorage.getItem("crm-sidebar")!=="open"); },[]);
   useEffect(()=>{ localStorage.setItem("crm-sidebar",sidebarCollapsed?"collapsed":"open"); },[sidebarCollapsed]);
 
+  const signOut = async () => {
+    await logoutApi();
+    setUser(null);
+  };
+
+  if (!sessionReady) return <div className={`${theme} theme-shell`} style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--app-bg)",color:"var(--app-text)"}}><style>{GLOBAL_CSS}</style>{t.loading}</div>;
   if (!user) return <LoginPage onLogin={setUser} theme={theme} setTheme={setTheme} />;
 
   const pending = transfers.filter((t:any)=>t.status==="pending").length;
@@ -490,7 +509,7 @@ export default function CRMApp() {
           <button className="sidebar-footer-button" title={lang==="uz"?"Koreys tili":"O'zbek tili"} onClick={()=>setLang(lang==="uz"?"ko":"uz")}>
             <Languages size={18}/><span className="sidebar-text">{lang==="uz"?"O'zbek":"한국어"}</span>
           </button>
-          <button className="sidebar-footer-button danger" title={t.logout} onClick={()=>setUser(null)}><LogOut size={18}/><span className="sidebar-text">{t.logout}</span></button>
+          <button className="sidebar-footer-button danger" title={t.logout} onClick={signOut}><LogOut size={18}/><span className="sidebar-text">{t.logout}</span></button>
         </div>
       </aside>
 
@@ -508,7 +527,7 @@ export default function CRMApp() {
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             <button className="topbar-control" title={lang==="uz"?"Koreys tiliga o'tish":"O'zbek tiliga o'tish"} onClick={()=>setLang(lang==="uz"?"ko":"uz")}>{lang==="uz"?"UZ":"KO"}</button>
             <button className="topbar-control" title={theme==="dark"?"Kunduzgi rejim":"Tungi rejim"} onClick={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?"☀":"☾"}</button>
-            <button className="topbar-control" title={t.logout} onClick={()=>setUser(null)} style={{color:"#ea5455"}}>↪</button>
+            <button className="topbar-control" title={t.logout} onClick={signOut} style={{color:"#ea5455"}}>↪</button>
           </div>
         </header>
         {tab==="dashboard"  && <DashboardTab  {...tabProps} />}
@@ -770,11 +789,11 @@ function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, set
     }
   };
 
-  const submitImport = () => {
+  const submitImport = async () => {
     if (!importDate) { showToast("Import sanasini tanlang","error"); return; }
     if (!matchedRows.length) { showToast("Excelda sklad bazasiga mos shtrix-kod topilmadi","error"); return; }
     setSaving(true);
-    const result = importShopSalesLocal({
+    const result = await importShopSalesApi({
       sourceKey,fileName,saleDate:importDate,
       rows:matchedRows,
       skippedRows:unmatchedRows.map(row=>({barcode:row.barcode,sourceName:row.sourceName,quantity:row.quantity})),
@@ -927,11 +946,11 @@ function WarehouseTab({ products, stock, user, fetchAll, showToast, t }:any) {
   const filtered = products.filter((p:Product)=>p.name.toLowerCase().includes(search.toLowerCase()));
   const lowStock = filtered.filter((p:Product)=>(stock[p.id]||0)<=p.minStock).length;
 
-  const saveStock = () => {
+  const saveStock = async () => {
     if (!editP) return;
     const qty = parseFloat(newQty);
     if (isNaN(qty)||qty<0) { showToast("Noto'g'ri miqdor","error"); return; }
-    const d = updateStockLocal(editP.id, qty);
+    const d = await updateStockApi(editP.id, qty);
     if (d.success) { showToast("Sklad yangilandi"); setEditP(null); fetchAll(); }
     else showToast("Xatolik","error");
   };
@@ -1011,14 +1030,14 @@ function TransfersTab({ transfers, products, user, fetchAll, showToast, t }:any)
     const valid = items.filter(i=>i.pid&&i.qty>0);
     if (!valid.length) { showToast("Mahsulot tanlang","error"); return; }
     setLoading(true);
-    const d = createTransferLocal(form.toBranch,valid.map(i=>({productId:i.pid,quantity:i.qty})),user.name,form.note);
+    const d = await createTransferApi(form.toBranch,valid.map(i=>({productId:i.pid,quantity:i.qty})),user.name,form.note);
     if (d.success) { showToast("So'rov yuborildi! ✅"); setShowModal(false); setItems([{pid:"",qty:1}]); fetchAll(); }
     else showToast(d.message||"Xatolik","error");
     setLoading(false);
   };
 
-  const approve = (id:string) => { const d=approveTransferLocal(id,user.name); if(d.success){showToast("Tasdiqlandi!");fetchAll();}else showToast("Xatolik","error"); };
-  const reject  = (id:string) => { const d=rejectTransferLocal(id,user.name);  if(d.success){showToast("Rad etildi");fetchAll();}else showToast("Xatolik","error"); };
+  const approve = async (id:string) => { const d=await approveTransferApi(id,user.name); if(d.success){showToast("Tasdiqlandi!");fetchAll();}else showToast(d.message||"Xatolik","error"); };
+  const reject  = async (id:string) => { const d=await rejectTransferApi(id,user.name);  if(d.success){showToast("Rad etildi");fetchAll();}else showToast(d.message||"Xatolik","error"); };
 
   const groups = { pending: transfers.filter((t:any)=>t.status==="pending"), other: transfers.filter((t:any)=>t.status!=="pending") };
 
@@ -1167,7 +1186,7 @@ function OrdersTab({ orders, products, companies, fetchAll, showToast, t }:any) 
     const valid = items.filter(i=>i.pid&&i.qty>0&&i.price>0);
     if (!valid.length) { showToast("Mahsulot va narx kiriting","error"); return; }
     setLoading(true);
-    const d = createOrderLocal({ companyId:form.companyId, items:valid.map(i=>({productId:i.pid,quantity:i.qty,pricePerUnit:i.price})), note:form.note, payStatus:form.payStatus, paidAmount:0, orderDate:form.orderDate, receipt:form.receipt||undefined });
+    const d = await createOrderApi({ companyId:form.companyId, items:valid.map(i=>({productId:i.pid,quantity:i.qty,pricePerUnit:i.price})), note:form.note, payStatus:form.payStatus, paidAmount:0, orderDate:form.orderDate, receipt:form.receipt||undefined });
     if (d.success) { showToast("Order saqlandi ✅"); setShowModal(false); setForm(emptyForm()); setItems([{pid:"",qty:1,price:0}]); fetchAll(); }
     else showToast(d.message||"Xatolik","error");
     setLoading(false);
@@ -1319,9 +1338,9 @@ function ProductsTab({ products, stock, companies, fetchAll, showToast, t }:any)
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ name:"", category:"gosht", unit:"kg", minStock:"0", pricePerUnit:"0", perBox:"0", boxUnit:"", qrCode:"", supplierId:"" });
 
-  const submit = () => {
+  const submit = async () => {
     if (!form.name.trim()) { showToast("Nom kiriting","error"); return; }
-    const d = addProductLocal({ name:form.name.trim(), category:form.category, unit:form.unit, minStock:parseFloat(form.minStock)||0, pricePerUnit:parseFloat(form.pricePerUnit)||0, perBox:parseFloat(form.perBox)||0, boxUnit:form.boxUnit, qrCode:form.qrCode });
+    const d = await addProductApi({ name:form.name.trim(), category:form.category, unit:form.unit, minStock:parseFloat(form.minStock)||0, pricePerUnit:parseFloat(form.pricePerUnit)||0, perBox:parseFloat(form.perBox)||0, boxUnit:form.boxUnit, qrCode:form.qrCode });
     if (d.success) { showToast("Mahsulot qo'shildi!"); setShowModal(false); setForm({name:"",category:"gosht",unit:"kg",minStock:"0",pricePerUnit:"0",perBox:"0",boxUnit:"",qrCode:"",supplierId:""}); fetchAll(); }
     else showToast(d.message||"Xatolik","error");
   };
@@ -1441,17 +1460,19 @@ function FirmsTab({ companies, orders, companyPayments, fetchAll, showToast, t }
   const cPaid    = (id:string) => cOrders(id).reduce((s:number,o:Order)=>s+o.paidAmount,0);
   const cHistory = (id:string) => companyPayments.filter((p:CompanyPayment)=>p.companyId===id);
 
-  const addCompany = () => {
+  const addCompany = async () => {
     if (!addForm.name.trim()) { showToast("Firma nomini kiriting","error"); return; }
-    addCompanyLocal(addForm); showToast("Firma qo'shildi!");
+    const d = await addCompanyApi(addForm);
+    if (!d.success) { showToast(d.message||"Xatolik","error"); return; }
+    showToast("Firma qo'shildi!");
     setShowAdd(false); setAddForm({name:"",address:"",phone:""}); fetchAll();
   };
 
-  const payOrder = () => {
+  const payOrder = async () => {
     if (!payModal) return;
     const amt = parseFloat(payAmt);
     if (!amt||amt<=0) { showToast("Summani kiriting","error"); return; }
-    const d = payOrderLocal(payModal.id, amt, payNote);
+    const d = await payOrderApi(payModal.id, amt, payNote);
     if (d.success) { showToast("To'lov saqlandi! ✅"); setPayModal(null); setPayAmt(""); setPayNote(""); fetchAll(); }
     else showToast(d.message||"Xatolik","error");
   };
