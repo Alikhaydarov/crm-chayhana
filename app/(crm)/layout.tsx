@@ -1,0 +1,128 @@
+"use client";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import {
+  ArrowLeftRight, LayoutDashboard, Package,
+  ShoppingCart, Store, Warehouse,
+} from "lucide-react";
+import { logoutApi, restoreSessionApi } from "@/lib/api";
+import { I18N } from "@/lib/constants";
+import { GLOBAL_CSS } from "@/lib/constants/styles";
+import { useAppData } from "@/hooks/useAppData";
+import { AppContext } from "@/lib/AppContext";
+import { Toast } from "@/components/ui";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Topbar, BottomNav } from "@/components/layout/Topbar";
+import type { UserInfo, ThemeMode, Lang, TabId } from "@/types";
+
+const TAB_ROUTES: Record<TabId, string> = {
+  dashboard: "/dashboard",
+  warehouse: "/warehouse",
+  transfers: "/transfers",
+  orders: "/orders",
+  products: "/products",
+  suppliers: "/suppliers",
+  "shop-sales": "/shop-sales",
+};
+
+const ROUTE_TABS: Record<string, TabId> = {
+  "/dashboard": "dashboard",
+  "/warehouse": "warehouse",
+  "/transfers": "transfers",
+  "/orders": "orders",
+  "/products": "products",
+  "/suppliers": "suppliers",
+  "/shop-sales": "shop-sales",
+};
+
+export default function CRMLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [lang, setLang] = useState<Lang>("uz");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
+  const t = I18N[lang];
+  const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
+
+  const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user?.id ?? null);
+  const { products, stock, shopStock, reports, companies, orders, companyPayments, shopSales, staff } = rest as any;
+
+  useEffect(() => {
+    let active = true;
+    restoreSessionApi().then((result) => {
+      if (!active) return;
+      if (result.success) setUser((result as any).user);
+      else router.replace("/");
+    }).finally(() => { if (active) setSessionReady(true); });
+    return () => { active = false; };
+  }, [router]);
+
+  useEffect(() => { const s = localStorage.getItem("crm-theme") as ThemeMode | null; if (s) setTheme(s); }, []);
+  useEffect(() => { localStorage.setItem("crm-theme", theme); }, [theme]);
+  useEffect(() => { const s = localStorage.getItem("crm-lang") as Lang | null; if (s === "uz" || s === "ko") setLang(s); }, []);
+  useEffect(() => { localStorage.setItem("crm-lang", lang); }, [lang]);
+  useEffect(() => { setSidebarCollapsed(localStorage.getItem("crm-sidebar") !== "open"); }, []);
+  useEffect(() => { localStorage.setItem("crm-sidebar", sidebarCollapsed ? "collapsed" : "open"); }, [sidebarCollapsed]);
+
+  const signOut = async () => { await logoutApi(); setUser(null); router.replace("/"); };
+  const toggleTheme = () => setTheme((v) => (v === "dark" ? "light" : "dark"));
+  const toggleLang = () => setLang((v) => (v === "uz" ? "ko" : "uz"));
+  const handleTabChange = (tabId: TabId) => router.push(TAB_ROUTES[tabId]);
+
+  if (!sessionReady)
+    return (
+      <div className={`${theme} theme-shell`} style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--app-bg)", color: "var(--app-text)" }}>
+        <style>{GLOBAL_CSS}</style>
+        {t.loading}
+      </div>
+    );
+
+  if (!user) return null;
+
+  const pendingCount = transfers.filter((tr: any) => tr.status === "pending").length;
+
+  const TABS = [
+    { id: "dashboard" as TabId, icon: LayoutDashboard, label: t.dashboard },
+    { id: "warehouse" as TabId, icon: Warehouse, label: t.warehouse },
+    { id: "transfers" as TabId, icon: ArrowLeftRight, label: t.transfers, badge: pendingCount },
+    { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
+    { id: "products" as TabId, icon: Package, label: t.products },
+    { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
+  ];
+
+  return (
+    <AppContext.Provider value={{ products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId) }}>
+      <div
+        className={`${theme} theme-shell`}
+        style={{ display: "flex", height: "100vh", background: "var(--app-bg)", fontFamily: "var(--font-ui)", color: "var(--app-text)", overflow: "hidden" }}
+      >
+        <style>{GLOBAL_CSS}</style>
+        {toast && <Toast msg={toast.msg} type={toast.type} />}
+
+        <Sidebar
+          user={user} tabs={TABS} activeTab={activeTab} collapsed={sidebarCollapsed}
+          theme={theme} lang={lang} onTabChange={handleTabChange}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+          onCollapse={() => setSidebarCollapsed(true)}
+          onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut}
+        />
+
+        <main className="mobile-main" style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
+          <Topbar
+            user={user} activeTab={activeTab} tabs={TABS} sidebarCollapsed={sidebarCollapsed}
+            theme={theme} lang={lang}
+            onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+            onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut}
+          />
+          {children}
+        </main>
+
+        <BottomNav tabs={TABS} activeTab={activeTab} onTabChange={handleTabChange} />
+      </div>
+    </AppContext.Provider>
+  );
+}
