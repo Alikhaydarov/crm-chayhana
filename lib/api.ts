@@ -198,27 +198,12 @@ export const approveTransferApi = (id: string, approvedBy: string) =>
 export const rejectTransferApi = (id: string, approvedBy: string) =>
   mutation(`/transfers/${encodeURIComponent(id)}/reject/`, "POST", { approvedBy });
 
-export async function addProductApi(product: {
-  id: string;
-  name: string;
-  category: string;
-  unit: string;
-  minStock: number;
-  pricePerUnit: number;
-  perBox: number;
-  boxUnit: string;
-  qrCode: string;
-}) {
-  const res = await fetch("/products", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(product),
+export const addProductApi = (data: Omit<Product, "id">) =>
+  mutation("/products/", "POST", {
+    ...data,
+    id: `p${Date.now()}`,
+    qrCode: data.qrCode?.trim() || null,
   });
-
-  return res.json();
-}
 
 export const addCompanyApi = (data: Omit<Company, "id" | "createdAt">) =>
   mutation("/companies/", "POST", data);
@@ -246,8 +231,15 @@ export async function createOrderApi(data: {
   return mutation("/orders/upload-receipt/", "POST", form);
 }
 
-export const payOrderApi = (orderId: string, amount: number, note: string) =>
-  mutation(`/orders/${encodeURIComponent(orderId)}/payments/`, "POST", { amount, note });
+export async function payOrderApi(orderId: string, amount: number, note: string, receipt?: OrderReceipt) {
+  const result = await mutation(`/orders/${encodeURIComponent(orderId)}/payments/`, "POST", { amount, note });
+  if (!result.success || !receipt) return result;
+
+  const form = new FormData();
+  form.append("orderId", String(orderId));
+  form.append("receipt", dataUrlToFile(receipt));
+  return mutation("/orders/upload-receipt/", "POST", form);
+}
 
 export const addStaffApi = (data: Omit<Staff, "id">) =>
   mutation("/staff/", "POST", data);

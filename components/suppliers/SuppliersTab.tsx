@@ -4,7 +4,7 @@ import { PageWrap, Modal } from "@/components/ui";
 import { addCompanyApi, payOrderApi } from "@/lib/api";
 import { PAY_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtDate } from "@/lib/utils";
-import type { Company, Order, CompanyPayment } from "@/lib/localStore";
+import type { Company, Order, CompanyPayment, OrderReceipt } from "@/lib/localStore";
 
 type Props = {
   companies: Company[];
@@ -22,6 +22,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
   const [payModal, setPayModal] = useState<Order | null>(null);
   const [payAmt, setPayAmt] = useState("");
   const [payNote, setPayNote] = useState("");
+  const [payReceipt, setPayReceipt] = useState<OrderReceipt | null>(null);
   const [addForm, setAddForm] = useState({ name: "", address: "", phone: "" });
 
   const cOrders = (id: string) => orders.filter((o) => o.companyId === id);
@@ -40,14 +41,32 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
     fetchAll();
   };
 
+  const closePayModal = () => {
+    setPayModal(null);
+    setPayAmt("");
+    setPayNote("");
+    setPayReceipt(null);
+  };
+
+  const selectPayReceipt = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") { showToast("Chek faqat rasm yoki PDF", "error"); return; }
+    if (file.size > 2 * 1024 * 1024) { showToast("Chek 2 MB dan kichik bo'lishi kerak", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setPayReceipt({ name: file.name, type: file.type, dataUrl: String(reader.result) });
+    reader.onerror = () => showToast("Faylni o'qib bo'lmadi", "error");
+    reader.readAsDataURL(file);
+  };
+
   const payOrder = async () => {
     if (!payModal) return;
     const amt = parseFloat(payAmt);
     if (!amt || amt <= 0) { showToast("Summani kiriting", "error"); return; }
-    const d = await payOrderApi(payModal.id, amt, payNote);
+    const d = await payOrderApi(payModal.id, amt, payNote, payReceipt || undefined);
     if (d.success) {
       showToast("To'lov saqlandi! ✅");
-      setPayModal(null); setPayAmt(""); setPayNote("");
+      closePayModal();
+      setSelected(null);
       fetchAll();
     } else showToast((d as any).message || "Xatolik", "error");
   };
@@ -75,7 +94,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
       )}
 
       {payModal && (
-        <Modal onClose={() => setPayModal(null)}>
+        <Modal onClose={closePayModal}>
           <div className="modal-title">💳 To'lov kiritish</div>
           <div style={{ background: "linear-gradient(135deg,rgba(115,103,240,.1),rgba(101,91,211,.05))", border: "1px solid rgba(115,103,240,.25)", borderRadius: 14, padding: "18px 20px", marginBottom: 20, textAlign: "center" }}>
             <div style={{ fontSize: 12, color: "var(--app-muted)", marginBottom: 6, fontWeight: 700 }}>Order #{payModal.id.slice(-8)} · Qolgan qarz</div>
@@ -92,14 +111,29 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
             <label className="form-label">IZOH</label>
             <input className="crm-input" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Naqd, bank o'tkazmasi..." />
           </div>
+          <div className="form-group">
+            <label className="form-label">TO'LOV CHEKI</label>
+            <input id="pay-receipt" type="file" accept="image/*,application/pdf" onChange={(e) => selectPayReceipt(e.target.files?.[0])} style={{ display: "none" }} />
+            <div style={{ display: "flex", gap: 8, alignItems: "stretch", flexWrap: "wrap" }}>
+              <label htmlFor="pay-receipt" className="btn-ghost" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 40 }}>
+                📎 {payReceipt ? "Chekni almashtirish" : "Chek qo'shish"}
+              </label>
+              {payReceipt && (
+                <>
+                  <a href={payReceipt.dataUrl} download={payReceipt.name} className="btn-ghost" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", minWidth: 0, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{payReceipt.name}</a>
+                  <button className="btn-ghost" onClick={() => setPayReceipt(null)}>×</button>
+                </>
+              )}
+            </div>
+          </div>
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-            <button className="btn-ghost" onClick={() => setPayModal(null)} style={{ flex: 1 }}>{t.cancel}</button>
+            <button className="btn-ghost" onClick={closePayModal} style={{ flex: 1 }}>{t.cancel}</button>
             <button className="btn-primary" onClick={payOrder} style={{ flex: 2 }}>✅ To'lovni saqlash</button>
           </div>
         </Modal>
       )}
 
-      {selected && (
+      {selected && !payModal && (
         <Modal onClose={() => setSelected(null)}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
             <div>

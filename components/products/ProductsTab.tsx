@@ -112,7 +112,7 @@ const submit = async () => {
               <input className="crm-input" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
             </div>
             <div className="form-group">
-              <label className="form-label">NARXI (so'm)</label>
+              <label className="form-label">NARXI ()</label>
               <input className="crm-input" type="number" value={form.pricePerUnit} onChange={(e) => setForm({ ...form, pricePerUnit: e.target.value })} />
             </div>
             <div style={{ gridColumn: "1/-1" }} className="form-group">
