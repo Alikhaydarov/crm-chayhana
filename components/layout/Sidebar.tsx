@@ -1,5 +1,6 @@
 "use client";
-import { Boxes, ChevronLeft, ChevronRight, Languages, LogOut, Moon, Sun } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Boxes, Check, ChevronDown, ChevronLeft, Languages, LogOut, Moon, Sun } from "lucide-react";
 import type { UserInfo, TabId, ThemeMode, Lang } from "@/types";
 
 type Tab = {
@@ -28,6 +29,17 @@ export function Sidebar({
   user, tabs, activeTab, collapsed, theme, lang,
   onTabChange, onToggleCollapse, onCollapse, onThemeToggle, onLangToggle, onLogout,
 }: Props) {
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeMenu = (event: MouseEvent) => {
+      if (!accountRef.current?.contains(event.target as Node)) setAccountOpen(false);
+    };
+    document.addEventListener("mousedown", closeMenu);
+    return () => document.removeEventListener("mousedown", closeMenu);
+  }, []);
+
   return (
     <aside className={`sidebar app-sidebar${collapsed ? " collapsed" : ""}`}>
       {/* Brand */}
@@ -51,38 +63,6 @@ export function Sidebar({
         <button className="sidebar-collapse-action" onClick={onCollapse}>
           <ChevronLeft size={17} />
         </button>
-      </div>
-
-      {/* User card */}
-      <div
-        className="sidebar-card"
-        style={{
-          margin: "12px 10px",
-          padding: "12px",
-          background: "var(--app-panel-soft)",
-          border: "1px solid var(--app-border)",
-          borderRadius: 8,
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <div
-          style={{
-            width: 34, height: 34, borderRadius: 8,
-            background: "var(--app-primary-soft)",
-            color: "var(--app-primary)",
-            display: "grid", placeItems: "center", fontWeight: 800,
-          }}
-        >
-          {user.branchIcon}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {user.name}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--app-muted)", marginTop: 2 }}>{user.branchName}</div>
-        </div>
       </div>
 
       {/* Nav */}
@@ -113,20 +93,44 @@ export function Sidebar({
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="sidebar-footer" style={{ padding: "8px 8px 12px", borderTop: "1px solid var(--app-border)" }}>
-        <button className="sidebar-footer-button" onClick={onThemeToggle}>
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          <span className="sidebar-text">{theme === "dark" ? "Kunduzgi" : "Tungi"} rejim</span>
-        </button>
-        <button className="sidebar-footer-button" onClick={onLangToggle}>
-          <Languages size={18} />
-          <span className="sidebar-text">{lang === "uz" ? "O'zbek" : "한국어"}</span>
-        </button>
-        <button className="sidebar-footer-button danger" onClick={onLogout}>
-          <LogOut size={18} />
-          <span className="sidebar-text">Chiqish</span>
-        </button>
+      {/* Account dock */}
+      <div className="sidebar-footer account-dock" ref={accountRef}>
+        {accountOpen && !collapsed && (
+          <div className="account-menu">
+            <div className="account-menu-header">
+              <span className="account-avatar">{user.branchIcon || user.name.charAt(0)}</span>
+              <span><strong>{user.name}</strong><small>{user.branchName}</small></span>
+            </div>
+            <div className="account-menu-label">Til</div>
+            <button className="account-menu-item" onClick={onLangToggle}>
+              <Languages size={17} />
+              <span>{lang === "uz" ? "O'zbekcha" : "한국어"}</span>
+              <Check size={15} />
+            </button>
+            <div className="account-menu-separator" />
+            <button className="account-menu-item danger" onClick={onLogout}>
+              <LogOut size={17} />
+              <span>Hisobdan chiqish</span>
+            </button>
+          </div>
+        )}
+        <div className="account-dock-row">
+          <button
+            className={`account-trigger${accountOpen ? " active" : ""}`}
+            onClick={() => collapsed ? onToggleCollapse() : setAccountOpen(value => !value)}
+            title={collapsed ? user.name : "Profil menyusi"}
+          >
+            <span className="account-avatar">{user.branchIcon || user.name.charAt(0)}</span>
+            <span className="sidebar-text account-copy">
+              <strong>{user.name}</strong>
+              <small>{user.branchName}</small>
+            </span>
+            <ChevronDown className="sidebar-text account-chevron" size={16} />
+          </button>
+          <button className="theme-dock-button" onClick={onThemeToggle} title={theme === "dark" ? "Kunduzgi rejim" : "Tungi rejim"}>
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </div>
     </aside>
   );

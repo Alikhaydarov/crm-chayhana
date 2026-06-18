@@ -241,15 +241,208 @@ body {
   color: #ea5455;
 }
 
-.app-sidebar.collapsed .sidebar-footer {
-  padding-inline: 12px !important;
+.account-dock {
+  position: relative;
+  padding: 10px;
+  border-top: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-panel) 94%, transparent);
 }
 
-.app-sidebar.collapsed .sidebar-footer-button {
+.account-dock-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.account-trigger {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--app-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.account-trigger:hover,
+.account-trigger.active {
+  border-color: var(--app-border);
+  background: var(--app-panel-soft);
+}
+
+.account-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--app-primary), #8f85f3);
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 5px 14px rgba(115, 103, 240, 0.24);
+}
+
+.account-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-copy strong,
+.account-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-copy strong {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.account-copy small {
+  margin-top: 3px;
+  color: var(--app-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.account-chevron {
+  color: var(--app-muted);
+  transition: transform 0.18s ease;
+}
+
+.account-trigger.active .account-chevron {
+  transform: rotate(180deg);
+}
+
+.theme-dock-button {
+  width: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel-soft);
+  color: var(--app-muted);
+  cursor: pointer;
+}
+
+.theme-dock-button:hover {
+  border-color: rgba(115, 103, 240, 0.4);
+  color: var(--app-primary);
+}
+
+.account-menu {
+  position: absolute;
+  right: 10px;
+  bottom: calc(100% + 8px);
+  left: 10px;
+  z-index: 120;
+  padding: 7px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel);
+  box-shadow: 0 18px 48px var(--app-shadow);
+  animation: fadeUp 0.18s ease;
+}
+
+.account-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 7px 11px;
+}
+
+.account-menu-header > span:last-child {
+  min-width: 0;
+}
+
+.account-menu-header strong,
+.account-menu-header small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-header strong {
+  font-size: 12px;
+}
+
+.account-menu-header small {
+  margin-top: 3px;
+  color: var(--app-muted);
+  font-size: 10px;
+}
+
+.account-menu-label {
+  padding: 6px 9px 4px;
+  color: var(--app-muted);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.account-menu-item {
+  width: 100%;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 20px 1fr 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--app-text);
+  cursor: pointer;
+  font: 700 11px/1 var(--font-ui);
+  text-align: left;
+}
+
+.account-menu-item:hover {
+  background: var(--app-primary-soft);
+  color: var(--app-primary);
+}
+
+.account-menu-item.danger {
+  color: #ea5455;
+}
+
+.account-menu-separator {
+  height: 1px;
+  margin: 6px 3px;
+  background: var(--app-border);
+}
+
+.app-sidebar.collapsed .sidebar-footer {
+  padding: 10px 12px !important;
+}
+
+.app-sidebar.collapsed .account-dock-row {
+  flex-direction: column;
+  align-items: center;
+}
+
+.app-sidebar.collapsed .account-trigger {
   width: 54px;
-  height: 42px;
+  flex: 0 0 48px;
   justify-content: center;
   padding: 0;
+}
+
+.app-sidebar.collapsed .theme-dock-button {
+  width: 54px;
+  height: 38px;
+  flex-basis: 38px;
 }
 
 .compact-btn {
