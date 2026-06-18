@@ -14,6 +14,7 @@ import { canAccessTab } from "@/lib/permissions";
 import { Toast } from "@/components/ui";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar, BottomNav } from "@/components/layout/Topbar";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import type { UserInfo, ThemeMode, Lang, TabId } from "@/types";
 
 const TAB_ROUTES: Record<TabId, string> = {
@@ -45,6 +46,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>("dark");
   const [lang, setLang] = useState<Lang>("uz");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [commandOpen, setCommandOpen] = useState(false);
 
   const t = I18N[lang];
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
@@ -68,6 +70,17 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => { localStorage.setItem("crm-lang", lang); }, [lang]);
   useEffect(() => { setSidebarCollapsed(localStorage.getItem("crm-sidebar") !== "open"); }, []);
   useEffect(() => { localStorage.setItem("crm-sidebar", sidebarCollapsed ? "collapsed" : "open"); }, [sidebarCollapsed]);
+  useEffect(() => {
+    const openCommand = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+      if (event.key === "Escape") setCommandOpen(false);
+    };
+    window.addEventListener("keydown", openCommand);
+    return () => window.removeEventListener("keydown", openCommand);
+  }, []);
 
   useEffect(() => {
     if (user && !canAccessTab(user.role, activeTab)) router.replace("/dashboard");
@@ -96,6 +109,16 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   if (!canAccessTab(user.role, activeTab)) return null;
 
   const pendingCount = transfers.filter((tr: any) => tr.status === "pending").length;
+  const currentStock = user.role === "shop" ? shopStock : stock;
+  const lowStockCount = products.filter((product: any) => (currentStock[product.id] || 0) <= product.minStock).length;
+  const debtCount = user.role === "superadmin"
+    ? orders.filter((order: any) => order.totalPrice > order.paidAmount).length
+    : 0;
+  const alerts = [
+    lowStockCount > 0 ? `${lowStockCount} ta mahsulot kam qolgan` : "",
+    pendingCount > 0 ? `${pendingCount} ta transfer kutilmoqda` : "",
+    debtCount > 0 ? `${debtCount} ta orderda qarz mavjud` : "",
+  ].filter(Boolean);
 
   const TABS = [
     { id: "dashboard" as TabId, icon: LayoutDashboard, label: t.dashboard },
@@ -105,6 +128,22 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "products" as TabId, icon: Package, label: t.products },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
   ].filter((tab) => canAccessTab(user.role, tab.id));
+  const commands = TABS.map(tab => ({
+    ...tab,
+    description: tab.id === "dashboard"
+      ? "Asosiy ko'rsatkichlar va tezkor holat"
+      : tab.id === "warehouse"
+        ? "Mahsulot qoldiqlari va kam qolganlar"
+        : tab.id === "transfers"
+          ? "Sklad so'rovlari va tasdiqlash"
+          : tab.id === "orders"
+            ? "Yangi order va to'lov holati"
+            : tab.id === "products"
+              ? "Mahsulot va shtrix-kod bazasi"
+              : tab.id === "suppliers"
+                ? "Firmalar, qarz va to'lov tarixi"
+                : "Excel savdo, foyda va statistika",
+  }));
 
   return (
     <AppContext.Provider value={{ products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId) }}>
@@ -129,11 +168,22 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
             theme={theme} lang={lang}
             onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
             onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut}
+            onSearch={() => setCommandOpen(true)}
+            alerts={alerts}
           />
           {children}
         </main>
 
         <BottomNav tabs={TABS} activeTab={activeTab} onTabChange={handleTabChange} />
+        <CommandPalette
+          commands={commands}
+          open={commandOpen}
+          onClose={() => setCommandOpen(false)}
+          onSelect={(tab) => {
+            setCommandOpen(false);
+            handleTabChange(tab);
+          }}
+        />
       </div>
     </AppContext.Provider>
   );

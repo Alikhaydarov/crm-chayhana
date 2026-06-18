@@ -1,13 +1,10 @@
 import type {
   Company,
   OrderReceipt,
-  PayStatus,
-  Product,
   Staff,
   Supplier,
-  UserInfo,
-} from "@/lib/localStore";
-import type { UserInfo as AppUserInfo } from "@/types";
+} from "@/types/domain";
+import type { PayStatus, Product, UserInfo as AppUserInfo } from "@/types";
 import { branchForRole } from "@/lib/permissions";
 
 const API_BASE = "/api/backend";
@@ -155,7 +152,7 @@ function dataUrlToFile(receipt: OrderReceipt) {
   return new File([bytes], receipt.name, { type: mime });
 }
 
-export async function loginApi(userId: string, password: string): Promise<ApiResult<{ user: UserInfo }>> {
+export async function loginApi(userId: string, password: string): Promise<ApiResult<{ user: AppUserInfo }>> {
   try {
     const data = await request<any>("/auth/login/", {
       method: "POST",
@@ -163,17 +160,17 @@ export async function loginApi(userId: string, password: string): Promise<ApiRes
       retryAuth: false,
     });
     saveTokens(data.access, data.refresh);
-    return success({ user: unwrap<UserInfo>(data.user) });
+    return success({ user: unwrap<AppUserInfo>(data.user) });
   } catch (error) {
     return failure(error);
   }
 }
 
-export async function restoreSessionApi(): Promise<ApiResult<{ user: UserInfo }>> {
+export async function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo }>> {
   try {
     if (!hasSession()) throw new Error("Sessiya topilmadi");
     const data = await request<any>("/auth/me/");
-    return success({ user: unwrap<UserInfo>(data.user ?? data) });
+    return success({ user: unwrap<AppUserInfo>(data.user ?? data) });
   } catch (error) {
     return failure(error);
   }

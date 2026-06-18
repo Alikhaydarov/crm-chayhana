@@ -1,4 +1,5 @@
 export type Role = "superadmin" | "restaurant1" | "restaurant2" | "shop";
+export type PayStatus = "paid" | "unpaid" | "partial";
 
 export type UserInfo = {
   id: string;

@@ -4,7 +4,7 @@ import { PageWrap, Modal } from "@/components/ui";
 import { addCompanyApi, payOrderApi } from "@/lib/api";
 import { PAY_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtDate } from "@/lib/utils";
-import type { Company, Order, CompanyPayment, OrderReceipt } from "@/lib/localStore";
+import type { Company, Order, CompanyPayment, OrderReceipt } from "@/types/domain";
 
 type Props = {
   companies: Company[];

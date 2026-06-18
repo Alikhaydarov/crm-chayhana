@@ -1,5 +1,6 @@
 "use client";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { Bell, ChevronLeft, ChevronRight, Languages, LogOut, Moon, Search, Sun } from "lucide-react";
 import type { UserInfo, TabId, ThemeMode, Lang } from "@/types";
 
 type Tab = {
@@ -20,13 +21,16 @@ type TopbarProps = {
   onThemeToggle: () => void;
   onLangToggle: () => void;
   onLogout: () => void;
+  onSearch: () => void;
+  alerts: string[];
 };
 
 export function Topbar({
   user, activeTab, tabs, sidebarCollapsed, theme, lang,
-  onToggleSidebar, onThemeToggle, onLangToggle, onLogout,
+  onToggleSidebar, onThemeToggle, onLangToggle, onLogout, onSearch, alerts,
 }: TopbarProps) {
   const currentTab = tabs.find((item) => item.id === activeTab);
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   return (
     <header
@@ -56,9 +60,32 @@ export function Topbar({
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <button className="topbar-control" onClick={onLangToggle}>{lang === "uz" ? "UZ" : "KO"}</button>
-        <button className="topbar-control" onClick={onThemeToggle}>{theme === "dark" ? "☀" : "☾"}</button>
-        <button className="topbar-control" onClick={onLogout} style={{ color: "#ea5455" }}>↪</button>
+        <button className="topbar-search" onClick={onSearch} title="Tezkor qidiruv">
+          <Search size={17} />
+          <span>Qidiruv</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+        <div className="alert-menu">
+          <button className="topbar-control alert-control" title={`${alerts.length} ta ogohlantirish`} onClick={() => setAlertsOpen(value => !value)}>
+            <Bell size={17} />
+            {alerts.length > 0 && <span>{Math.min(alerts.length, 9)}</span>}
+          </button>
+          {alertsOpen && (
+            <div className="alert-popover">
+              <div className="alert-popover-title">E'tibor talab qiladi</div>
+              {alerts.length
+                ? alerts.map(alert => <div className="alert-row" key={alert}><Bell size={15} />{alert}</div>)
+                : <div className="alert-row muted">Yangi ogohlantirish yo'q</div>}
+            </div>
+          )}
+        </div>
+        <button className="topbar-control" title={lang === "uz" ? "Koreys tili" : "O'zbek tili"} onClick={onLangToggle}>
+          <Languages size={17} />
+        </button>
+        <button className="topbar-control" title={theme === "dark" ? "Kunduzgi rejim" : "Tungi rejim"} onClick={onThemeToggle}>
+          {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
+        <button className="topbar-control danger-control" title="Chiqish" onClick={onLogout}><LogOut size={17} /></button>
       </div>
     </header>
   );

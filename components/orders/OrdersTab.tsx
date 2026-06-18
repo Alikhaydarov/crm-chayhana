@@ -5,7 +5,7 @@ import { createOrderApi } from "@/lib/api";
 import { PAY_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtDate } from "@/lib/utils";
 import type { Product } from "@/types";
-import type { Company, Order, OrderReceipt } from "@/lib/localStore";
+import type { Company, Order, OrderReceipt } from "@/types/domain";
 
 type Props = {
   orders: Order[];

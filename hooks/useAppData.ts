@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { getSnapshotApi } from "@/lib/api";
-import type { Company, Order, CompanyPayment, ShopSaleImport, Staff } from "@/lib/localStore";
+import type { Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
 
@@ -10,7 +10,7 @@ export function useAppData(user: UserInfo | null) {
   const [stock, setStock] = useState<StockMap>({});
   const [shopStock, setShopStock] = useState<StockMap>({});
   const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [reports, setReports] = useState<any>(null);
+  const [reports, setReports] = useState<ReportSummary | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [companyPayments, setCompanyPayments] = useState<CompanyPayment[]>([]);

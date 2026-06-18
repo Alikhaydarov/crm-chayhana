@@ -1,13 +1,16 @@
 "use client";
-import { TrendingUp } from "lucide-react";
+import {
+  AlertTriangle, ArrowLeftRight, Boxes, Building2, CircleDollarSign,
+  Clock3, PackageSearch, ReceiptText, TrendingUp, Users,
+} from "lucide-react";
 import { PageWrap } from "@/components/ui";
 import { BRANCH_ICONS, BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtD } from "@/lib/utils";
 import type { UserInfo, TabId } from "@/types";
-import type { Order, Staff } from "@/lib/localStore";
+import type { Order, Staff, ReportSummary } from "@/types/domain";
 
 type Props = {
-  reports: any;
+  reports: ReportSummary | null;
   user: UserInfo;
   setTab: (tab: TabId) => void;
   transfers: any[];
@@ -41,18 +44,18 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
 
   const stats = isSA
     ? [
-        { l: "Sklad qiymati",   v: fmtM(reports.mainStockValue), c: "#3fb950", bg: "rgba(63,185,80,.08)",    i: "💰" },
-        { l: "Mahsulot turlari",v: String(reports.totalProducts), c: "#7367f0", bg: "rgba(115,103,240,.08)", i: "📦" },
-        { l: "Jami foydalanuvchilar", v: String(staff.filter(s => s.active).length), c: "#3b82f6", bg: "rgba(59,130,246,.08)", i: "👥" },
-        { l: "Order qarzi",     v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: totalDebt > 0 ? "rgba(248,81,73,.08)" : "rgba(63,185,80,.08)", i: "🏢" },
+        { l: "Sklad qiymati", v: fmtM(Number(reports.mainStockValue) || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", Icon: CircleDollarSign },
+        { l: "Mahsulot turlari", v: String(reports.totalProducts || 0), c: "#7367f0", bg: "rgba(115,103,240,.08)", Icon: Boxes },
+        { l: "Jami foydalanuvchilar", v: String(staff.filter(s => s.active).length), c: "#3b82f6", bg: "rgba(59,130,246,.08)", Icon: Users },
+        { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: totalDebt > 0 ? "rgba(248,81,73,.08)" : "rgba(63,185,80,.08)", Icon: ReceiptText },
       ]
     : [
-        { l: "Skladim",       v: fmtM(branchReport?.stockValue || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", i: "💰" },
-        { l: "So'rovlarim",   v: String(visibleTransfers.length), c: "#7367f0", bg: "rgba(115,103,240,.08)", i: "🔄" },
-        { l: "Kutilayotgan",  v: String(visibleTransfers.filter((tr: any) => tr.status === "pending").length), c: "#f0a500", bg: "rgba(240,165,0,.08)", i: "⏳" },
+        { l: "Skladim", v: fmtM(branchReport?.stockValue || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", Icon: CircleDollarSign },
+        { l: "So'rovlarim", v: String(visibleTransfers.length), c: "#7367f0", bg: "rgba(115,103,240,.08)", Icon: ArrowLeftRight },
+        { l: "Kutilayotgan", v: String(visibleTransfers.filter((tr: any) => tr.status === "pending").length), c: "#f0a500", bg: "rgba(240,165,0,.08)", Icon: Clock3 },
         isShop
-          ? { l: "Kam qolgan", v: String(branchReport?.lowStockCount || 0), c: "#f85149", bg: "rgba(248,81,73,.08)", i: "📦" }
-          : { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: "rgba(248,81,73,.08)", i: "🧾" },
+          ? { l: "Kam qolgan", v: String(branchReport?.lowStockCount || 0), c: "#f85149", bg: "rgba(248,81,73,.08)", Icon: AlertTriangle }
+          : { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: "rgba(248,81,73,.08)", Icon: ReceiptText },
       ];
 
   // Har bir filial uchun o'sha branchdagi userlar
@@ -79,7 +82,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
             className="stat-card fade-up"
             style={{ animationDelay: `${i * 60}ms`, borderTop: `3px solid ${s.c}`, background: `linear-gradient(160deg,${s.bg},var(--app-panel))` }}
           >
-            <div style={{ fontSize: 28, marginBottom: 10 }}>{s.i}</div>
+            <div className="stat-icon" style={{ color: s.c, background: `${s.c}18` }}><s.Icon size={21} /></div>
             <div style={{ color: "var(--app-muted)", fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: 0.3 }}>{s.l}</div>
             <div style={{ fontWeight: 900, fontSize: s.v.length > 10 ? 16 : 20, color: s.c, letterSpacing: -0.3 }}>{s.v}</div>
           </div>
@@ -90,7 +93,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
       {isSA && (
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-            🏢 Filiallar <span style={{ color: "var(--app-muted)", fontWeight: 500, fontSize: 13 }}>foydalanuvchilari</span>
+            <Building2 size={18} /> Filiallar <span style={{ color: "var(--app-muted)", fontWeight: 500, fontSize: 13 }}>foydalanuvchilari</span>
           </div>
           <div className="branch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
             {BRANCH_LIST.map((branch, i) => {
@@ -168,7 +171,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
 
       {/* Recent transfers */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 15, fontWeight: 800 }}>🔄 Oxirgi transferlar</div>
+        <div style={{ fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><ArrowLeftRight size={18} /> Oxirgi transferlar</div>
         <button
           className="btn-icon"
           onClick={() => setTab("transfers")}
@@ -203,9 +206,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
               );
             })}
             {visibleTransfers.length === 0 && (
-              <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "var(--app-muted)", padding: 32 }}>Transfer yo'q</td>
-              </tr>
+              <tr><td colSpan={5}><div className="table-empty"><PackageSearch size={22} /> Transfer yo'q</div></td></tr>
             )}
           </tbody>
         </table>

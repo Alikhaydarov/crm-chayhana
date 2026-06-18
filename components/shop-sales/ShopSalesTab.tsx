@@ -5,7 +5,7 @@ import { PageWrap, Modal } from "@/components/ui";
 import { importShopSalesApi } from "@/lib/api";
 import { fmt, fmtDate, fmtKRW } from "@/lib/utils";
 import type { Product, StockMap, TabId, ParsedShopSale } from "@/types";
-import type { ShopSaleImport } from "@/lib/localStore";
+import type { ShopSaleImport } from "@/types/domain";
 
 function sourceHash(text: string) {
   let hash = 2166136261;

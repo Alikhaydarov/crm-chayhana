@@ -4,7 +4,7 @@ import { PageWrap, Modal } from "@/components/ui";
 import { addProductApi } from "@/lib/api";
 import { fmt, fmtM } from "@/lib/utils";
 import type { Product, StockMap } from "@/types";
-import type { Company } from "@/lib/localStore";
+import type { Company } from "@/types/domain";
 
 type Props = {
   products: Product[];
