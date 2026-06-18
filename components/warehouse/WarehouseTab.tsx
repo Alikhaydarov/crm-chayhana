@@ -8,6 +8,7 @@ import type { Product, StockMap, UserInfo } from "@/types";
 type Props = {
   products: Product[];
   stock: StockMap;
+  shopStock: StockMap;
   user: UserInfo;
   fetchAll: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
@@ -17,15 +18,24 @@ type Props = {
 const qtyColor = (qty: number, min: number) =>
   qty <= min ? "#f85149" : qty <= min * 2 ? "#f0a500" : "#3fb950";
 
-export function WarehouseTab({ products, stock, user, fetchAll, showToast, t }: Props) {
+export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showToast, t }: Props) {
   const [search, setSearch] = useState("");
   const [editP, setEditP] = useState<Product | null>(null);
   const [newQty, setNewQty] = useState("");
 
   const isSA = user.role === "superadmin";
-  const totalVal = products.reduce((s, p) => s + (stock[p.id] || 0) * p.pricePerUnit, 0);
-  const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
-  const lowStock = filtered.filter((p) => (stock[p.id] || 0) <= p.minStock).length;
+  const visibleStock = user.role === "shop" ? shopStock : stock;
+  const warehouseProducts = user.role === "shop"
+    ? products.filter((p) => (visibleStock[p.id] || 0) > 0)
+    : products;
+  const totalVal = warehouseProducts.reduce(
+    (sum, product) => sum + (visibleStock[product.id] || 0) * product.pricePerUnit,
+    0,
+  );
+  const filtered = warehouseProducts.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase()),
+  );
+  const lowStock = filtered.filter((p) => (visibleStock[p.id] || 0) <= p.minStock).length;
 
   const saveStock = async () => {
     if (!editP) return;
@@ -58,10 +68,10 @@ export function WarehouseTab({ products, stock, user, fetchAll, showToast, t }: 
             <div>
               <div style={{ fontWeight: 800, fontSize: 15 }}>{editP.name}</div>
               <div style={{ fontSize: 12, color: "var(--app-muted)", marginTop: 2 }}>
-                Hozirgi: <strong style={{ color: "#f0a500" }}>{fmt(stock[editP.id] || 0)} {editP.unit}</strong>
+                Hozirgi: <strong style={{ color: "#f0a500" }}>{fmt(visibleStock[editP.id] || 0)} {editP.unit}</strong>
               </div>
             </div>
-            <div style={{ fontSize: 32 }}>{(stock[editP.id] || 0) <= editP.minStock ? "🔴" : "🟢"}</div>
+            <div style={{ fontSize: 32 }}>{(visibleStock[editP.id] || 0) <= editP.minStock ? "🔴" : "🟢"}</div>
           </div>
           <div className="form-group">
             <label className="form-label">YANGI MIQDOR ({editP.unit})</label>
@@ -105,7 +115,7 @@ export function WarehouseTab({ products, stock, user, fetchAll, showToast, t }: 
           </thead>
           <tbody>
             {filtered.map((p, i) => {
-              const qty = stock[p.id] || 0;
+              const qty = visibleStock[p.id] || 0;
               const c = qtyColor(qty, p.minStock);
               const badge = qty <= p.minStock ? "🔴 Kam" : qty <= p.minStock * 2 ? "🟡 O'rta" : "🟢 Yaxshi";
               return (
@@ -120,7 +130,7 @@ export function WarehouseTab({ products, stock, user, fetchAll, showToast, t }: 
                     <td>
                       <button
                         className="btn-icon"
-                        onClick={() => { setEditP(p); setNewQty(String(stock[p.id] || 0)); }}
+                        onClick={() => { setEditP(p); setNewQty(String(visibleStock[p.id] || 0)); }}
                         style={{ color: "#7367f0", background: "rgba(115,103,240,.1)", borderColor: "rgba(115,103,240,.2)" }}
                       >
                         {t.edit}
