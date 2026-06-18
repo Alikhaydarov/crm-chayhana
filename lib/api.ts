@@ -140,15 +140,50 @@ function unwrapList<T>(data: any): T[] {
 
 function normalizeUser(data: any): AppUserInfo {
   const value = unwrap<any>(data);
-  const role = value?.role ?? value?.accountRole ?? value?.branch ?? value?.branchCode;
+  const accountRole = value?.role ?? value?.accountRole;
+  const branchSlug = value?.branch_slug ?? value?.branchSlug ?? value?.branch?.slug;
+  const branchType = value?.branch_type ?? value?.branchType ?? value?.branch?.branch_type;
+  const role =
+    accountRole === "ceo" || accountRole === "super_admin"
+      ? "superadmin"
+      : accountRole === "admin"
+        ? branchType === "shop" || /shop|dokon|do-kon/i.test(branchSlug || "")
+          ? "shop"
+          : "restaurant1"
+        : accountRole ?? value?.branchCode ?? branchSlug;
   return {
     ...value,
     id: String(value?.id ?? value?.userId ?? value?.username ?? ""),
-    name: value?.name ?? value?.fullName ?? value?.username ?? value?.userId ?? "",
+    name:
+      value?.name ||
+      value?.fullName ||
+      [value?.first_name, value?.last_name].filter(Boolean).join(" ") ||
+      value?.username ||
+      value?.userId ||
+      "",
     role,
-    branchName: value?.branchName ?? value?.branch_name ?? value?.branch?.name ?? role ?? "",
+    accountRole,
+    branchSlug,
+    branchType,
+    branchName: value?.branchName ?? value?.branch_name ?? value?.branch?.name ?? branchSlug ?? role ?? "",
     branchIcon: value?.branchIcon ?? value?.branch_icon ?? value?.branch?.icon ?? "",
   } as AppUserInfo;
+}
+
+function normalizeAccount(value: any) {
+  return {
+    ...value,
+    id: String(value?.id ?? value?.username ?? ""),
+    name:
+      value?.name ||
+      [value?.first_name, value?.last_name].filter(Boolean).join(" ") ||
+      value?.username ||
+      "",
+    role: value?.role ?? "",
+    branchName: value?.branchName ?? value?.branch_name ?? value?.branch_slug ?? "",
+    branchSlug: value?.branchSlug ?? value?.branch_slug ?? "",
+    active: value?.active ?? value?.is_active ?? true,
+  };
 }
 
 function normalizeStock(data: any): Record<string, number> {
@@ -226,6 +261,17 @@ export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
 
+    if (user.role === "superadmin") {
+      if (!Array.isArray(snapshot.accounts) || snapshot.accounts.length === 0) {
+        const usersData = await optionalRequest<any>("/auth/users/?page_size=1000", []);
+        snapshot.accounts = unwrapList<any>(usersData).map(normalizeAccount);
+      }
+      if (!Array.isArray(snapshot.branches) || snapshot.branches.length === 0) {
+        const branchesData = await optionalRequest<any>("/branches/?page_size=1000", []);
+        snapshot.branches = unwrapList<any>(branchesData);
+      }
+    }
+
     // Some role-filtered Django snapshots (notably the shop role) do not
     // include the product catalogue. Transfers still need the full catalogue
     // to render the product selector, so load it from its canonical endpoint.
@@ -246,7 +292,7 @@ export async function getSnapshotApi(user: AppUserInfo) {
 
     if (user.role !== "superadmin") {
       snapshot.transfers = (snapshot.transfers || []).filter(
-        (transfer: any) => transfer.toBranch === user.role,
+        (transfer: any) => transfer.toBranch === (user.branchSlug || user.role),
       );
       if (user.role === "shop") {
         snapshot.companies = [];
@@ -281,7 +327,7 @@ export async function getSnapshotApi(user: AppUserInfo) {
       optionalRequest<any>(
         user.role === "superadmin"
           ? "/stock/main/"
-          : `/stock/branches/${encodeURIComponent(branchForRole(user.role))}/`,
+          : `/stock/branches/${encodeURIComponent(user.branchSlug || branchForRole(user.role))}/`,
         {},
       ),
       user.role === "superadmin" || user.role === "shop"
@@ -311,7 +357,7 @@ export async function getSnapshotApi(user: AppUserInfo) {
     const allTransfers = unwrapList<any>(transfersData);
     const transfers = user.role === "superadmin"
       ? allTransfers
-      : allTransfers.filter(transfer => transfer.toBranch === user.role);
+      : allTransfers.filter(transfer => transfer.toBranch === (user.branchSlug || user.role));
     const orders = unwrapList<any>(ordersData);
     const shopSales = unwrapList<any>(shopSalesData);
     const companyPayments = paymentGroups.flatMap(group => unwrapList<any>(group));
@@ -377,6 +423,7 @@ export const addProductApi = (data: Omit<Product, "id">) =>
   mutation("/products/", "POST", {
     ...data,
     id: `p${Date.now()}`,
+    categoryName: data.category,
     qrCode: data.qrCode?.trim() || null,
   });
 

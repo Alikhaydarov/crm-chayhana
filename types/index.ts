@@ -5,6 +5,9 @@ export type UserInfo = {
   id: string;
   name: string;
   role: Role;
+  accountRole?: "ceo" | "super_admin" | "admin";
+  branchSlug?: string;
+  branchType?: "restaurant" | "shop";
   branchName: string;
   branchIcon: string;
 };

@@ -66,7 +66,7 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<any>(null);
   const [form, setForm] = useState({
-    toBranch: user.role === "superadmin" ? "restaurant1" : user.role,
+    toBranch: user.role === "superadmin" ? "restaurant1" : user.branchSlug || user.role,
     note: "",
   });
   const [items, setItems] = useState([{ pid: "", qty: 1 }]);

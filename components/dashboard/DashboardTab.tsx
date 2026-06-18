@@ -33,7 +33,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
   const branchReport = reports.branchStats?.find((b: any) => b.branch === user.role);
   const visibleTransfers = isSA
     ? transfers
-    : transfers.filter((transfer: any) => transfer.toBranch === user.role);
+    : transfers.filter((transfer: any) => transfer.toBranch === (user.branchSlug || user.role));
   const visibleOrders = isSA ? orders : isShop ? [] : orders;
   const totalDebt = visibleOrders.reduce((s: number, o: Order) => s + (o.totalPrice - o.paidAmount), 0);
   const today = new Date().toLocaleDateString("uz-UZ", {
@@ -62,12 +62,13 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
       .reduce<Record<string, { name: string; icon: string; role: string; accounts: Account[] }>>(
         (groups, account) => {
           const name = account.branchName || BRANCH_NAMES[account.role] || account.role;
-          const key = `${account.role}:${name}`;
+          const branchKey = account.branchSlug || account.role;
+          const key = `${branchKey}:${name}`;
           if (!groups[key]) {
             groups[key] = {
               name,
               icon: account.branchIcon || BRANCH_ICONS[account.role] || "🏢",
-              role: account.role,
+              role: branchKey,
               accounts: [],
             };
           }
@@ -114,7 +115,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
           <div className="branch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
             {accountBranches.map((branch, i) => {
               const branchStat = reports.branchStats?.find((b: any) => b.branch === branch.role);
-              const isShop = branch.role === "shop";
+              const isShop = /shop|dokon|do-kon/i.test(`${branch.role} ${branch.name}`);
 
               return (
                 <div
@@ -211,7 +212,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
                       {tr.id.slice(-8)}
                     </span>
                   </td>
-                  <td>{BRANCH_ICONS[tr.toBranch]} {BRANCH_NAMES[tr.toBranch]}</td>
+                  <td>{BRANCH_ICONS[tr.toBranch] || "🏢"} {tr.branchName || tr.toBranchName || BRANCH_NAMES[tr.toBranch] || tr.toBranch}</td>
                   <td style={{ color: "#3fb950", fontWeight: 800 }}>{fmtM(tr.totalValue)}</td>
                   <td><span className="badge" style={{ background: st.bg, color: st.c }}>{st.i} {st.l}</span></td>
                   <td className="hide-mobile" style={{ fontSize: 11, color: "var(--app-muted)" }}>{fmtD(tr.createdAt)}</td>

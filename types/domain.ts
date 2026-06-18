@@ -91,6 +91,7 @@ export type Account = {
   name: string;
   role: string;
   branchName: string;
+  branchSlug?: string;
   branchIcon?: string;
   active?: boolean;
 };

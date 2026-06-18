@@ -121,7 +121,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
             : transfer.status === "approved"
               ? "Transfer tasdiqlandi"
               : "Transfer rad etildi",
-          description: `${BRANCH_NAMES[transfer.toBranch] || transfer.toBranch} · ${transfer.items?.length || 0} ta mahsulot`,
+          description: `${transfer.branchName || transfer.toBranchName || BRANCH_NAMES[transfer.toBranch] || transfer.toBranch} · ${transfer.items?.length || 0} ta mahsulot`,
           createdAt: transfer.updatedAt || transfer.createdAt,
           tab: "transfers" as const,
           level: transfer.status === "pending" ? "warning" as const : transfer.status === "approved" ? "success" as const : "danger" as const,
