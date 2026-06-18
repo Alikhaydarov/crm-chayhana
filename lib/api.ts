@@ -205,6 +205,16 @@ export async function getSnapshotApi(user: AppUserInfo) {
       snapshot.products = unwrapList<Product>(productsData);
     }
 
+    // The snapshot can omit companies even though the dedicated endpoint
+    // returns them. Supplier and order screens need this canonical list.
+    if (
+      (user.role === "superadmin" || user.role.startsWith("restaurant")) &&
+      (!Array.isArray(snapshot.companies) || snapshot.companies.length === 0)
+    ) {
+      const companiesData = await optionalRequest<any>("/companies/?page_size=1000", []);
+      snapshot.companies = unwrapList<Company>(companiesData);
+    }
+
     if (user.role !== "superadmin") {
       snapshot.transfers = (snapshot.transfers || []).filter(
         (transfer: any) => transfer.toBranch === user.role,
