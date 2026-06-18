@@ -42,7 +42,15 @@ export function useAppData(user: UserInfo | null) {
       setCompanyPayments(d.companyPayments || []);
       setShopSales(d.shopSales || []);
       setStaff(d.staff || []);
-      setAccounts(d.accounts || d.users || []);
+      const accountData =
+        d.accounts?.results ??
+        d.accounts?.accounts ??
+        d.accounts ??
+        d.users?.results ??
+        d.users?.users ??
+        d.users ??
+        [];
+      setAccounts(Array.isArray(accountData) ? accountData : []);
     } catch (error: any) {
       if (!silent) {
         showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
