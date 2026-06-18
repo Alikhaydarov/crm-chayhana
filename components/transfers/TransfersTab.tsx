@@ -64,7 +64,10 @@ type Props = {
 export function TransfersTab({ transfers, products, user, fetchAll, showToast, t }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<any>(null);
-  const [form, setForm] = useState({ toBranch: "restaurant1", note: "" });
+  const [form, setForm] = useState({
+    toBranch: user.role === "superadmin" ? "restaurant1" : user.role,
+    note: "",
+  });
   const [items, setItems] = useState([{ pid: "", qty: 1 }]);
   const [loading, setLoading] = useState(false);
   const isSA = user.role === "superadmin";
@@ -110,11 +113,9 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
           <div className="modal-title">📤 Transfer so'rovi</div>
           <div className="form-group">
             <label className="form-label">FILIAL</label>
-            <select className="crm-input" value={form.toBranch} onChange={(e) => setForm({ ...form, toBranch: e.target.value })}>
-              {Object.entries(BRANCH_NAMES).filter(([k]) => k !== "main").map(([k, v]) => (
-                <option key={k} value={k}>{BRANCH_ICONS[k]} {v}</option>
-              ))}
-            </select>
+            <div className="crm-input" style={{ display: "flex", alignItems: "center", opacity: .9 }}>
+              {BRANCH_ICONS[user.role]} {BRANCH_NAMES[user.role]}
+            </div>
           </div>
           <div className="form-group">
             <label className="form-label">MAHSULOTLAR</label>

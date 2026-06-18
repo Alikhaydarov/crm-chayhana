@@ -7,6 +7,8 @@ import type {
   Supplier,
   UserInfo,
 } from "@/lib/localStore";
+import type { UserInfo as AppUserInfo } from "@/types";
+import { branchForRole } from "@/lib/permissions";
 
 const API_BASE = "/api/backend";
 const ACCESS_TOKEN_KEY = "crm-access-token";
@@ -194,9 +196,29 @@ export async function logoutApi() {
   }
 }
 
-export async function getSnapshotApi() {
+export async function getSnapshotApi(user: AppUserInfo) {
   try {
-    return unwrap<any>(await request("/snapshot/"));
+    const snapshot = unwrap<any>(await request("/snapshot/"));
+    if (user.role !== "superadmin") {
+      snapshot.transfers = (snapshot.transfers || []).filter(
+        (transfer: any) => transfer.toBranch === user.role,
+      );
+      if (user.role === "shop") {
+        snapshot.companies = [];
+        snapshot.orders = [];
+        snapshot.companyPayments = [];
+        snapshot.staff = (snapshot.staff || []).filter(
+          (member: any) => member.branch === "shop",
+        );
+      } else {
+        snapshot.shopSales = [];
+        snapshot.shopStock = {};
+        snapshot.staff = (snapshot.staff || []).filter(
+          (member: any) => member.branch === user.role,
+        );
+      }
+    }
+    return snapshot;
   } catch (snapshotError) {
     console.warn("[crm-api] Snapshot endpoint failed, loading resources separately", snapshotError);
 
@@ -211,13 +233,26 @@ export async function getSnapshotApi() {
       shopSalesData,
     ] = await Promise.all([
       optionalRequest<any>("/products/?page_size=1000", []),
-      optionalRequest<any>("/stock/main/", {}),
-      optionalRequest<any>("/stock/branches/shop/", {}),
+      optionalRequest<any>(
+        user.role === "superadmin"
+          ? "/stock/main/"
+          : `/stock/branches/${encodeURIComponent(branchForRole(user.role))}/`,
+        {},
+      ),
+      user.role === "superadmin" || user.role === "shop"
+        ? optionalRequest<any>("/stock/branches/shop/", {})
+        : Promise.resolve({}),
       optionalRequest<any>("/transfers/?page_size=1000", []),
       optionalRequest<any>("/reports/", null),
-      optionalRequest<any>("/companies/?page_size=1000", []),
-      optionalRequest<any>("/orders/?page_size=1000", []),
-      optionalRequest<any>("/shop-sales/?page_size=1000", []),
+      user.role === "superadmin" || user.role.startsWith("restaurant")
+        ? optionalRequest<any>("/companies/?page_size=1000", [])
+        : Promise.resolve([]),
+      user.role === "superadmin" || user.role.startsWith("restaurant")
+        ? optionalRequest<any>("/orders/?page_size=1000", [])
+        : Promise.resolve([]),
+      user.role === "superadmin" || user.role === "shop"
+        ? optionalRequest<any>("/shop-sales/?page_size=1000", [])
+        : Promise.resolve([]),
     ]);
 
     const companies = unwrapList<Company>(companiesData);
@@ -228,7 +263,10 @@ export async function getSnapshotApi() {
     );
 
     const products = unwrapList<Product>(productsData);
-    const transfers = unwrapList<any>(transfersData);
+    const allTransfers = unwrapList<any>(transfersData);
+    const transfers = user.role === "superadmin"
+      ? allTransfers
+      : allTransfers.filter(transfer => transfer.toBranch === user.role);
     const orders = unwrapList<any>(ordersData);
     const shopSales = unwrapList<any>(shopSalesData);
     const companyPayments = paymentGroups.flatMap(group => unwrapList<any>(group));

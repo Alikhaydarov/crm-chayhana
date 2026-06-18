@@ -10,6 +10,7 @@ import { I18N } from "@/lib/constants";
 import { GLOBAL_CSS } from "@/lib/constants/styles";
 import { useAppData } from "@/hooks/useAppData";
 import { AppContext } from "@/lib/AppContext";
+import { canAccessTab } from "@/lib/permissions";
 import { Toast } from "@/components/ui";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar, BottomNav } from "@/components/layout/Topbar";
@@ -48,7 +49,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const t = I18N[lang];
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
 
-  const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user?.id ?? null);
+  const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user);
   const { products, stock, shopStock, reports, companies, orders, companyPayments, shopSales, staff } = rest as any;
 
   useEffect(() => {
@@ -68,10 +69,20 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => { setSidebarCollapsed(localStorage.getItem("crm-sidebar") !== "open"); }, []);
   useEffect(() => { localStorage.setItem("crm-sidebar", sidebarCollapsed ? "collapsed" : "open"); }, [sidebarCollapsed]);
 
+  useEffect(() => {
+    if (user && !canAccessTab(user.role, activeTab)) router.replace("/dashboard");
+  }, [activeTab, router, user]);
+
   const signOut = async () => { await logoutApi(); setUser(null); router.replace("/"); };
   const toggleTheme = () => setTheme((v) => (v === "dark" ? "light" : "dark"));
   const toggleLang = () => setLang((v) => (v === "uz" ? "ko" : "uz"));
-  const handleTabChange = (tabId: TabId) => router.push(TAB_ROUTES[tabId]);
+  const handleTabChange = (tabId: TabId) => {
+    if (!user || !canAccessTab(user.role, tabId)) {
+      router.push("/dashboard");
+      return;
+    }
+    router.push(TAB_ROUTES[tabId]);
+  };
 
   if (!sessionReady)
     return (
@@ -82,6 +93,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     );
 
   if (!user) return null;
+  if (!canAccessTab(user.role, activeTab)) return null;
 
   const pendingCount = transfers.filter((tr: any) => tr.status === "pending").length;
 
@@ -92,7 +104,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
     { id: "products" as TabId, icon: Package, label: t.products },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
-  ];
+  ].filter((tab) => canAccessTab(user.role, tab.id));
 
   return (
     <AppContext.Provider value={{ products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId) }}>

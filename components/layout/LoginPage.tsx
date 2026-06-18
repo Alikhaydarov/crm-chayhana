@@ -10,15 +10,8 @@ type Props = {
   setTheme: (t: ThemeMode) => void;
 };
 
-const DEMOS = [
-  { id: "super", password: "super123", label: "Bosh Admin", icon: "🏭", color: "#7367f0" },
-  { id: "rest1", password: "rest1", label: "Oshxona-1", icon: "🍽️", color: "#3fb950" },
-  { id: "rest2", password: "rest2", label: "Oshxona-2", icon: "🍜", color: "#3b82f6" },
-  { id: "shop1", password: "shop1", label: "Do'kon", icon: "🏪", color: "#a855f7" },
-];
-
 export function LoginPage({ onLogin, theme, setTheme }: Props) {
-  const [userId, setUserId] = useState("super");
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
@@ -117,40 +110,11 @@ export function LoginPage({ onLogin, theme, setTheme }: Props) {
           <button
             className="btn-primary"
             onClick={handleLogin}
-            disabled={loading}
-            style={{ width: "100%", marginBottom: 20, padding: "13px" }}
+            disabled={loading || !userId.trim() || !password}
+            style={{ width: "100%", padding: "13px" }}
           >
             {loading ? "Kirilmoqda..." : "Kirish →"}
           </button>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ flex: 1, height: 1, background: "var(--app-border)" }} />
-            <span style={{ fontSize: 10, fontWeight: 800, color: "var(--app-muted)", letterSpacing: 1 }}>DEMO</span>
-            <div style={{ flex: 1, height: 1, background: "var(--app-border)" }} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {DEMOS.map((d) => (
-              <button
-                key={d.id}
-                onClick={() => { setUserId(d.id); setPassword(d.password); setError(""); }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "10px 12px", borderRadius: 12,
-                  border: `1.5px solid ${userId === d.id ? d.color : "var(--app-border)"}`,
-                  background: userId === d.id ? `${d.color}18` : "var(--app-panel-soft)",
-                  cursor: "pointer", color: "var(--app-text)",
-                  fontSize: 12, fontWeight: 700, fontFamily: "inherit", transition: "all .15s",
-                }}
-              >
-                <span style={{ fontSize: 20 }}>{d.icon}</span>
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: 12, fontWeight: 800 }}>{d.label}</div>
-                  <div style={{ fontSize: 10, color: "var(--app-muted)", fontWeight: 500 }}>{d.id}</div>
-                </div>
-              </button>
-            ))}
-          </div>
         </div>
 
         <div style={{ textAlign: "center", marginTop: 16 }}>

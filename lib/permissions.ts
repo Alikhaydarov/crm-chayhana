@@ -1,0 +1,16 @@
+import type { Role, TabId } from "@/types";
+
+export const ROLE_TABS: Record<Role, readonly TabId[]> = {
+  superadmin: ["dashboard", "warehouse", "transfers", "orders", "products", "suppliers", "shop-sales"],
+  restaurant1: ["dashboard", "warehouse", "transfers", "orders"],
+  restaurant2: ["dashboard", "warehouse", "transfers", "orders"],
+  shop: ["dashboard", "warehouse", "transfers", "shop-sales"],
+};
+
+export function canAccessTab(role: Role, tab: TabId) {
+  return ROLE_TABS[role].includes(tab);
+}
+
+export function branchForRole(role: Role) {
+  return role === "superadmin" ? "main" : role;
+}

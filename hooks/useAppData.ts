@@ -2,10 +2,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSnapshotApi } from "@/lib/api";
 import type { Company, Order, CompanyPayment, ShopSaleImport, Staff } from "@/lib/localStore";
-import type { Product, StockMap, Transfer } from "@/types";
+import type { Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
 
-export function useAppData(userId: string | null) {
+export function useAppData(user: UserInfo | null) {
   const [products, setProducts] = useState<Product[]>([]);
   const [stock, setStock] = useState<StockMap>({});
   const [shopStock, setShopStock] = useState<StockMap>({});
@@ -19,9 +19,9 @@ export function useAppData(userId: string | null) {
   const { toast, show: showToast } = useToast();
 
   const fetchAll = useCallback(async () => {
-    if (!userId) return;
+    if (!user) return;
     try {
-      const d: any = await getSnapshotApi();
+      const d: any = await getSnapshotApi(user);
       setProducts(d.products || []);
       setStock(d.stock || {});
       setShopStock(d.shopStock || {});
@@ -35,11 +35,11 @@ export function useAppData(userId: string | null) {
     } catch (error: any) {
       showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
     }
-  }, [userId, showToast]);
+  }, [user, showToast]);
 
   useEffect(() => {
-    if (userId) fetchAll();
-  }, [userId, fetchAll]);
+    if (user) fetchAll();
+  }, [user, fetchAll]);
 
   return {
     products,

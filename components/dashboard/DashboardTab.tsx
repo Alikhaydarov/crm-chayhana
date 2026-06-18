@@ -28,7 +28,13 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
     );
 
   const isSA = user.role === "superadmin";
-  const totalDebt = orders.reduce((s: number, o: Order) => s + (o.totalPrice - o.paidAmount), 0);
+  const isShop = user.role === "shop";
+  const branchReport = reports.branchStats?.find((b: any) => b.branch === user.role);
+  const visibleTransfers = isSA
+    ? transfers
+    : transfers.filter((transfer: any) => transfer.toBranch === user.role);
+  const visibleOrders = isSA ? orders : isShop ? [] : orders;
+  const totalDebt = visibleOrders.reduce((s: number, o: Order) => s + (o.totalPrice - o.paidAmount), 0);
   const today = new Date().toLocaleDateString("uz-UZ", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
@@ -41,10 +47,12 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
         { l: "Order qarzi",     v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: totalDebt > 0 ? "rgba(248,81,73,.08)" : "rgba(63,185,80,.08)", i: "🏢" },
       ]
     : [
-        { l: "Skladim",       v: fmtM(reports.branchStats?.find((b: any) => b.branch === user.role)?.stockValue || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", i: "💰" },
-        { l: "So'rovlarim",   v: String(transfers.length), c: "#7367f0", bg: "rgba(115,103,240,.08)", i: "🔄" },
-        { l: "Kutilayotgan",  v: String(transfers.filter((tr: any) => tr.status === "pending").length), c: "#f0a500", bg: "rgba(240,165,0,.08)", i: "⏳" },
-        { l: "Firmalar",      v: String(companies.length), c: "#a855f7", bg: "rgba(168,85,247,.08)", i: "🏢" },
+        { l: "Skladim",       v: fmtM(branchReport?.stockValue || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", i: "💰" },
+        { l: "So'rovlarim",   v: String(visibleTransfers.length), c: "#7367f0", bg: "rgba(115,103,240,.08)", i: "🔄" },
+        { l: "Kutilayotgan",  v: String(visibleTransfers.filter((tr: any) => tr.status === "pending").length), c: "#f0a500", bg: "rgba(240,165,0,.08)", i: "⏳" },
+        isShop
+          ? { l: "Kam qolgan", v: String(branchReport?.lowStockCount || 0), c: "#f85149", bg: "rgba(248,81,73,.08)", i: "📦" }
+          : { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: "rgba(248,81,73,.08)", i: "🧾" },
       ];
 
   // Har bir filial uchun o'sha branchdagi userlar
@@ -178,7 +186,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
             </tr>
           </thead>
           <tbody>
-            {transfers.slice(0, 6).map((tr: any) => {
+            {visibleTransfers.slice(0, 6).map((tr: any) => {
               const st = TRANSFER_STATUS_CONFIG[tr.status as keyof typeof TRANSFER_STATUS_CONFIG];
               return (
                 <tr key={tr.id}>
@@ -194,7 +202,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
                 </tr>
               );
             })}
-            {transfers.length === 0 && (
+            {visibleTransfers.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ textAlign: "center", color: "var(--app-muted)", padding: 32 }}>Transfer yo'q</td>
               </tr>
