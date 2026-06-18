@@ -118,7 +118,23 @@ function unwrap<T>(data: any): T {
 }
 
 function unwrapList<T>(data: any): T[] {
-  const value = data?.data?.results ?? data?.data ?? data?.results ?? data;
+  const value =
+    data?.data?.results ??
+    data?.data?.items ??
+    data?.data?.products ??
+    data?.data?.companies ??
+    data?.data?.transfers ??
+    data?.data?.orders ??
+    data?.data?.shopSales ??
+    data?.results ??
+    data?.items ??
+    data?.products ??
+    data?.companies ??
+    data?.transfers ??
+    data?.orders ??
+    data?.shopSales ??
+    data?.data ??
+    data;
   return Array.isArray(value) ? value : [];
 }
 
