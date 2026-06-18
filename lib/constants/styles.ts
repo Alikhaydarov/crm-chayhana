@@ -113,8 +113,8 @@ export const GLOBAL_CSS = `
   }
   .nav-item:hover { background: var(--app-primary-soft); color: var(--app-primary); }
   .nav-item.active {
-    background: linear-gradient(90deg, var(--app-primary), #8f85f3); color: #fff; font-weight: 700;
-    border-color: transparent; box-shadow: 0 5px 14px rgba(115,103,240,.25);
+    background: var(--app-primary-soft); color: var(--app-primary); font-weight: 700;
+    border-color: var(--app-primary); box-shadow: none;
   }
   .nav-icon { font-size: 18px; flex-shrink: 0; }
 

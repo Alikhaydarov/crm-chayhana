@@ -28,45 +28,34 @@ export function LoginPage({ onLogin, theme, setTheme }: Props) {
   };
 
   return (
-    <div
-      className={`${theme} theme-shell`}
-      style={{
-        minHeight: "100vh", display: "flex", alignItems: "center",
-        justifyContent: "center", padding: "20px",
-        background: "var(--app-bg)", fontFamily: "var(--font-ui)",
-      }}
-    >
+    <div className={`${theme} theme-shell login-screen`}>
       <style>{GLOBAL_CSS}</style>
-      <div style={{ width: "100%", maxWidth: 400 }}>
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div
-            style={{
-              width: 72, height: 72, borderRadius: 22,
-              background: "linear-gradient(135deg,#7367f0,#655bd3)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 16px",
-              boxShadow: "0 12px 32px rgba(115,103,240,.4)", fontSize: 32,
-            }}
-          >
-            <UtensilsCrossed size={32} />
+      <div className="login-shell">
+        <section className="login-visual">
+          <div className="login-brand">
+            <span><UtensilsCrossed size={24} /></span>
+            <strong>CRM-JUTSU</strong>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: "var(--app-text)", letterSpacing: -0.5 }}>
-            CRM-JUTSU
+          <div className="login-preview">
+            <div className="preview-top"><span /><i /><i /><i /></div>
+            <div className="preview-body">
+              <div className="preview-sidebar"><b /><b /><b /><b /></div>
+              <div className="preview-canvas">
+                <div className="preview-kpis"><b /><b /><b /></div>
+                <div className="preview-chart">{Array.from({ length: 18 }).map((_, index) => <i key={index} style={{ height: `${24 + (index % 6) * 9}%` }} />)}</div>
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 13, color: "var(--app-muted)", marginTop: 6 }}>
-            Restoran boshqaruv tizimi
-          </div>
-        </div>
+          <div className="login-visual-copy">Sklad, savdo va filiallarni aniq boshqaring.</div>
+        </section>
 
-        {/* Card */}
-        <div
-          style={{
-            background: "var(--app-panel)", border: "1px solid var(--app-border)",
-            borderRadius: 24, padding: "28px 24px",
-            boxShadow: "0 24px 64px rgba(0,0,0,.35)",
-          }}
-        >
+        <section className="login-form-panel">
+          <div className="login-form-inner">
+            <div className="login-heading">
+              <div className="login-mobile-logo"><UtensilsCrossed size={22} /></div>
+              <h1>Kirish</h1>
+              <p>CRM boshqaruv paneliga davom eting</p>
+            </div>
           <div className="form-group">
             <label className="form-label">Foydalanuvchi</label>
             <input
@@ -116,16 +105,12 @@ export function LoginPage({ onLogin, theme, setTheme }: Props) {
           >
             {loading ? "Kirilmoqda..." : <><LogIn size={17} /> Kirish</>}
           </button>
-        </div>
 
-        <div style={{ textAlign: "center", marginTop: 16 }}>
-          <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", color: "var(--app-muted)", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit" }}
-          >
-            {theme === "dark" ? <><Sun size={16} /> Kunduzgi rejim</> : <><Moon size={16} /> Tungi rejim</>}
-          </button>
-        </div>
+            <button className="login-theme" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              {theme === "dark" ? <><Sun size={16} /> Kunduzgi rejim</> : <><Moon size={16} /> Tungi rejim</>}
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );
