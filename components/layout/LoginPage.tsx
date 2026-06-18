@@ -30,31 +30,16 @@ export function LoginPage({ onLogin, theme, setTheme }: Props) {
   return (
     <div className={`${theme} theme-shell login-screen`}>
       <style>{GLOBAL_CSS}</style>
-      <div className="login-shell">
-        <section className="login-visual">
-          <div className="login-brand">
-            <span><UtensilsCrossed size={24} /></span>
-            <strong>CRM-JUTSU</strong>
-          </div>
-          <div className="login-preview">
-            <div className="preview-top"><span /><i /><i /><i /></div>
-            <div className="preview-body">
-              <div className="preview-sidebar"><b /><b /><b /><b /></div>
-              <div className="preview-canvas">
-                <div className="preview-kpis"><b /><b /><b /></div>
-                <div className="preview-chart">{Array.from({ length: 18 }).map((_, index) => <i key={index} style={{ height: `${24 + (index % 6) * 9}%` }} />)}</div>
-              </div>
-            </div>
-          </div>
-          <div className="login-visual-copy">Sklad, savdo va filiallarni aniq boshqaring.</div>
-        </section>
-
+      <div className="login-shell login-shell-compact">
         <section className="login-form-panel">
           <div className="login-form-inner">
+            <div className="login-brand-compact">
+              <span><UtensilsCrossed size={21} /></span>
+              <strong>CRM-JUTSU</strong>
+            </div>
             <div className="login-heading">
-              <div className="login-mobile-logo"><UtensilsCrossed size={22} /></div>
               <h1>Kirish</h1>
-              <p>CRM boshqaruv paneliga davom eting</p>
+              <p>Hisobingizga kirib boshqaruvni davom ettiring.</p>
             </div>
           <div className="form-group">
             <label className="form-label">Foydalanuvchi</label>

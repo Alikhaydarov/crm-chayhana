@@ -116,8 +116,9 @@ body {
 .stat-icon{width:38px;height:38px;display:grid;place-items:center;margin-bottom:12px;border-radius:8px}
 
 /* Planix-inspired CRM design system */
-.login-screen{min-height:100vh;display:grid;place-items:center;padding:28px;background:var(--app-bg);font-family:var(--font-ui)}
-.login-shell{width:min(1180px,100%);min-height:700px;display:grid;grid-template-columns:1.05fr .95fr;overflow:hidden;border:1px solid var(--app-border);border-radius:18px;background:var(--app-panel);box-shadow:0 22px 70px rgba(32,45,74,.13)}
+.login-screen{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 0,rgba(115,103,240,.09),transparent 34%),var(--app-bg);font-family:var(--font-ui)}
+.login-shell{width:min(440px,100%);display:block;overflow:hidden;border:1px solid var(--app-border);border-radius:18px;background:var(--app-panel);box-shadow:0 22px 60px rgba(15,23,42,.16)}
+.login-shell-compact{min-height:0}
 .login-visual{position:relative;margin:24px;border-radius:16px;padding:30px;overflow:hidden;background:linear-gradient(145deg,#dce6fa,#78b9d7);color:#17223d}
 .login-visual:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(65,105,193,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(65,105,193,.1) 1px,transparent 1px);background-size:52px 52px}
 .login-brand{position:relative;z-index:1;display:flex;align-items:center;gap:13px;font-size:23px}
@@ -128,12 +129,12 @@ body {
 .preview-body{display:grid;grid-template-columns:150px 1fr;gap:16px;margin-top:16px;height:310px}.preview-sidebar,.preview-canvas{border:1px solid rgba(255,255,255,.45);border-radius:12px;background:rgba(255,255,255,.12);padding:14px}.preview-sidebar{display:flex;flex-direction:column;gap:12px}.preview-sidebar b{height:44px;border-radius:9px;background:rgba(255,255,255,.32)}.preview-sidebar b:nth-child(2){background:rgba(255,255,255,.72)}
 .preview-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.preview-kpis b{height:58px;border-radius:9px;background:rgba(255,255,255,.4)}.preview-chart{height:200px;display:flex;align-items:flex-end;gap:7px;margin-top:18px;padding:18px;border-radius:10px;background:rgba(255,255,255,.2)}.preview-chart i{flex:1;border-radius:5px 5px 2px 2px;background:rgba(255,255,255,.72)}
 .login-visual-copy{position:absolute;z-index:2;left:30px;bottom:30px;max-width:480px;color:#fff;font-size:28px;font-weight:800;line-height:1.25}
-.login-form-panel{display:grid;place-items:center;padding:48px}.login-form-inner{width:min(430px,100%)}.login-heading{margin-bottom:38px}.login-heading h1{margin:0 0 8px;font-size:34px}.login-heading p{margin:0;color:var(--app-muted)}.login-mobile-logo{display:none;margin-bottom:22px}.login-theme{display:inline-flex;align-items:center;gap:7px;margin-top:20px;padding:8px 0;border:0;background:transparent;color:var(--app-muted);font:700 12px var(--font-ui);cursor:pointer}
+.login-form-panel{display:block;padding:34px}.login-form-inner{width:100%}.login-brand-compact{display:flex;align-items:center;gap:10px;margin-bottom:32px;color:var(--app-text);font-size:15px;letter-spacing:.2px}.login-brand-compact span{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,#7367f0,#4f6fd8);color:#fff;box-shadow:0 8px 20px rgba(115,103,240,.24)}.login-heading{margin-bottom:26px}.login-heading h1{margin:0 0 7px;font-size:27px;letter-spacing:-.5px}.login-heading p{margin:0;color:var(--app-muted);font-size:13px;line-height:1.5}.login-theme{display:inline-flex;align-items:center;gap:7px;margin-top:18px;padding:7px 0;border:0;background:transparent;color:var(--app-muted);font:700 12px var(--font-ui);cursor:pointer}
 .stat-card{box-shadow:0 4px 14px rgba(32,45,74,.06);border-color:var(--app-border)!important}.table-wrap,.sales-panel{box-shadow:0 4px 16px rgba(32,45,74,.05)}.crm-table th{background:#f8f9fc}.dark .crm-table th{background:var(--app-panel-soft)}
 .btn-primary{background:#4169c1!important;box-shadow:none!important}.btn-primary:hover:not(:disabled){background:#3157ad!important}
 .modal-backdrop{backdrop-filter:blur(3px)}.modal-box{box-shadow:0 24px 70px rgba(17,26,48,.25)}
 
-@media(max-width:900px){.login-shell{grid-template-columns:1fr;min-height:auto}.login-visual{display:none}.login-form-panel{min-height:620px;padding:34px 24px}.login-mobile-logo{display:grid}.login-screen{padding:16px}.login-shell{border-radius:14px}}
+@media(max-width:600px){.login-screen{place-items:center;padding:16px}.login-shell{width:100%;max-width:390px;border-radius:16px}.login-form-panel{padding:26px 22px}.login-brand-compact{margin-bottom:26px}.login-heading{margin-bottom:22px}.login-heading h1{font-size:24px}.login-form-panel .crm-input{min-height:44px}.login-form-panel .btn-primary{min-height:44px}}
 @media(max-width:768px){.notification-panel{position:fixed;top:62px;right:8px;left:8px;width:auto}}
 
 .theme-panel,
