@@ -15,7 +15,7 @@ export type AppContextType = {
   shopSales: ShopSaleImport[];
   staff: Staff[];
   accounts: Account[];
-  fetchAll: () => void;
+  fetchAll: (silent?: boolean) => void;
   showToast: (msg: string, type?: "success" | "error") => void;
   t: Record<string, string>;
   lang: string;

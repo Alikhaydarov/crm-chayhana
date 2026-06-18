@@ -19,9 +19,16 @@ export function useAppData(user: UserInfo | null) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { toast, show: showToast } = useToast();
   const loadingRef = useRef(false);
+  const pendingRefreshRef = useRef(false);
+  const pendingRefreshSilentRef = useRef(true);
 
-  const fetchAll = useCallback(async () => {
-    if (!user || loadingRef.current) return;
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!user) return;
+    if (loadingRef.current) {
+      pendingRefreshRef.current = true;
+      pendingRefreshSilentRef.current = pendingRefreshSilentRef.current && silent;
+      return;
+    }
     loadingRef.current = true;
     try {
       const d: any = await getSnapshotApi(user);
@@ -37,9 +44,17 @@ export function useAppData(user: UserInfo | null) {
       setStaff(d.staff || []);
       setAccounts(d.accounts || d.users || []);
     } catch (error: any) {
-      showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
+      if (!silent) {
+        showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
+      }
     } finally {
       loadingRef.current = false;
+      if (pendingRefreshRef.current) {
+        const nextSilent = pendingRefreshSilentRef.current;
+        pendingRefreshRef.current = false;
+        pendingRefreshSilentRef.current = true;
+        queueMicrotask(() => fetchAll(nextSilent));
+      }
     }
   }, [user, showToast]);
 
@@ -51,9 +66,9 @@ export function useAppData(user: UserInfo | null) {
     if (!user) return;
 
     const refreshIfVisible = () => {
-      if (document.visibilityState === "visible") fetchAll();
+      if (document.visibilityState === "visible") fetchAll(true);
     };
-    const interval = window.setInterval(refreshIfVisible, 5000);
+    const interval = window.setInterval(refreshIfVisible, 2000);
 
     window.addEventListener("focus", refreshIfVisible);
     window.addEventListener("online", refreshIfVisible);
