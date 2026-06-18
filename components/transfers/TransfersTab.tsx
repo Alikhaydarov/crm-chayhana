@@ -30,7 +30,7 @@ function TransferCard({
     >
       <div>
         <div style={{ fontWeight: 800, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-          {BRANCH_ICONS[t.toBranch]} {branchName}
+          {BRANCH_ICONS[t.toBranch] || "🏢"} {branchName}
           <span style={{ fontFamily: "monospace", fontSize: 10, color: "var(--app-muted)", background: "var(--app-panel-soft)", padding: "2px 7px", borderRadius: 6 }}>
             {t.id.slice(-8)}
           </span>
@@ -121,7 +121,7 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
           <div className="form-group">
             <label className="form-label">FILIAL</label>
             <div className="crm-input" style={{ display: "flex", alignItems: "center", opacity: .9 }}>
-              {BRANCH_ICONS[user.role]} {user.branchName}
+              {user.branchIcon || BRANCH_ICONS[user.role] || "🏢"} {user.branchName}
             </div>
           </div>
           <div className="form-group">
@@ -160,7 +160,7 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
             </span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-            {[["Filial", `${BRANCH_ICONS[detail.toBranch]} ${detail.branchName || detail.toBranchName || BRANCH_NAMES[detail.toBranch] || detail.toBranch}`], ["So'ragan", detail.requestedBy], ["Sana", fmtD(detail.createdAt)], ["Tasdiqlagan", detail.approvedBy || "—"]].map(([l, v]) => (
+            {[["Filial", `${BRANCH_ICONS[detail.toBranch] || "🏢"} ${detail.branchName || detail.toBranchName || BRANCH_NAMES[detail.toBranch] || detail.toBranch}`], ["So'ragan", detail.requestedBy], ["Sana", fmtD(detail.createdAt)], ["Tasdiqlagan", detail.approvedBy || "—"]].map(([l, v]) => (
               <div key={String(l)} style={{ background: "var(--app-panel-soft)", borderRadius: 11, padding: "11px 13px" }}>
                 <div style={{ fontSize: 10, color: "var(--app-muted)", marginBottom: 4, fontWeight: 700 }}>{l}</div>
                 <div style={{ fontWeight: 700 }}>{v}</div>

@@ -24,8 +24,8 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
   const [newQty, setNewQty] = useState("");
 
   const isSA = user.role === "superadmin";
-  const visibleStock = user.role === "shop" ? shopStock : stock;
-  const warehouseProducts = user.role === "shop"
+  const visibleStock = stock;
+  const warehouseProducts = !isSA
     ? products.filter((p) => (visibleStock[p.id] || 0) > 0)
     : products;
   const totalVal = warehouseProducts.reduce(

@@ -7,7 +7,7 @@ import { PageWrap } from "@/components/ui";
 import { BRANCH_ICONS, BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtD } from "@/lib/utils";
 import type { UserInfo, TabId } from "@/types";
-import type { Account, Order, ReportSummary } from "@/types/domain";
+import type { Account, Branch, Order, ReportSummary } from "@/types/domain";
 
 type Props = {
   reports: ReportSummary | null;
@@ -17,10 +17,11 @@ type Props = {
   orders: Order[];
   companies: any[];
   accounts: Account[];
+  branches: Branch[];
   t: Record<string, string>;
 };
 
-export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, t }: Props) {
+export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, branches, t }: Props) {
   if (!reports)
     return (
       <PageWrap>
@@ -56,28 +57,16 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
           : { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: "rgba(248,81,73,.08)", Icon: ReceiptText },
       ];
 
-  const accountBranches = Object.values(
-    accounts
-      .filter(account => account.role !== "superadmin" && account.active !== false)
-      .reduce<Record<string, { name: string; icon: string; role: string; accounts: Account[] }>>(
-        (groups, account) => {
-          const name = account.branchName || BRANCH_NAMES[account.role] || account.role;
-          const branchKey = account.branchSlug || account.role;
-          const key = `${branchKey}:${name}`;
-          if (!groups[key]) {
-            groups[key] = {
-              name,
-              icon: account.branchIcon || BRANCH_ICONS[account.role] || "🏢",
-              role: branchKey,
-              accounts: [],
-            };
-          }
-          groups[key].accounts.push(account);
-          return groups;
-        },
-        {},
-      ),
-  );
+  const accountBranches = branches
+    .filter(branch => branch.is_active !== false)
+    .map(branch => ({
+      name: branch.name,
+      icon: branch.branch_type === "shop" ? "🏪" : "🍽️",
+      role: branch.slug,
+      branchType: branch.branch_type,
+      warehouseName: branch.warehouse?.name,
+      accounts: accounts.filter(account => account.branchSlug === branch.slug),
+    }));
 
   return (
     <PageWrap
@@ -115,7 +104,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
           <div className="branch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
             {accountBranches.map((branch, i) => {
               const branchStat = reports.branchStats?.find((b: any) => b.branch === branch.role);
-              const isShop = /shop|dokon|do-kon/i.test(`${branch.role} ${branch.name}`);
+              const isShop = branch.branchType === "shop";
 
               return (
                 <div
@@ -140,7 +129,9 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, fontSize: 14 }}>{branch.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--app-muted)" }}>{branch.accounts.length} ta account</div>
+                      <div style={{ fontSize: 11, color: "var(--app-muted)" }}>
+                        {branch.warehouseName || `${branch.accounts.length} ta account`}
+                      </div>
                     </div>
                     {isShop && <span style={{ fontSize: 11, color: "var(--app-primary)", fontWeight: 700 }}>→</span>}
                   </div>

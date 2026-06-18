@@ -186,6 +186,23 @@ function normalizeAccount(value: any) {
   };
 }
 
+async function enrichUserBranch(user: AppUserInfo): Promise<AppUserInfo> {
+  if (user.accountRole !== "admin" || !user.branchSlug) return user;
+  const branch = await optionalRequest<any>(
+    `/branches/${encodeURIComponent(user.branchSlug)}/`,
+    null,
+  );
+  const value = unwrap<any>(branch);
+  if (!value) return user;
+  return {
+    ...user,
+    role: value.branch_type === "shop" ? "shop" : "restaurant1",
+    branchType: value.branch_type,
+    branchName: value.name || user.branchName,
+    branchIcon: value.branch_type === "shop" ? "🏪" : "🍽️",
+  };
+}
+
 function normalizeStock(data: any): Record<string, number> {
   const value = data?.data?.stock ?? data?.data ?? data?.stock ?? data;
   if (Array.isArray(value)) {
@@ -224,7 +241,7 @@ export async function loginApi(userId: string, password: string): Promise<ApiRes
       retryAuth: false,
     });
     saveTokens(data.access, data.refresh);
-    return success({ user: normalizeUser(data.user) });
+    return success({ user: await enrichUserBranch(normalizeUser(data.user)) });
   } catch (error) {
     return failure(error);
   }
@@ -234,7 +251,7 @@ export async function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo
   try {
     if (!hasSession()) throw new Error("Sessiya topilmadi");
     const data = await request<any>("/auth/me/");
-    return success({ user: normalizeUser(data.user ?? data) });
+    return success({ user: await enrichUserBranch(normalizeUser(data.user ?? data)) });
   } catch (error) {
     return failure(error);
   }

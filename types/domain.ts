@@ -96,6 +96,24 @@ export type Account = {
   active?: boolean;
 };
 
+export type Branch = {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  branch_type: "restaurant" | "shop";
+  address: string;
+  phone_number?: string;
+  is_active: boolean;
+  warehouse?: {
+    id: number;
+    name: string;
+    is_main: boolean;
+    branch_id: number | null;
+    branch_slug: string | null;
+  };
+};
+
 export type Supplier = {
   id: string;
   firm: string;
@@ -121,6 +139,7 @@ export type Snapshot = {
   shopSales: ShopSaleImport[];
   staff: Staff[];
   accounts: Account[];
+  branches: Branch[];
 };
 
 export type BranchReport = {
