@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { Bell, ChevronLeft, ChevronRight, Languages, LogOut, Moon, Search, Sun } from "lucide-react";
+import { ChevronLeft, ChevronRight, Languages, LogOut, Moon, Search, Sun } from "lucide-react";
+import { AdminNotifications, type AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, TabId, ThemeMode, Lang } from "@/types";
 
 type Tab = {
@@ -22,15 +22,15 @@ type TopbarProps = {
   onLangToggle: () => void;
   onLogout: () => void;
   onSearch: () => void;
-  alerts: string[];
+  notifications: AdminNotification[];
+  onNavigate: (tab: TabId) => void;
 };
 
 export function Topbar({
   user, activeTab, tabs, sidebarCollapsed, theme, lang,
-  onToggleSidebar, onThemeToggle, onLangToggle, onLogout, onSearch, alerts,
+  onToggleSidebar, onThemeToggle, onLangToggle, onLogout, onSearch, notifications, onNavigate,
 }: TopbarProps) {
   const currentTab = tabs.find((item) => item.id === activeTab);
-  const [alertsOpen, setAlertsOpen] = useState(false);
 
   return (
     <header
@@ -65,20 +65,7 @@ export function Topbar({
           <span>Qidiruv</span>
           <kbd>Ctrl K</kbd>
         </button>
-        <div className="alert-menu">
-          <button className="topbar-control alert-control" title={`${alerts.length} ta ogohlantirish`} onClick={() => setAlertsOpen(value => !value)}>
-            <Bell size={17} />
-            {alerts.length > 0 && <span>{Math.min(alerts.length, 9)}</span>}
-          </button>
-          {alertsOpen && (
-            <div className="alert-popover">
-              <div className="alert-popover-title">E'tibor talab qiladi</div>
-              {alerts.length
-                ? alerts.map(alert => <div className="alert-row" key={alert}><Bell size={15} />{alert}</div>)
-                : <div className="alert-row muted">Yangi ogohlantirish yo'q</div>}
-            </div>
-          )}
-        </div>
+        {user.role === "superadmin" && <AdminNotifications notifications={notifications} onNavigate={onNavigate} />}
         <button className="topbar-control" title={lang === "uz" ? "Koreys tili" : "O'zbek tili"} onClick={onLangToggle}>
           <Languages size={17} />
         </button>

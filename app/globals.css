@@ -83,6 +83,23 @@ body {
 .alert-row svg{color:#f0a500;flex-shrink:0}
 .alert-row.muted{color:var(--app-muted);font-weight:600}
 .alert-row:hover{background:var(--app-panel-soft)}
+.notification-center{position:relative}
+.notification-panel{position:absolute;top:44px;right:0;z-index:220;width:min(420px,calc(100vw - 24px));overflow:hidden;border:1px solid var(--app-border);border-radius:10px;background:var(--app-panel);box-shadow:0 22px 60px rgba(20,30,55,.18)}
+.notification-header{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px;border-bottom:1px solid var(--app-border)}
+.notification-header strong,.notification-header small{display:block}.notification-header strong{font-size:14px}.notification-header small{margin-top:4px;color:var(--app-muted);font-size:10px}
+.notification-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--app-border);background:var(--app-panel-soft)}
+.notification-tabs{display:flex;gap:3px;padding:3px;border:1px solid var(--app-border);border-radius:7px;background:var(--app-panel)}
+.notification-tabs button{display:flex;align-items:center;gap:5px;min-height:27px;padding:0 9px;border:0;border-radius:5px;background:transparent;color:var(--app-muted);font:700 10px var(--font-ui);cursor:pointer}
+.notification-tabs button.active{background:var(--app-primary-soft);color:var(--app-primary)}.notification-tabs span{min-width:15px;padding:1px 4px;border-radius:8px;background:#ea5455;color:#fff;font-size:8px}
+.mark-read{display:flex;align-items:center;gap:5px;border:0;background:transparent;color:var(--app-primary);font:700 10px var(--font-ui);cursor:pointer}
+.notification-list{max-height:min(66vh,520px);overflow-y:auto;padding:7px}
+.notification-item{position:relative;width:100%;display:grid;grid-template-columns:38px 1fr 16px;align-items:start;gap:10px;padding:11px 9px;border:0;border-radius:8px;background:transparent;color:var(--app-text);text-align:left;cursor:pointer}
+.notification-item:hover{background:var(--app-panel-soft)}.notification-item.unread{background:var(--app-primary-soft)}
+.notification-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:8px;background:rgba(65,105,193,.1);color:#4169c1}.notification-item.success .notification-icon{background:rgba(40,199,111,.11);color:#28c76f}.notification-item.warning .notification-icon{background:rgba(240,165,0,.12);color:#d79000}.notification-item.danger .notification-icon{background:rgba(234,84,85,.11);color:#ea5455}
+.notification-copy strong,.notification-copy small,.notification-copy time{display:block}.notification-copy strong{font-size:11px}.notification-copy small{margin-top:3px;color:var(--app-muted);font-size:10px;line-height:1.4}.notification-copy time{margin-top:6px;color:var(--app-muted);font-size:9px;font-weight:700}
+.notification-item>i{width:7px;height:7px;margin-top:5px;border-radius:50%;background:var(--app-primary)}
+.notification-item>svg{margin-top:3px;color:#28c76f}
+.notification-empty{display:flex;flex-direction:column;align-items:center;padding:42px 20px;color:var(--app-muted);text-align:center}.notification-empty strong{margin-top:10px;color:var(--app-text);font-size:12px}.notification-empty span{margin-top:5px;font-size:10px}
 .danger-control{color:#ea5455!important}
 .command-backdrop{position:fixed;inset:0;z-index:500;display:flex;justify-content:center;align-items:flex-start;padding:min(14vh,120px) 16px 16px;background:rgba(17,20,34,.64);backdrop-filter:blur(6px)}
 .command-panel{width:min(560px,100%);overflow:hidden;border:1px solid var(--app-border);border-radius:8px;background:var(--app-panel);box-shadow:0 24px 70px rgba(0,0,0,.38)}
@@ -117,6 +134,7 @@ body {
 .modal-backdrop{backdrop-filter:blur(3px)}.modal-box{box-shadow:0 24px 70px rgba(17,26,48,.25)}
 
 @media(max-width:900px){.login-shell{grid-template-columns:1fr;min-height:auto}.login-visual{display:none}.login-form-panel{min-height:620px;padding:34px 24px}.login-mobile-logo{display:grid}.login-screen{padding:16px}.login-shell{border-radius:14px}}
+@media(max-width:768px){.notification-panel{position:fixed;top:62px;right:8px;left:8px;width:auto}}
 
 .theme-panel,
 .stat-card,

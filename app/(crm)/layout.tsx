@@ -15,6 +15,8 @@ import { Toast } from "@/components/ui";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar, BottomNav } from "@/components/layout/Topbar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import type { AdminNotification } from "@/components/layout/AdminNotifications";
+import { BRANCH_NAMES } from "@/lib/constants";
 import type { UserInfo, ThemeMode, Lang, TabId } from "@/types";
 
 const TAB_ROUTES: Record<TabId, string> = {
@@ -109,16 +111,54 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   if (!canAccessTab(user.role, activeTab)) return null;
 
   const pendingCount = transfers.filter((tr: any) => tr.status === "pending").length;
-  const currentStock = user.role === "shop" ? shopStock : stock;
-  const lowStockCount = products.filter((product: any) => (currentStock[product.id] || 0) <= product.minStock).length;
-  const debtCount = user.role === "superadmin"
-    ? orders.filter((order: any) => order.totalPrice > order.paidAmount).length
-    : 0;
-  const alerts = [
-    lowStockCount > 0 ? `${lowStockCount} ta mahsulot kam qolgan` : "",
-    pendingCount > 0 ? `${pendingCount} ta transfer kutilmoqda` : "",
-    debtCount > 0 ? `${debtCount} ta orderda qarz mavjud` : "",
-  ].filter(Boolean);
+  const notifications: AdminNotification[] = user.role === "superadmin"
+    ? [
+        ...transfers.map((transfer: any) => ({
+          id: `transfer-${transfer.id}-${transfer.status}`,
+          type: "transfer" as const,
+          title: transfer.status === "pending"
+            ? "Yangi transfer so'rovi"
+            : transfer.status === "approved"
+              ? "Transfer tasdiqlandi"
+              : "Transfer rad etildi",
+          description: `${BRANCH_NAMES[transfer.toBranch] || transfer.toBranch} · ${transfer.items?.length || 0} ta mahsulot`,
+          createdAt: transfer.updatedAt || transfer.createdAt,
+          tab: "transfers" as const,
+          level: transfer.status === "pending" ? "warning" as const : transfer.status === "approved" ? "success" as const : "danger" as const,
+        })),
+        ...products
+          .filter((product: any) => (stock[product.id] || 0) <= product.minStock)
+          .map((product: any) => ({
+            id: `stock-${product.id}-${stock[product.id] || 0}`,
+            type: "stock" as const,
+            title: "Skladda mahsulot kam qoldi",
+            description: `${product.name}: ${stock[product.id] || 0} ${product.unit}`,
+            createdAt: "",
+            tab: "warehouse" as const,
+            level: "danger" as const,
+          })),
+        ...orders.slice(0, 30).map((order: any) => ({
+          id: `order-${order.id}-${order.paidAmount}`,
+          type: "order" as const,
+          title: order.totalPrice <= order.paidAmount ? "Order to'liq to'landi" : "Yangi order yoki qarz",
+          description: `${order.companyName} · ${order.items?.length || 0} ta mahsulot`,
+          createdAt: order.createdAt,
+          tab: "orders" as const,
+          level: order.totalPrice <= order.paidAmount ? "success" as const : "info" as const,
+        })),
+        ...companyPayments.slice(0, 30).map((payment: any) => ({
+          id: `payment-${payment.id}`,
+          type: "payment" as const,
+          title: "Firma to'lovi qabul qilindi",
+          description: `${payment.amount?.toLocaleString("uz-UZ") || 0} so'm · ${payment.note || "Izohsiz"}`,
+          createdAt: payment.createdAt,
+          tab: "suppliers" as const,
+          level: "success" as const,
+        })),
+      ]
+        .sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0))
+        .slice(0, 80)
+    : [];
 
   const TABS = [
     { id: "dashboard" as TabId, icon: LayoutDashboard, label: t.dashboard },
@@ -169,7 +209,8 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
             onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
             onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut}
             onSearch={() => setCommandOpen(true)}
-            alerts={alerts}
+            notifications={notifications}
+            onNavigate={handleTabChange}
           />
           {children}
         </main>
