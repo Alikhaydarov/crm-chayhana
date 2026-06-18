@@ -350,8 +350,9 @@ export const createTransferApi = (
   toBranch: string,
   items: { productId: string; quantity: number }[],
   requestedBy: string,
+  branchName: string,
   note?: string,
-) => mutation("/transfers/", "POST", { toBranch, items, requestedBy, note });
+) => mutation("/transfers/", "POST", { toBranch, items, requestedBy, branchName, note });
 
 export const approveTransferApi = (id: string, approvedBy: string) =>
   mutation(`/transfers/${encodeURIComponent(id)}/approve/`, "POST", { approvedBy });
