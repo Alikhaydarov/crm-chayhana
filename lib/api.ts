@@ -118,6 +118,34 @@ function unwrap<T>(data: any): T {
   return (data?.data ?? data?.results ?? data) as T;
 }
 
+function unwrapList<T>(data: any): T[] {
+  const value = data?.data?.results ?? data?.data ?? data?.results ?? data;
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeStock(data: any): Record<string, number> {
+  const value = data?.data?.stock ?? data?.data ?? data?.stock ?? data;
+  if (Array.isArray(value)) {
+    return Object.fromEntries(value.map(item => [
+      String(item.productId ?? item.product_id ?? item.product?.id ?? item.id),
+      Number(item.quantity ?? item.stock ?? item.amount ?? 0),
+    ]));
+  }
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(value).map(([key, quantity]) => [key, Number(quantity) || 0]),
+  );
+}
+
+async function optionalRequest<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return await request<T>(path);
+  } catch (error) {
+    console.warn(`[crm-api] ${path} failed`, error);
+    return fallback;
+  }
+}
+
 function dataUrlToFile(receipt: OrderReceipt) {
   const [meta, encoded = ""] = receipt.dataUrl.split(",");
   const mime = meta.match(/data:([^;]+)/)?.[1] || receipt.type || "application/octet-stream";
@@ -167,7 +195,70 @@ export async function logoutApi() {
 }
 
 export async function getSnapshotApi() {
-  return unwrap<any>(await request("/snapshot/"));
+  try {
+    return unwrap<any>(await request("/snapshot/"));
+  } catch (snapshotError) {
+    console.warn("[crm-api] Snapshot endpoint failed, loading resources separately", snapshotError);
+
+    const [
+      productsData,
+      mainStockData,
+      shopStockData,
+      transfersData,
+      reportsData,
+      companiesData,
+      ordersData,
+      shopSalesData,
+    ] = await Promise.all([
+      optionalRequest<any>("/products/?page_size=1000", []),
+      optionalRequest<any>("/stock/main/", {}),
+      optionalRequest<any>("/stock/branches/shop/", {}),
+      optionalRequest<any>("/transfers/?page_size=1000", []),
+      optionalRequest<any>("/reports/", null),
+      optionalRequest<any>("/companies/?page_size=1000", []),
+      optionalRequest<any>("/orders/?page_size=1000", []),
+      optionalRequest<any>("/shop-sales/?page_size=1000", []),
+    ]);
+
+    const companies = unwrapList<Company>(companiesData);
+    const paymentGroups = await Promise.all(
+      companies.map(company =>
+        optionalRequest<any>(`/companies/${encodeURIComponent(company.id)}/payments/`, []),
+      ),
+    );
+
+    const products = unwrapList<Product>(productsData);
+    const transfers = unwrapList<any>(transfersData);
+    const orders = unwrapList<any>(ordersData);
+    const shopSales = unwrapList<any>(shopSalesData);
+    const companyPayments = paymentGroups.flatMap(group => unwrapList<any>(group));
+    const stock = normalizeStock(mainStockData);
+    const shopStock = normalizeStock(shopStockData);
+
+    const resourceCount =
+      products.length + transfers.length + companies.length + orders.length +
+      shopSales.length + Object.keys(stock).length + Object.keys(shopStock).length;
+
+    if (
+      resourceCount === 0 &&
+      reportsData === null &&
+      snapshotError instanceof Error
+    ) {
+      throw snapshotError;
+    }
+
+    return {
+      products,
+      stock,
+      shopStock,
+      transfers,
+      reports: unwrap<any>(reportsData),
+      companies,
+      orders,
+      companyPayments,
+      shopSales,
+    };
+  }
 }
 
 async function mutation(path: string, method: string, body?: unknown): Promise<ApiResult<any>> {

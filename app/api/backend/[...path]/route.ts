@@ -21,23 +21,46 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   headers.set("accept", "application/json");
   headers.set("ngrok-skip-browser-warning", "true");
 
-  const response = await fetch(target, {
-    method: request.method,
-    headers,
-    body: request.method === "GET" || request.method === "HEAD"
-      ? undefined
-      : await request.arrayBuffer(),
-    cache: "no-store",
-  });
+  try {
+    const response = await fetch(target, {
+      method: request.method,
+      headers,
+      body: request.method === "GET" || request.method === "HEAD"
+        ? undefined
+        : await request.arrayBuffer(),
+      cache: "no-store",
+    });
 
-  const responseHeaders = new Headers();
-  const responseContentType = response.headers.get("content-type");
-  if (responseContentType) responseHeaders.set("content-type", responseContentType);
+    if (response.status >= 500) {
+      console.error("[django-proxy] Backend request failed", {
+        method: request.method,
+        path: path.join("/"),
+        status: response.status,
+      });
+    }
 
-  return new NextResponse(response.body, {
-    status: response.status,
-    headers: responseHeaders,
-  });
+    const responseHeaders = new Headers();
+    const responseContentType = response.headers.get("content-type");
+    if (responseContentType) responseHeaders.set("content-type", responseContentType);
+
+    return new NextResponse(response.body, {
+      status: response.status,
+      headers: responseHeaders,
+    });
+  } catch (error) {
+    console.error("[django-proxy] Backend is unreachable", {
+      method: request.method,
+      path: path.join("/"),
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Backend server bilan bog'lanib bo'lmadi. Keyinroq qayta urinib ko'ring.",
+      },
+      { status: 502 },
+    );
+  }
 }
 
 export const GET = forward;
