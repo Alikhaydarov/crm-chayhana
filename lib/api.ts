@@ -210,125 +210,73 @@ export async function logoutApi() {
 }
 
 export async function getSnapshotApi(user: AppUserInfo) {
-  try {
-    const snapshot = unwrap<any>(await request("/snapshot/"));
+  // Snapshot is intentionally bypassed until the Django snapshot contract is
+  // stable. Each screen is fed from its own canonical API endpoint so one
+  // broken resource cannot empty every CRM section.
+  const canUseCompanies = user.role === "superadmin" || user.role.startsWith("restaurant");
+  const canUseShopSales = user.role === "superadmin" || user.role === "shop";
 
-    // Some role-filtered Django snapshots (notably the shop role) do not
-    // include the product catalogue. Transfers still need the full catalogue
-    // to render the product selector, so load it from its canonical endpoint.
-    if (!Array.isArray(snapshot.products) || snapshot.products.length === 0) {
-      const productsData = await optionalRequest<any>("/products/?page_size=1000", []);
-      snapshot.products = unwrapList<Product>(productsData);
-    }
+  const [
+    productsData,
+    stockData,
+    shopStockData,
+    transfersData,
+    reportsData,
+    companiesData,
+    ordersData,
+    shopSalesData,
+    staffData,
+  ] = await Promise.all([
+    optionalRequest<any>("/products/?page_size=1000", []),
+    optionalRequest<any>(
+      user.role === "superadmin"
+        ? "/stock/main/"
+        : `/stock/branches/${encodeURIComponent(branchForRole(user.role))}/`,
+      {},
+    ),
+    canUseShopSales
+      ? optionalRequest<any>("/stock/branches/shop/", {})
+      : Promise.resolve({}),
+    optionalRequest<any>("/transfers/", []),
+    optionalRequest<any>("/reports/", null),
+    canUseCompanies
+      ? optionalRequest<any>("/companies/", [])
+      : Promise.resolve([]),
+    canUseCompanies
+      ? optionalRequest<any>("/orders/", [])
+      : Promise.resolve([]),
+    canUseShopSales
+      ? optionalRequest<any>("/shop-sales/", [])
+      : Promise.resolve([]),
+    optionalRequest<any>("/staff/", []),
+  ]);
 
-    // The snapshot can omit companies even though the dedicated endpoint
-    // returns them. Supplier and order screens need this canonical list.
-    if (
-      (user.role === "superadmin" || user.role.startsWith("restaurant")) &&
-      (!Array.isArray(snapshot.companies) || snapshot.companies.length === 0)
-    ) {
-      const companiesData = await optionalRequest<any>("/companies/?page_size=1000", []);
-      snapshot.companies = unwrapList<Company>(companiesData);
-    }
+  const companies = unwrapList<Company>(companiesData);
+  const paymentGroups = await Promise.all(
+    companies.map(company =>
+      optionalRequest<any>(`/companies/${encodeURIComponent(company.id)}/payments/`, []),
+    ),
+  );
 
-    if (user.role !== "superadmin") {
-      snapshot.transfers = (snapshot.transfers || []).filter(
-        (transfer: any) => transfer.toBranch === user.role,
-      );
-      if (user.role === "shop") {
-        snapshot.companies = [];
-        snapshot.orders = [];
-        snapshot.companyPayments = [];
-        snapshot.staff = (snapshot.staff || []).filter(
-          (member: any) => member.branch === "shop",
-        );
-      } else {
-        snapshot.shopSales = [];
-        snapshot.shopStock = {};
-        snapshot.staff = (snapshot.staff || []).filter(
-          (member: any) => member.branch === user.role,
-        );
-      }
-    }
-    return snapshot;
-  } catch (snapshotError) {
-    console.warn("[crm-api] Snapshot endpoint failed, loading resources separately", snapshotError);
+  const allTransfers = unwrapList<any>(transfersData);
+  const allStaff = unwrapList<any>(staffData);
 
-    const [
-      productsData,
-      mainStockData,
-      shopStockData,
-      transfersData,
-      reportsData,
-      companiesData,
-      ordersData,
-      shopSalesData,
-    ] = await Promise.all([
-      optionalRequest<any>("/products/?page_size=1000", []),
-      optionalRequest<any>(
-        user.role === "superadmin"
-          ? "/stock/main/"
-          : `/stock/branches/${encodeURIComponent(branchForRole(user.role))}/`,
-        {},
-      ),
-      user.role === "superadmin" || user.role === "shop"
-        ? optionalRequest<any>("/stock/branches/shop/", {})
-        : Promise.resolve({}),
-      optionalRequest<any>("/transfers/?page_size=1000", []),
-      optionalRequest<any>("/reports/", null),
-      user.role === "superadmin" || user.role.startsWith("restaurant")
-        ? optionalRequest<any>("/companies/?page_size=1000", [])
-        : Promise.resolve([]),
-      user.role === "superadmin" || user.role.startsWith("restaurant")
-        ? optionalRequest<any>("/orders/?page_size=1000", [])
-        : Promise.resolve([]),
-      user.role === "superadmin" || user.role === "shop"
-        ? optionalRequest<any>("/shop-sales/?page_size=1000", [])
-        : Promise.resolve([]),
-    ]);
-
-    const companies = unwrapList<Company>(companiesData);
-    const paymentGroups = await Promise.all(
-      companies.map(company =>
-        optionalRequest<any>(`/companies/${encodeURIComponent(company.id)}/payments/`, []),
-      ),
-    );
-
-    const products = unwrapList<Product>(productsData);
-    const allTransfers = unwrapList<any>(transfersData);
-    const transfers = user.role === "superadmin"
+  return {
+    products: unwrapList<Product>(productsData),
+    stock: normalizeStock(stockData),
+    shopStock: normalizeStock(shopStockData),
+    transfers: user.role === "superadmin"
       ? allTransfers
-      : allTransfers.filter(transfer => transfer.toBranch === user.role);
-    const orders = unwrapList<any>(ordersData);
-    const shopSales = unwrapList<any>(shopSalesData);
-    const companyPayments = paymentGroups.flatMap(group => unwrapList<any>(group));
-    const stock = normalizeStock(mainStockData);
-    const shopStock = normalizeStock(shopStockData);
-
-    const resourceCount =
-      products.length + transfers.length + companies.length + orders.length +
-      shopSales.length + Object.keys(stock).length + Object.keys(shopStock).length;
-
-    if (
-      resourceCount === 0 &&
-      reportsData === null &&
-      snapshotError instanceof Error
-    ) {
-      throw snapshotError;
-    }
-
-    return {
-      products,
-      stock,
-      shopStock,
-      transfers,
-      reports: unwrap<any>(reportsData),
-      companies,
-      orders,
-      companyPayments,
-      shopSales,
-    };
-  }
+      : allTransfers.filter(transfer => transfer.toBranch === user.role),
+    reports: unwrap<any>(reportsData),
+    companies,
+    orders: unwrapList<any>(ordersData),
+    companyPayments: paymentGroups.flatMap(group => unwrapList<any>(group)),
+    shopSales: unwrapList<any>(shopSalesData),
+    staff: user.role === "superadmin"
+      ? allStaff
+      : allStaff.filter(member => member.branch === user.role),
+  };
 }
 
 async function mutation(path: string, method: string, body?: unknown): Promise<ApiResult<any>> {
