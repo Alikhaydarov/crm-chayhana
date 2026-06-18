@@ -196,6 +196,15 @@ export async function logoutApi() {
 export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
+
+    // Some role-filtered Django snapshots (notably the shop role) do not
+    // include the product catalogue. Transfers still need the full catalogue
+    // to render the product selector, so load it from its canonical endpoint.
+    if (!Array.isArray(snapshot.products) || snapshot.products.length === 0) {
+      const productsData = await optionalRequest<any>("/products/?page_size=1000", []);
+      snapshot.products = unwrapList<Product>(productsData);
+    }
+
     if (user.role !== "superadmin") {
       snapshot.transfers = (snapshot.transfers || []).filter(
         (transfer: any) => transfer.toBranch === user.role,
