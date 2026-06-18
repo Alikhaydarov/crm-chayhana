@@ -54,7 +54,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
 
   const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user);
-  const { products, stock, shopStock, reports, companies, orders, companyPayments, shopSales, staff } = rest as any;
+  const { products, stock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts } = rest as any;
 
   useEffect(() => {
     let active = true;
@@ -186,7 +186,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   }));
 
   return (
-    <AppContext.Provider value={{ products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId) }}>
+    <AppContext.Provider value={{ products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, accounts, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId) }}>
       <div
         className={`${theme} theme-shell`}
         style={{ display: "flex", height: "100vh", background: "var(--app-bg)", fontFamily: "var(--font-ui)", color: "var(--app-text)", overflow: "hidden" }}

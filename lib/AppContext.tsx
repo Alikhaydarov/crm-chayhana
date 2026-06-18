@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext } from "react";
 import type { Product, StockMap, Transfer } from "@/types";
-import type { Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
+import type { Account, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 
 export type AppContextType = {
   products: Product[];
@@ -14,6 +14,7 @@ export type AppContextType = {
   companyPayments: CompanyPayment[];
   shopSales: ShopSaleImport[];
   staff: Staff[];
+  accounts: Account[];
   fetchAll: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
   t: Record<string, string>;

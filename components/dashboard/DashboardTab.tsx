@@ -7,7 +7,7 @@ import { PageWrap } from "@/components/ui";
 import { BRANCH_ICONS, BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtD } from "@/lib/utils";
 import type { UserInfo, TabId } from "@/types";
-import type { Order, Staff, ReportSummary } from "@/types/domain";
+import type { Account, Order, ReportSummary } from "@/types/domain";
 
 type Props = {
   reports: ReportSummary | null;
@@ -16,13 +16,11 @@ type Props = {
   transfers: any[];
   orders: Order[];
   companies: any[];
-  staff: Staff[];
+  accounts: Account[];
   t: Record<string, string>;
 };
 
-const BRANCH_LIST = ["restaurant1", "restaurant2", "shop"] as const;
-
-export function DashboardTab({ reports, user, setTab, transfers, orders, companies, staff, t }: Props) {
+export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, t }: Props) {
   if (!reports)
     return (
       <PageWrap>
@@ -46,7 +44,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
     ? [
         { l: "Sklad qiymati", v: fmtM(Number(reports.mainStockValue) || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", Icon: CircleDollarSign },
         { l: "Mahsulot turlari", v: String(reports.totalProducts || 0), c: "#7367f0", bg: "rgba(115,103,240,.08)", Icon: Boxes },
-        { l: "Jami foydalanuvchilar", v: String(staff.filter(s => s.active).length), c: "#3b82f6", bg: "rgba(59,130,246,.08)", Icon: Users },
+        { l: "Jami foydalanuvchilar", v: String(accounts.filter(account => account.active !== false).length), c: "#3b82f6", bg: "rgba(59,130,246,.08)", Icon: Users },
         { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: totalDebt > 0 ? "rgba(248,81,73,.08)" : "rgba(63,185,80,.08)", Icon: ReceiptText },
       ]
     : [
@@ -58,9 +56,27 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
           : { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: "rgba(248,81,73,.08)", Icon: ReceiptText },
       ];
 
-  // Har bir filial uchun o'sha branchdagi userlar
-  const branchUsers = (branch: string) =>
-    staff.filter(s => s.branch === branch && s.active);
+  const accountBranches = Object.values(
+    accounts
+      .filter(account => account.role !== "superadmin" && account.active !== false)
+      .reduce<Record<string, { name: string; icon: string; role: string; accounts: Account[] }>>(
+        (groups, account) => {
+          const name = account.branchName || BRANCH_NAMES[account.role] || account.role;
+          const key = `${account.role}:${name}`;
+          if (!groups[key]) {
+            groups[key] = {
+              name,
+              icon: account.branchIcon || BRANCH_ICONS[account.role] || "🏢",
+              role: account.role,
+              accounts: [],
+            };
+          }
+          groups[key].accounts.push(account);
+          return groups;
+        },
+        {},
+      ),
+  );
 
   return (
     <PageWrap
@@ -96,16 +112,13 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
             <Building2 size={18} /> Filiallar <span style={{ color: "var(--app-muted)", fontWeight: 500, fontSize: 13 }}>foydalanuvchilari</span>
           </div>
           <div className="branch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-            {BRANCH_LIST.map((branch, i) => {
-              const users = branchUsers(branch);
-              const branchStat = reports.branchStats?.find((b: any) => b.branch === branch);
-              const isShop = branch === "shop";
-
-              if (users.length === 0) return null;
+            {accountBranches.map((branch, i) => {
+              const branchStat = reports.branchStats?.find((b: any) => b.branch === branch.role);
+              const isShop = branch.role === "shop";
 
               return (
                 <div
-                  key={branch}
+                  key={`${branch.role}:${branch.name}`}
                   className="fade-up"
                   onClick={() => isShop && setTab("shop-sales")}
                   style={{
@@ -122,11 +135,11 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
                   {/* Branch header */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 8, background: "rgba(115,103,240,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-                      {BRANCH_ICONS[branch]}
+                      {branch.icon}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, fontSize: 14 }}>{BRANCH_NAMES[branch]}</div>
-                      <div style={{ fontSize: 11, color: "var(--app-muted)" }}>{users.length} ta foydalanuvchi</div>
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>{branch.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--app-muted)" }}>{branch.accounts.length} ta account</div>
                     </div>
                     {isShop && <span style={{ fontSize: 11, color: "var(--app-primary)", fontWeight: 700 }}>→</span>}
                   </div>
@@ -149,7 +162,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
 
                   {/* Django userlar ro'yxati */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {users.map(u => (
+                    {branch.accounts.map(u => (
                       <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: "var(--app-panel-soft)", borderRadius: 8 }}>
                         <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg,#7367f0,#9985f5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#fff", flexShrink: 0 }}>
                           {u.name.charAt(0).toUpperCase()}

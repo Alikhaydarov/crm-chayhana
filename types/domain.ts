@@ -86,6 +86,15 @@ export type Staff = {
   active: boolean;
 };
 
+export type Account = {
+  id: string;
+  name: string;
+  role: string;
+  branchName: string;
+  branchIcon?: string;
+  active?: boolean;
+};
+
 export type Supplier = {
   id: string;
   firm: string;
@@ -110,6 +119,7 @@ export type Snapshot = {
   companyPayments: CompanyPayment[];
   shopSales: ShopSaleImport[];
   staff: Staff[];
+  accounts: Account[];
 };
 
 export type BranchReport = {

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSnapshotApi } from "@/lib/api";
-import type { Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
+import type { Account, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
 
@@ -16,6 +16,7 @@ export function useAppData(user: UserInfo | null) {
   const [companyPayments, setCompanyPayments] = useState<CompanyPayment[]>([]);
   const [shopSales, setShopSales] = useState<ShopSaleImport[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const { toast, show: showToast } = useToast();
   const loadingRef = useRef(false);
 
@@ -34,6 +35,7 @@ export function useAppData(user: UserInfo | null) {
       setCompanyPayments(d.companyPayments || []);
       setShopSales(d.shopSales || []);
       setStaff(d.staff || []);
+      setAccounts(d.accounts || d.users || []);
     } catch (error: any) {
       showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
     } finally {
@@ -76,6 +78,7 @@ export function useAppData(user: UserInfo | null) {
     companyPayments,
     shopSales,
     staff,
+    accounts,
     fetchAll,
     showToast,
     toast,
