@@ -8,7 +8,7 @@ export const ROLE_TABS: Record<Role, readonly TabId[]> = {
 };
 
 export function canAccessTab(role: Role, tab: TabId) {
-  return ROLE_TABS[role].includes(tab);
+  return Boolean(ROLE_TABS[role]?.includes(tab));
 }
 
 export function branchForRole(role: Role) {

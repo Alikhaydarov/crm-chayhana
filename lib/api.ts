@@ -138,6 +138,19 @@ function unwrapList<T>(data: any): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeUser(data: any): AppUserInfo {
+  const value = unwrap<any>(data);
+  const role = value?.role ?? value?.accountRole ?? value?.branch ?? value?.branchCode;
+  return {
+    ...value,
+    id: String(value?.id ?? value?.userId ?? value?.username ?? ""),
+    name: value?.name ?? value?.fullName ?? value?.username ?? value?.userId ?? "",
+    role,
+    branchName: value?.branchName ?? value?.branch_name ?? value?.branch?.name ?? role ?? "",
+    branchIcon: value?.branchIcon ?? value?.branch_icon ?? value?.branch?.icon ?? "",
+  } as AppUserInfo;
+}
+
 function normalizeStock(data: any): Record<string, number> {
   const value = data?.data?.stock ?? data?.data ?? data?.stock ?? data;
   if (Array.isArray(value)) {
@@ -176,7 +189,7 @@ export async function loginApi(userId: string, password: string): Promise<ApiRes
       retryAuth: false,
     });
     saveTokens(data.access, data.refresh);
-    return success({ user: unwrap<AppUserInfo>(data.user) });
+    return success({ user: normalizeUser(data.user) });
   } catch (error) {
     return failure(error);
   }
@@ -186,7 +199,7 @@ export async function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo
   try {
     if (!hasSession()) throw new Error("Sessiya topilmadi");
     const data = await request<any>("/auth/me/");
-    return success({ user: unwrap<AppUserInfo>(data.user ?? data) });
+    return success({ user: normalizeUser(data.user ?? data) });
   } catch (error) {
     return failure(error);
   }
