@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getSnapshotApi } from "@/lib/api";
 import type { Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { Product, StockMap, Transfer, UserInfo } from "@/types";
@@ -17,9 +17,11 @@ export function useAppData(user: UserInfo | null) {
   const [shopSales, setShopSales] = useState<ShopSaleImport[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const { toast, show: showToast } = useToast();
+  const loadingRef = useRef(false);
 
   const fetchAll = useCallback(async () => {
-    if (!user) return;
+    if (!user || loadingRef.current) return;
+    loadingRef.current = true;
     try {
       const d: any = await getSnapshotApi(user);
       setProducts(d.products || []);
@@ -34,11 +36,33 @@ export function useAppData(user: UserInfo | null) {
       setStaff(d.staff || []);
     } catch (error: any) {
       showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
+    } finally {
+      loadingRef.current = false;
     }
   }, [user, showToast]);
 
   useEffect(() => {
     if (user) fetchAll();
+  }, [user, fetchAll]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") fetchAll();
+    };
+    const interval = window.setInterval(refreshIfVisible, 5000);
+
+    window.addEventListener("focus", refreshIfVisible);
+    window.addEventListener("online", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshIfVisible);
+      window.removeEventListener("online", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, [user, fetchAll]);
 
   return {
