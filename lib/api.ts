@@ -278,15 +278,14 @@ export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
 
+    // Branches are now the source of truth for every warehouse. Always load
+    // them from the canonical endpoint instead of relying on snapshot shape.
+    const branchesData = await optionalRequest<any>("/branches/?page_size=1000", []);
+    snapshot.branches = unwrapList<any>(branchesData);
+
     if (user.role === "superadmin") {
-      if (!Array.isArray(snapshot.accounts) || snapshot.accounts.length === 0) {
-        const usersData = await optionalRequest<any>("/auth/users/?page_size=1000", []);
-        snapshot.accounts = unwrapList<any>(usersData).map(normalizeAccount);
-      }
-      if (!Array.isArray(snapshot.branches) || snapshot.branches.length === 0) {
-        const branchesData = await optionalRequest<any>("/branches/?page_size=1000", []);
-        snapshot.branches = unwrapList<any>(branchesData);
-      }
+      const usersData = await optionalRequest<any>("/auth/users/?page_size=1000", []);
+      snapshot.accounts = unwrapList<any>(usersData).map(normalizeAccount);
     }
 
     // Some role-filtered Django snapshots (notably the shop role) do not
