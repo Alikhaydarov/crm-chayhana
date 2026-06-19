@@ -77,6 +77,19 @@ export function ShopSalesTab({ products, shopStock, shopSales, user, branches, s
   const [detail, setDetail] = useState<ShopSaleImport | null>(null);
 
   const selectedBranch = branches.find((branch) => branch.slug === selectedBranchSlug);
+  const currentBranch = branches.find((branch) =>
+    branch.slug === user.branchSlug ||
+    String(branch.id) === String(user.branchId || "") ||
+    branch.name === user.branchName
+  );
+  const canImportExcel =
+    user.role !== "superadmin" &&
+    (
+      user.role === "shop" ||
+      user.branchType === "shop" ||
+      currentBranch?.branch_type === "shop" ||
+      /shop|dokon|do-kon|do'kon/i.test(`${user.branchSlug || ""} ${user.branchName || ""}`)
+    );
   const imports = shopSales.filter((item: any) => {
     if (!selectedBranchSlug) return true;
     const branchSlug =
@@ -179,7 +192,7 @@ export function ShopSalesTab({ products, shopStock, shopSales, user, branches, s
         </span>
       }
       sub="Kunlik, oylik va yillik savdo, foyda hamda sklad harakati"
-      action={user.role === "shop" ? (
+      action={canImportExcel ? (
         <label className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
           <Upload size={17} />{reading ? "O'qilmoqda..." : "Excel import"}
           <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => readFile(e.target.files?.[0])} disabled={reading} style={{ display: "none" }} />

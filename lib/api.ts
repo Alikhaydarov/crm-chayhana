@@ -144,7 +144,9 @@ function normalizeUser(data: any): AppUserInfo {
   const rawAccountRole = value?.role ?? value?.accountRole;
   const accountRole = typeof rawAccountRole === "string" ? rawAccountRole.toLowerCase() : rawAccountRole;
   const branchId = value?.branch_id ?? value?.branchId ?? value?.branch?.id ??
-    (typeof value?.branch === "number" ? value.branch : undefined);
+    (typeof value?.branch === "number" || typeof value?.branch === "string"
+      ? value.branch
+      : undefined);
   const branchSlug = value?.branch_slug ?? value?.branchSlug ?? value?.branch?.slug;
   const branchType = value?.branch_type ?? value?.branchType ?? value?.branch?.branch_type;
   const branchName = value?.branchName ?? value?.branch_name ?? value?.branch?.name ?? "";
