@@ -144,11 +144,15 @@ function normalizeUser(data: any): AppUserInfo {
   const accountRole = value?.role ?? value?.accountRole;
   const branchSlug = value?.branch_slug ?? value?.branchSlug ?? value?.branch?.slug;
   const branchType = value?.branch_type ?? value?.branchType ?? value?.branch?.branch_type;
+  const branchName = value?.branchName ?? value?.branch_name ?? value?.branch?.name ?? "";
+  const isShopBranch =
+    branchType === "shop" ||
+    /shop|dokon|do-kon|do'kon/i.test(`${branchSlug || ""} ${branchName}`);
   const role =
     accountRole === "ceo" || accountRole === "super_admin"
       ? "superadmin"
       : accountRole === "admin"
-        ? branchType === "shop" || /shop|dokon|do-kon/i.test(branchSlug || "")
+        ? isShopBranch
           ? "shop"
           : "restaurant1"
         : accountRole ?? value?.branchCode ?? branchSlug;
@@ -166,7 +170,7 @@ function normalizeUser(data: any): AppUserInfo {
     accountRole,
     branchSlug,
     branchType,
-    branchName: value?.branchName ?? value?.branch_name ?? value?.branch?.name ?? branchSlug ?? role ?? "",
+    branchName: branchName || branchSlug || role || "",
     branchIcon: value?.branchIcon ?? value?.branch_icon ?? value?.branch?.icon ?? "",
   } as AppUserInfo;
 }
@@ -339,6 +343,8 @@ export async function getSnapshotApi(user: AppUserInfo) {
       companiesData,
       ordersData,
       shopSalesData,
+      branchesData,
+      usersData,
     ] = await Promise.all([
       optionalRequest<any>("/products/?page_size=1000", []),
       optionalRequest<any>(
@@ -360,6 +366,10 @@ export async function getSnapshotApi(user: AppUserInfo) {
         : Promise.resolve([]),
       user.role === "superadmin" || user.role === "shop"
         ? optionalRequest<any>("/shop-sales/?page_size=1000", [])
+        : Promise.resolve([]),
+      optionalRequest<any>("/branches/?page_size=1000", []),
+      user.role === "superadmin"
+        ? optionalRequest<any>("/auth/users/?page_size=1000", [])
         : Promise.resolve([]),
     ]);
 
@@ -403,6 +413,8 @@ export async function getSnapshotApi(user: AppUserInfo) {
       orders,
       companyPayments,
       shopSales,
+      branches: unwrapList<any>(branchesData),
+      accounts: unwrapList<any>(usersData).map(normalizeAccount),
     };
   }
 }
