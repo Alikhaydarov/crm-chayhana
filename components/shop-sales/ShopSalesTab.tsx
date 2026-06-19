@@ -147,12 +147,42 @@ export function ShopSalesTab({ products, shopStock, shopSales, user, branches, s
     if (!/\.xlsx$/i.test(file.name)) { showToast("Faqat Excel .xlsx fayl tanlang", "error"); return; }
     setReading(true);
     try {
-      const result = await uploadShopSalesExcelApi(
-        file,
-        importDate,
-        user.branchSlug || currentBranch?.slug,
-      );
-      if (!result.success) throw new Error((result as any).message || "Excel import amalga oshmadi");
+      const branchSlug = user.branchSlug || currentBranch?.slug;
+      let uploaded = false;
+      try {
+        const result = await uploadShopSalesExcelApi(file, importDate, branchSlug);
+        uploaded = result.success;
+      } catch {
+        // The Django upload parser may reject this POS export format.
+        // Parse the same workbook client-side and send normalized rows instead.
+      }
+
+      if (!uploaded) {
+        const parsedRows = await parseShopWorkbook(file, products);
+        const matched = parsedRows.filter((row) => row.productId);
+        const unmatched = parsedRows.filter((row) => !row.productId);
+        if (!matched.length) {
+          throw new Error(
+            parsedRows.length
+              ? "Excel o'qildi, lekin mahsulot shtrix-kodlari CRM bilan mos kelmadi"
+              : "Excel ichida savdo ma'lumoti topilmadi",
+          );
+        }
+        const result = await importShopSalesApi({
+          sourceKey: sourceHash(`${file.name}:${file.size}:${file.lastModified}:${importDate}`),
+          fileName: file.name,
+          saleDate: importDate,
+          rows: matched,
+          skippedRows: unmatched.map((row) => ({
+            barcode: row.barcode,
+            sourceName: row.sourceName,
+            quantity: row.quantity,
+          })),
+          branch: branchSlug,
+          branchSlug,
+        });
+        if (!result.success) throw new Error((result as any).message || "Excel import amalga oshmadi");
+      }
       showToast("Excel yuklandi va savdo tahlili yangilandi");
       await fetchAll();
     } catch (err: any) {

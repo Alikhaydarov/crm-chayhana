@@ -593,8 +593,17 @@ export async function importShopSalesApi(data: {
   saleDate: string;
   rows: unknown[];
   skippedRows?: unknown[];
+  branch?: string;
+  branchSlug?: string;
 }) {
-  return mutation("/shop-sales/import_sales/", "POST", data);
+  return mutation("/shop-sales/import_sales/", "POST", {
+    ...data,
+    sale_date: data.saleDate,
+    source_key: data.sourceKey,
+    file_name: data.fileName,
+    skipped_rows: data.skippedRows,
+    branch_slug: data.branchSlug,
+  });
 }
 
 export async function uploadShopSalesExcelApi(file: File, saleDate: string, branchSlug?: string) {
