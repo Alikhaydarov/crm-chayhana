@@ -315,6 +315,11 @@ export async function logoutApi() {
 export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
+    const embeddedMainStock =
+      snapshot.mainStock ??
+      snapshot.main_stock ??
+      snapshot.mainWarehouseStock ??
+      snapshot.main_warehouse_stock;
     snapshot.products = unwrapList<Product>(snapshot.products);
     snapshot.stock = normalizeStock(snapshot.stock);
     snapshot.shopStock = normalizeStock(snapshot.shopStock);
@@ -327,7 +332,8 @@ export async function getSnapshotApi(user: AppUserInfo) {
     snapshot.accounts = unwrapList<any>(snapshot.accounts).map(normalizeAccount);
     const mainStockData = user.role === "superadmin"
       ? snapshot.stock
-      : await optionalRequest<any>("/stock/main/", {});
+      : embeddedMainStock ??
+        await optionalRequest<any>("/stock/main/", {});
     snapshot.mainStock = normalizeStock(mainStockData);
 
     // Branches are now the source of truth for every warehouse. Always load
