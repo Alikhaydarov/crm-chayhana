@@ -232,7 +232,17 @@ async function enrichUserBranch(user: AppUserInfo): Promise<AppUserInfo> {
 }
 
 function normalizeStock(data: any): Record<string, number> {
-  const value = data?.data?.stock ?? data?.data ?? data?.stock ?? data;
+  const value =
+    data?.data?.stock ??
+    data?.data?.mainStock ??
+    data?.data?.main_stock ??
+    data?.stock ??
+    data?.mainStock ??
+    data?.main_stock ??
+    data?.data?.results ??
+    data?.results ??
+    data?.data ??
+    data;
   if (Array.isArray(value)) {
     return Object.fromEntries(value.map(item => [
       String(item.productId ?? item.product_id ?? item.product?.id ?? item.id),
