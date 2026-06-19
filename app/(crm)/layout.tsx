@@ -64,6 +64,12 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     user?.branchType === "shop" ||
     currentBranch?.branch_type === "shop" ||
     /shop|dokon|do-kon|do'kon/i.test(`${user?.branchSlug || ""} ${user?.branchName || ""}`);
+  const canUseTab = (tabId: TabId) => {
+    if (isShopAdmin) {
+      return ["dashboard", "warehouse", "transfers", "analysis"].includes(tabId);
+    }
+    return canAccessTab(user?.role as any, tabId);
+  };
 
   useEffect(() => {
     let active = true;
@@ -95,7 +101,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    const allowed = canAccessTab(user.role, activeTab) || (activeTab === "analysis" && isShopAdmin);
+    const allowed = canUseTab(activeTab);
     if (!allowed) router.replace("/dashboard");
   }, [activeTab, isShopAdmin, router, user]);
 
@@ -103,7 +109,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => setTheme((v) => (v === "dark" ? "light" : "dark"));
   const toggleLang = () => setLang((v) => (v === "uz" ? "ko" : "uz"));
   const handleTabChange = (tabId: TabId) => {
-    const allowed = user && (canAccessTab(user.role, tabId) || (tabId === "analysis" && isShopAdmin));
+    const allowed = user && canUseTab(tabId);
     if (!allowed) {
       router.push("/dashboard");
       return;
@@ -123,7 +129,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     );
 
   if (!user) return null;
-  if (!(canAccessTab(user.role, activeTab) || (activeTab === "analysis" && isShopAdmin))) return null;
+  if (!canUseTab(activeTab)) return null;
 
   const pendingCount = transfers.filter((tr: any) => tr.status === "pending").length;
   const notifications: AdminNotification[] = user.role === "superadmin"
@@ -185,10 +191,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     ...(isShopAdmin
       ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }]
       : []),
-  ].filter((tab) =>
-    canAccessTab(user.role, tab.id) ||
-    (tab.id === "analysis" && isShopAdmin),
-  );
+  ].filter((tab) => canUseTab(tab.id));
   const commands = TABS.map(tab => ({
     ...tab,
     description: tab.id === "dashboard"
