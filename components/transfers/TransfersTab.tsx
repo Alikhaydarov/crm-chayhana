@@ -56,13 +56,14 @@ function TransferCard({
 type Props = {
   transfers: any[];
   products: Product[];
+  mainStock: Record<string, number>;
   user: UserInfo;
   fetchAll: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
   t: Record<string, string>;
 };
 
-export function TransfersTab({ transfers, products, user, fetchAll, showToast, t }: Props) {
+export function TransfersTab({ transfers, products, mainStock, user, fetchAll, showToast, t }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<any>(null);
   const [form, setForm] = useState({
@@ -72,6 +73,9 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
   const [items, setItems] = useState([{ pid: "", qty: 1 }]);
   const [loading, setLoading] = useState(false);
   const isSA = user.role === "superadmin";
+  const requestProducts = isSA
+    ? products
+    : products.filter((product) => (mainStock[product.id] || 0) > 0);
 
   const submit = async () => {
     const valid = items.filter((i) => i.pid && i.qty > 0);
@@ -130,7 +134,11 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 36px", gap: 8, marginBottom: 8 }}>
                 <select className="crm-input" value={item.pid} onChange={(e) => { const n = [...items]; n[i].pid = e.target.value; setItems(n); }}>
                   <option value="">Mahsulot tanlang</option>
-                  {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>)}
+                  {requestProducts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({mainStock[p.id]} {p.unit})
+                    </option>
+                  ))}
                 </select>
                 <input className="crm-input" type="number" value={item.qty} min={1} onChange={(e) => { const n = [...items]; n[i].qty = parseFloat(e.target.value) || 1; setItems(n); }} />
                 <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} style={{ background: "rgba(248,81,73,.1)", border: "1.5px solid rgba(248,81,73,.25)", color: "#f85149", borderRadius: 9, cursor: "pointer", fontWeight: 900, fontSize: 16 }}>×</button>

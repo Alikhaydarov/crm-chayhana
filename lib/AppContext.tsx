@@ -6,6 +6,7 @@ import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, S
 export type AppContextType = {
   products: Product[];
   stock: StockMap;
+  mainStock: StockMap;
   shopStock: StockMap;
   transfers: Transfer[];
   reports: ReportSummary | null;

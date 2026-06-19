@@ -130,6 +130,7 @@ export type Supplier = {
 export type Snapshot = {
   products: import("@/types").Product[];
   stock: StockMap;
+  mainStock?: StockMap;
   shopStock: StockMap;
   transfers: Transfer[];
   reports: ReportSummary | null;

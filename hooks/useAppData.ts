@@ -8,6 +8,7 @@ import { useToast } from "./useToast";
 export function useAppData(user: UserInfo | null) {
   const [products, setProducts] = useState<Product[]>([]);
   const [stock, setStock] = useState<StockMap>({});
+  const [mainStock, setMainStock] = useState<StockMap>({});
   const [shopStock, setShopStock] = useState<StockMap>({});
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [reports, setReports] = useState<ReportSummary | null>(null);
@@ -39,6 +40,7 @@ export function useAppData(user: UserInfo | null) {
       ]);
       setProducts(d.products || []);
       setStock(d.stock || {});
+      setMainStock(d.mainStock || (user.role === "superadmin" ? d.stock : {}));
       setShopStock(user.role === "shop" ? (d.stock || d.shopStock || {}) : (d.shopStock || {}));
       setTransfers(d.transfers || []);
       setReports(d.reports);
@@ -100,6 +102,7 @@ export function useAppData(user: UserInfo | null) {
   return {
     products,
     stock,
+    mainStock,
     shopStock,
     transfers,
     reports,

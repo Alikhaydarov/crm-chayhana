@@ -282,6 +282,10 @@ export async function logoutApi() {
 export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
+    const mainStockData = user.role === "superadmin"
+      ? snapshot.stock
+      : await optionalRequest<any>("/stock/main/", {});
+    snapshot.mainStock = normalizeStock(mainStockData);
 
     // Branches are now the source of truth for every warehouse. Always load
     // them from the canonical endpoint instead of relying on snapshot shape.
@@ -406,6 +410,7 @@ export async function getSnapshotApi(user: AppUserInfo) {
     return {
       products,
       stock,
+      mainStock: normalizeStock(mainStockData),
       shopStock,
       transfers,
       reports: unwrap<any>(reportsData),
