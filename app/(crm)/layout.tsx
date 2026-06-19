@@ -56,6 +56,13 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
 
   const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user);
   const { products, stock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches } = rest as any;
+  const currentBranch = user
+    ? branches.find((branch: any) => branch.slug === user.branchSlug)
+    : null;
+  const isShopAdmin =
+    user?.role === "shop" ||
+    user?.branchType === "shop" ||
+    currentBranch?.branch_type === "shop";
 
   useEffect(() => {
     let active = true;
@@ -86,14 +93,17 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (user && !canAccessTab(user.role, activeTab)) router.replace("/dashboard");
-  }, [activeTab, router, user]);
+    if (!user) return;
+    const allowed = canAccessTab(user.role, activeTab) || (activeTab === "analysis" && isShopAdmin);
+    if (!allowed) router.replace("/dashboard");
+  }, [activeTab, isShopAdmin, router, user]);
 
   const signOut = async () => { await logoutApi(); setUser(null); router.replace("/"); };
   const toggleTheme = () => setTheme((v) => (v === "dark" ? "light" : "dark"));
   const toggleLang = () => setLang((v) => (v === "uz" ? "ko" : "uz"));
   const handleTabChange = (tabId: TabId) => {
-    if (!user || !canAccessTab(user.role, tabId)) {
+    const allowed = user && (canAccessTab(user.role, tabId) || (tabId === "analysis" && isShopAdmin));
+    if (!allowed) {
       router.push("/dashboard");
       return;
     }
@@ -112,7 +122,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     );
 
   if (!user) return null;
-  if (!canAccessTab(user.role, activeTab)) return null;
+  if (!(canAccessTab(user.role, activeTab) || (activeTab === "analysis" && isShopAdmin))) return null;
 
   const pendingCount = transfers.filter((tr: any) => tr.status === "pending").length;
   const notifications: AdminNotification[] = user.role === "superadmin"
@@ -171,7 +181,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
     { id: "products" as TabId, icon: Package, label: t.products },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
-    ...(user.role === "shop"
+    ...(isShopAdmin
       ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }]
       : []),
   ].filter((tab) => canAccessTab(user.role, tab.id));

@@ -457,7 +457,10 @@ export const addProductApi = (data: Omit<Product, "id">) =>
   });
 
 export const addCompanyApi = (data: Omit<Company, "id" | "createdAt">) =>
-  mutation("/companies/", "POST", data);
+  mutation("/companies/", "POST", {
+    ...data,
+    phone_number: data.phone,
+  });
 
 export async function createOrderApi(data: {
   companyId: string;
@@ -505,8 +508,18 @@ export async function payOrderApi(orderId: string, amount: number, note: string,
   return mutation(`/orders/${encodeURIComponent(orderId)}/payments/`, "POST", {
     amount,
     note,
-    ...(uploadedReceipt ? { receipt: uploadedReceipt } : {}),
+    ...(uploadedReceipt ? { receipt: uploadedReceipt, receipts: [uploadedReceipt] } : {}),
   });
+}
+
+export async function getBranchesApi() {
+  const data = await request<any>("/branches/?page_size=1000");
+  return unwrapList<any>(data);
+}
+
+export async function getAccountsApi() {
+  const data = await request<any>("/auth/users/?page_size=1000");
+  return unwrapList<any>(data).map(normalizeAccount);
 }
 
 export const addStaffApi = (data: Omit<Staff, "id">) =>

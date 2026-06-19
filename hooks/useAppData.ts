@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getSnapshotApi } from "@/lib/api";
+import { getAccountsApi, getBranchesApi, getSnapshotApi } from "@/lib/api";
 import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
@@ -32,7 +32,11 @@ export function useAppData(user: UserInfo | null) {
     }
     loadingRef.current = true;
     try {
-      const d: any = await getSnapshotApi(user);
+      const [d, canonicalBranches, canonicalAccounts]: any[] = await Promise.all([
+        getSnapshotApi(user),
+        getBranchesApi().catch(() => []),
+        user.role === "superadmin" ? getAccountsApi().catch(() => []) : Promise.resolve([]),
+      ]);
       setProducts(d.products || []);
       setStock(d.stock || {});
       setShopStock(user.role === "shop" ? (d.stock || d.shopStock || {}) : (d.shopStock || {}));
@@ -51,8 +55,12 @@ export function useAppData(user: UserInfo | null) {
         d.users?.users ??
         d.users ??
         [];
-      setAccounts(Array.isArray(accountData) ? accountData : []);
-      setBranches(Array.isArray(d.branches) ? d.branches : []);
+      setAccounts(canonicalAccounts.length
+        ? canonicalAccounts
+        : Array.isArray(accountData) ? accountData : []);
+      setBranches(canonicalBranches.length
+        ? canonicalBranches
+        : Array.isArray(d.branches) ? d.branches : []);
     } catch (error: any) {
       if (!silent) {
         showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
