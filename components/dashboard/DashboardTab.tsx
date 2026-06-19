@@ -24,7 +24,12 @@ type Props = {
 
 export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, branches, openBranchAnalysis, t }: Props) {
   const isSA = user.role === "superadmin";
-  const isShop = user.role === "shop";
+  const currentBranch = branches.find((branch) => branch.slug === user.branchSlug);
+  const isShop =
+    user.role === "shop" ||
+    user.branchType === "shop" ||
+    currentBranch?.branch_type === "shop" ||
+    /shop|dokon|do-kon|do'kon/i.test(`${user.branchSlug || ""} ${user.branchName || ""}`);
   const branchReport = reports?.branchStats?.find((b: any) => b.branch === (user.branchSlug || user.role));
   const visibleTransfers = isSA
     ? transfers

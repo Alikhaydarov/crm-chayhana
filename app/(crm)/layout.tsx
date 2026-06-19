@@ -185,7 +185,10 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     ...(isShopAdmin
       ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }]
       : []),
-  ].filter((tab) => canAccessTab(user.role, tab.id));
+  ].filter((tab) =>
+    canAccessTab(user.role, tab.id) ||
+    (tab.id === "analysis" && isShopAdmin),
+  );
   const commands = TABS.map(tab => ({
     ...tab,
     description: tab.id === "dashboard"
