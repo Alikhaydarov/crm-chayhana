@@ -44,15 +44,26 @@ function normalizeSaleItem(item: any) {
   };
 }
 
+function branchOf(item: any) {
+  return String(
+    item?.branchSlug ?? item?.branch_slug ?? item?.branch?.slug ??
+    item?.warehouseSlug ?? item?.warehouse_slug ?? item?.warehouse?.slug ??
+    item?.shopSlug ?? item?.shop_slug ?? ""
+  ).trim();
+}
+
 function normalizeShopSale(raw: any): ShopSaleImport {
-  const items = unwrapList(raw?.items ?? raw?.sale_items ?? raw?.shop_sale_items ?? raw?.rows ?? [] ).map(normalizeSaleItem);
+  const items = unwrapList(raw?.items ?? raw?.sale_items ?? raw?.shop_sale_items ?? raw?.rows ?? []).map(normalizeSaleItem);
   const saleDate = String(raw?.saleDate ?? raw?.sale_date ?? raw?.date ?? raw?.created_at ?? "").slice(0, 10);
+  const branchSlug = branchOf(raw);
   return {
     ...raw,
     id: String(raw?.id ?? raw?.external_id ?? raw?.sourceKey ?? raw?.source_key ?? `${saleDate}-${raw?.file_name ?? raw?.fileName ?? Math.random()}`),
     sourceKey: raw?.sourceKey ?? raw?.source_key ?? "",
     fileName: raw?.fileName ?? raw?.file_name ?? raw?.filename ?? raw?.name ?? "Excel import",
     saleDate,
+    branchSlug,
+    branch_slug: branchSlug,
     items,
     totalQuantity: n(raw?.totalQuantity ?? raw?.total_quantity) || items.reduce((s: number, row: any) => s + row.quantity, 0),
     totalSales: n(raw?.totalSales ?? raw?.total_sales) || items.reduce((s: number, row: any) => s + row.salesAmount, 0),
@@ -89,6 +100,7 @@ export function ShopSalesTab({ shopStock, shopSales, user, branches, selectedBra
   const currentBranch = branches.find((branch) =>
     branch.slug === user.branchSlug || String(branch.id) === String(user.branchId || "") || branch.name === user.branchName
   );
+  const effectiveBranchSlug = selectedBranchSlug || user.branchSlug || currentBranch?.slug || "";
   const canImportExcel = user.role !== "superadmin";
 
   const loadShopSales = async () => {
@@ -97,7 +109,13 @@ export function ShopSalesTab({ shopStock, shopSales, user, branches, selectedBra
       const token = localStorage.getItem("crm-access-token");
       const headers = new Headers({ accept: "application/json" });
       if (token) headers.set("authorization", `Bearer ${token}`);
-      const response = await fetch(`${API_BASE}/shop-sales/?page_size=1000`, { headers, cache: "no-store" });
+      const params = new URLSearchParams({ page_size: "1000" });
+      if (effectiveBranchSlug) {
+        params.set("branch", effectiveBranchSlug);
+        params.set("branch_slug", effectiveBranchSlug);
+        params.set("warehouse_slug", effectiveBranchSlug);
+      }
+      const response = await fetch(`${API_BASE}/shop-sales/?${params.toString()}`, { headers, cache: "no-store" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.message || data?.detail || `Shop sales GET xatosi (${response.status})`);
       setRemoteSales(unwrapList(data));
@@ -110,17 +128,18 @@ export function ShopSalesTab({ shopStock, shopSales, user, branches, selectedBra
 
   useEffect(() => {
     void loadShopSales();
-  }, []);
+  }, [effectiveBranchSlug]);
 
   const imports = useMemo(() => {
     const map = new Map<string, ShopSaleImport>();
     [...(shopSales || []), ...remoteSales].map(normalizeShopSale).forEach((item: any) => {
-      const branchSlug = item.branchSlug ?? item.branch_slug ?? item.branch?.slug ?? item.warehouseSlug ?? item.warehouse_slug;
-      if (selectedBranchSlug && branchSlug && branchSlug !== selectedBranchSlug) return;
+      const rowBranch = branchOf(item);
+      if (effectiveBranchSlug && rowBranch && rowBranch !== effectiveBranchSlug) return;
+      if (effectiveBranchSlug && !rowBranch && user.role !== "superadmin") return;
       map.set(String(item.id || item.sourceKey || item.fileName), item);
     });
     return Array.from(map.values()).sort((a, b) => String(b.saleDate).localeCompare(String(a.saleDate)));
-  }, [shopSales, remoteSales, selectedBranchSlug]);
+  }, [shopSales, remoteSales, effectiveBranchSlug, user.role]);
 
   const filteredImports = dateFilter === "all" ? imports : imports.filter((i) => i.saleDate === dateFilter);
   const totalSales = filteredImports.reduce((s, i) => s + n(i.totalSales), 0);
@@ -170,21 +189,21 @@ export function ShopSalesTab({ shopStock, shopSales, user, branches, selectedBra
   const readFile = async (file?: File) => {
     if (!file) return;
     if (!importDate) { showToast("Avval import sanasini tanlang", "error"); return; }
+    if (!effectiveBranchSlug) { showToast("Do'kon branch aniqlanmadi. Import to'xtatildi", "error"); return; }
     if (!/\.xlsx$/i.test(file.name)) { showToast("Faqat Excel .xlsx fayl tanlang", "error"); return; }
     setReading(true);
     try {
-      const branchSlug = user.branchSlug || currentBranch?.slug;
-      const result = await uploadShopSalesExcelApi(file, importDate, branchSlug);
+      const result = await uploadShopSalesExcelApi(file, importDate, effectiveBranchSlug);
       if (result.success) {
-        await refreshAfterUpload("Excel yuborildi. Analysis data yangilandi");
+        await refreshAfterUpload("Excel yuborildi. Faqat shu do'kon Analysis data yangilandi");
       } else if (isDuplicateImportMessage((result as any).message || "")) {
-        await refreshAfterUpload("Bu Excel avval import qilingan. Analysis qayta yuklandi");
+        await refreshAfterUpload("Bu Excel avval import qilingan. Shu do'kon Analysis qayta yuklandi");
       } else {
         throw new Error((result as any).message || "Excel upload amalga oshmadi");
       }
     } catch (error: any) {
       const message = error?.message || "Excel faylni yuborib bo'lmadi";
-      if (isDuplicateImportMessage(message)) await refreshAfterUpload("Bu Excel avval import qilingan. Analysis qayta yuklandi");
+      if (isDuplicateImportMessage(message)) await refreshAfterUpload("Bu Excel avval import qilingan. Shu do'kon Analysis qayta yuklandi");
       else showToast(message, "error");
     } finally {
       setReading(false);
@@ -210,7 +229,7 @@ export function ShopSalesTab({ shopStock, shopSales, user, branches, selectedBra
 
       <div className="shop-sales-layout">
         <section className="sales-panel"><div className="sales-panel-head"><div><div className="sales-panel-title">Kunlik natija</div><div className="sales-panel-sub">Savdo va foyda dinamikasi</div></div></div><div className="daily-chart">{daily.slice(0, 14).reverse().map((d) => <button key={d.date} className="daily-bar-item" onClick={() => setDateFilter(d.date)} title={`${d.date}: ${fmtKRW(d.sales)}`}><div className="daily-bar-value">{fmt(d.sales)}</div><div className="daily-bar-track"><div className="daily-bar-fill" style={{ height: `${Math.max(8, (d.sales / Math.max(1, ...daily.map((x) => x.sales))) * 100)}%` }} /></div><div className="daily-bar-date">{d.date.slice(5).replace("-", "/")}</div></button>)}{!daily.length && <div className="empty-sales"><FileSpreadsheet size={34} /><strong>Hali savdo import qilinmagan</strong><span>Excel faylni yuklang</span></div>}</div></section>
-        <section className="sales-panel"><div className="sales-panel-head"><div><div className="sales-panel-title">Importlar tarixi</div><div className="sales-panel-sub">/shop-sales/ dan olingan data</div></div></div><div className="import-history">{imports.slice(0, 8).map((item) => <button key={item.id} className="import-history-row" onClick={() => setDetail(item)}><div className="file-square"><FileSpreadsheet size={18} /></div><div style={{ minWidth: 0, flex: 1 }}><div className="history-file">{item.fileName}</div><div className="history-meta">{item.saleDate ? fmtDate(`${item.saleDate}T12:00:00`) : "Sana yo'q"} · {(item.items || []).length} mahsulot</div></div><div style={{ textAlign: "right" }}><div style={{ fontWeight: 900, color: "#28c76f", fontSize: 13 }}>{fmtKRW(item.totalProfit)}</div><div style={{ fontSize: 10, color: "var(--app-muted)" }}>{fmt(item.totalQuantity)} dona</div></div></button>)}{!imports.length && <div style={{ padding: 28, textAlign: "center", color: "var(--app-muted)", fontSize: 13 }}>Importlar yo'q</div>}</div></section>
+        <section className="sales-panel"><div className="sales-panel-head"><div><div className="sales-panel-title">Importlar tarixi</div><div className="sales-panel-sub">Faqat shu do'kon importlari</div></div></div><div className="import-history">{imports.slice(0, 8).map((item) => <button key={item.id} className="import-history-row" onClick={() => setDetail(item)}><div className="file-square"><FileSpreadsheet size={18} /></div><div style={{ minWidth: 0, flex: 1 }}><div className="history-file">{item.fileName}</div><div className="history-meta">{item.saleDate ? fmtDate(`${item.saleDate}T12:00:00`) : "Sana yo'q"} · {(item.items || []).length} mahsulot</div></div><div style={{ textAlign: "right" }}><div style={{ fontWeight: 900, color: "#28c76f", fontSize: 13 }}>{fmtKRW(item.totalProfit)}</div><div style={{ fontSize: 10, color: "var(--app-muted)" }}>{fmt(item.totalQuantity)} dona</div></div></button>)}{!imports.length && <div style={{ padding: 28, textAlign: "center", color: "var(--app-muted)", fontSize: 13 }}>Importlar yo'q</div>}</div></section>
       </div>
 
       <section className="sales-panel" style={{ marginTop: 16 }}><div className="sales-panel-head"><div><div className="sales-panel-title">Mahsulotlar bo'yicha savdo</div><div className="sales-panel-sub">Tanlangan davr natijalari</div></div></div><div className="table-wrap"><table className="crm-table"><thead><tr><th>Mahsulot</th><th>Shtrix-kod</th><th>Sotildi</th><th>Savdo</th><th>Foyda</th><th>Do'kon skladi</th></tr></thead><tbody>{productStats.map((item: any) => <tr key={item.id}><td style={{ fontWeight: 800 }}>{item.name}</td><td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--app-muted)" }}>{item.barcode}</td><td>{fmt(item.quantity)}</td><td style={{ fontWeight: 800 }}>{fmtKRW(item.sales)}</td><td style={{ fontWeight: 900, color: item.profit >= 0 ? "#28c76f" : "#ea5455" }}>{fmtKRW(item.profit)}</td><td style={{ fontWeight: 800, color: (shopStock[item.id] || 0) < 0 ? "#ea5455" : "var(--app-text)" }}>{fmt(shopStock[item.id] || 0)}</td></tr>)}{!productStats.length && <tr><td colSpan={6} style={{ padding: 36, textAlign: "center", color: "var(--app-muted)" }}>Tanlangan davrda savdo yo'q</td></tr>}</tbody></table></div></section>
