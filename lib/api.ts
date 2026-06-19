@@ -332,8 +332,7 @@ export async function getSnapshotApi(user: AppUserInfo) {
     snapshot.accounts = unwrapList<any>(snapshot.accounts).map(normalizeAccount);
     const mainStockData = user.role === "superadmin"
       ? snapshot.stock
-      : embeddedMainStock ??
-        await optionalRequest<any>("/stock/main/", {});
+      : embeddedMainStock ?? {};
     snapshot.mainStock = normalizeStock(mainStockData);
 
     // Branches are now the source of truth for every warehouse. Always load
@@ -598,11 +597,14 @@ export async function importShopSalesApi(data: {
   return mutation("/shop-sales/import_sales/", "POST", data);
 }
 
-export async function uploadShopSalesExcelApi(file: File, saleDate: string) {
+export async function uploadShopSalesExcelApi(file: File, saleDate: string, branchSlug?: string) {
   const form = new FormData();
   form.append("file", file);
-  form.append("excel", file);
-  form.append("saleDate", saleDate);
   form.append("sale_date", saleDate);
+  form.append("saleDate", saleDate);
+  if (branchSlug) {
+    form.append("branch", branchSlug);
+    form.append("branch_slug", branchSlug);
+  }
   return mutation("/shop-sales/upload/", "POST", form);
 }

@@ -147,7 +147,11 @@ export function ShopSalesTab({ products, shopStock, shopSales, user, branches, s
     if (!/\.xlsx$/i.test(file.name)) { showToast("Faqat Excel .xlsx fayl tanlang", "error"); return; }
     setReading(true);
     try {
-      const result = await uploadShopSalesExcelApi(file, importDate);
+      const result = await uploadShopSalesExcelApi(
+        file,
+        importDate,
+        user.branchSlug || currentBranch?.slug,
+      );
       if (!result.success) throw new Error((result as any).message || "Excel import amalga oshmadi");
       showToast("Excel yuklandi va savdo tahlili yangilandi");
       await fetchAll();
