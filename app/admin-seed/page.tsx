@@ -21,12 +21,16 @@ export default function AdminSeedPage(){
    setS("Firma olinmoqda..."); const comps=unwrap(await api("/companies/?page_size=1000")); if(!Array.isArray(comps)||!comps.length) throw new Error("CRMda firma yo'q. Avval kamida 1 ta firma qo'shing.");
    const c=comps[0]; const companyId=String(c.id??c.external_id??c.externalId??""); if(!companyId) throw new Error("Firma ID topilmadi");
    setS("Productlar tekshirilmoqda..."); const products=unwrap(await api("/products/?page_size=1000")); const by=new Map<string,any>();
-   if(Array.isArray(products)) for(const p of products){const b=String(p.qrCode??p.qr_code??"").trim(); if(b)by.set(b,p)}
+   if(!Array.isArray(products)||!products.length) throw new Error("Avval bosh admin panelda kamida 1 ta oddiy product yarating, shunda mavjud kategoriya olinadi.");
+   for(const p of products){const b=String(p.qrCode??p.qr_code??"").trim(); if(b)by.set(b,p)}
+   const sample=products.find((p:any)=>p?.category||p?.categoryName||p?.category_name)??products[0];
+   const category=String(sample?.category??sample?.categoryName??sample?.category_name??"").trim();
+   if(!category) throw new Error("Mavjud productdan kategoriya topilmadi. Avval kategoriya bor product yarating.");
    let created=0, exists=0; const items:any[]=[];
    for(let i=0;i<P.length;i++){
     const [barcode,name,quantity,price,sale]=P[i] as any[]; setS(`${i+1}/${P.length}: ${name}`); let product=by.get(String(barcode));
     if(!product){
-     const payload={id:`excel_${Date.now()}_${i}`,external_id:`excel_${Date.now()}_${i}`,name,category:"excel-import",category_name:"excel-import",categoryName:"excel-import",unit:"dona",minStock:0,min_stock:0,pricePerUnit:Number(sale||price||0),price_per_unit:Number(sale||price||0),perBox:1,per_box:1,boxUnit:"dona",box_unit:"dona",qrCode:String(barcode),qr_code:String(barcode),supplierId:companyId,supplier_id:companyId};
+     const payload={id:`excel_${Date.now()}_${i}`,external_id:`excel_${Date.now()}_${i}`,name,category,category_name:category,categoryName:category,unit:"dona",minStock:0,min_stock:0,pricePerUnit:Number(sale||price||0),price_per_unit:Number(sale||price||0),perBox:1,per_box:1,boxUnit:"dona",box_unit:"dona",qrCode:String(barcode),qr_code:String(barcode),supplierId:companyId,supplier_id:companyId};
      product=unwrap(await api("/products/",{method:"POST",body:JSON.stringify(payload)}));
      by.set(String(barcode),product); created++;
     }else exists++;
@@ -34,7 +38,7 @@ export default function AdminSeedPage(){
     items.push({productId,product_id:productId,quantity:Number(quantity||1),pricePerUnit:Number(price||sale||0),price_per_unit:Number(price||sale||0)});
    }
    setS("Skladga kirim qilinmoqda..."); await api("/orders/",{method:"POST",body:JSON.stringify({companyId,company_id:companyId,items,note:"Excel test kirim 2026-05-30",payStatus:"unpaid",pay_status:"unpaid",paidAmount:0,paid_amount:0,orderDate:"2026-05-30",order_date:"2026-05-30"})});
-   setDone(true); setS(`Tayyor ✅ Firma: ${c.name||companyId}. Yangi: ${created}, oldindan bor: ${exists}, kirim: ${items.length} qator.`);
+   setDone(true); setS(`Tayyor ✅ Firma: ${c.name||companyId}. Kategoriya: ${category}. Yangi: ${created}, oldindan bor: ${exists}, kirim: ${items.length} qator.`);
   }catch(e:any){setS(e?.message||"Xato")}finally{setLoad(false)}
  }
  return <main style={{minHeight:"100vh",background:"#05070b",color:"#fff",padding:20,fontFamily:"system-ui"}}><section style={{maxWidth:720,margin:"0 auto",border:"1px solid #334155",borderRadius:24,padding:20,background:"#0f172a"}}><h1>Excel mahsulotlarini skladga kiritish</h1><p>Fayldagi <b>{P.length}</b> ta shtrix-kodli product, jami <b>{qty}</b> miqdor. Faqat bosh admin ishlata oladi.</p><div style={{padding:14,borderRadius:14,background:"#020617",margin:"16px 0",whiteSpace:"pre-wrap",color:done?"#86efac":"#e2e8f0"}}>{s}</div><button onClick={run} disabled={!ok||load||done} style={{width:"100%",padding:16,border:0,borderRadius:16,fontWeight:900,background:!ok||load||done?"#64748b":"#22c55e",color:"#020617"}}>{load?"Kiritilmoqda...":done?"Kiritildi ✅":"Mahsulotlarni skladga kiritish"}</button><p style={{color:"#94a3b8",fontSize:13}}>Bir marta bosing. Keyin Analysis bo'limida Excel uploadni test qiling.</p></section></main>;
