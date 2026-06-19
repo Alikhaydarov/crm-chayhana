@@ -67,7 +67,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
       sub={today}
       action={
         user.role === "shop" ? (
-          <button className="btn-primary" onClick={() => setTab("shop-sales")}>
+          <button className="btn-primary" onClick={() => setTab("analysis")}>
             <TrendingUp size={16} /> Savdo tahlili
           </button>
         ) : undefined
@@ -103,7 +103,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
                 <div
                   key={`${branch.role}:${branch.name}`}
                   className="fade-up"
-                  onClick={() => isShop && setTab("shop-sales")}
+                  onClick={() => isShop && setTab("analysis")}
                   style={{
                     animationDelay: `${i * 80}ms`,
                     background: "var(--app-panel)",

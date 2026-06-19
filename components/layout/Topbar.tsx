@@ -52,7 +52,7 @@ export function Topbar({
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {activeTab === "shop-sales" ? "Do'kon savdosi" : currentTab?.label}
+            {activeTab === "analysis" ? "Analysis" : currentTab?.label}
           </div>
           <div style={{ fontSize: 11, color: "var(--app-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {user.name} · {user.branchName}

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
-  ArrowLeftRight, LayoutDashboard, Package,
+  ArrowLeftRight, BarChart3, LayoutDashboard, Package,
   ShoppingCart, Store, Warehouse,
 } from "lucide-react";
 import { logoutApi, restoreSessionApi } from "@/lib/api";
@@ -26,7 +26,7 @@ const TAB_ROUTES: Record<TabId, string> = {
   orders: "/orders",
   products: "/products",
   suppliers: "/suppliers",
-  "shop-sales": "/shop-sales",
+  analysis: "/analysis",
 };
 
 const ROUTE_TABS: Record<string, TabId> = {
@@ -36,7 +36,8 @@ const ROUTE_TABS: Record<string, TabId> = {
   "/orders": "orders",
   "/products": "products",
   "/suppliers": "suppliers",
-  "/shop-sales": "shop-sales",
+  "/analysis": "analysis",
+  "/shop-sales": "analysis",
 };
 
 export default function CRMLayout({ children }: { children: React.ReactNode }) {
@@ -167,6 +168,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
     { id: "products" as TabId, icon: Package, label: t.products },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
+    { id: "analysis" as TabId, icon: BarChart3, label: t.analysis },
   ].filter((tab) => canAccessTab(user.role, tab.id));
   const commands = TABS.map(tab => ({
     ...tab,

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ArrowLeft, FileSpreadsheet, Package, TrendingUp, Upload } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
-import { importShopSalesApi } from "@/lib/api";
+import { importShopSalesApi, uploadShopSalesExcelApi } from "@/lib/api";
 import { fmt, fmtDate, fmtKRW } from "@/lib/utils";
 import type { Product, StockMap, TabId, ParsedShopSale } from "@/types";
 import type { ShopSaleImport } from "@/types/domain";
@@ -115,10 +115,10 @@ export function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToa
     if (!/\.xlsx$/i.test(file.name)) { showToast("Faqat Excel .xlsx fayl tanlang", "error"); return; }
     setReading(true);
     try {
-      const parsed = await parseShopWorkbook(file, products);
-      if (!parsed.length) throw new Error("Sotilgan mahsulot qatorlari topilmadi");
-      const fingerprint = sourceHash(parsed.map((r) => `${r.barcode}:${r.quantity}:${r.salesAmount}`).join("|"));
-      setRows(parsed); setFileName(file.name); setSourceKey(fingerprint); setShowImport(true);
+      const result = await uploadShopSalesExcelApi(file, importDate);
+      if (!result.success) throw new Error((result as any).message || "Excel import amalga oshmadi");
+      showToast("Excel yuklandi va savdo tahlili yangilandi");
+      await fetchAll();
     } catch (err: any) {
       showToast(err?.message || "Excel faylni o'qib bo'lmadi", "error");
     } finally {

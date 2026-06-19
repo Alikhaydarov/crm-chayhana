@@ -518,3 +518,12 @@ export async function importShopSalesApi(data: {
 }) {
   return mutation("/shop-sales/import_sales/", "POST", data);
 }
+
+export async function uploadShopSalesExcelApi(file: File, saleDate: string) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("excel", file);
+  form.append("saleDate", saleDate);
+  form.append("sale_date", saleDate);
+  return mutation("/shop-sales/upload/", "POST", form);
+}
