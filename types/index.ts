@@ -6,6 +6,7 @@ export type UserInfo = {
   name: string;
   role: Role;
   accountRole?: "ceo" | "super_admin" | "admin";
+  branchId?: number;
   branchSlug?: string;
   branchType?: "restaurant" | "shop";
   branchName: string;

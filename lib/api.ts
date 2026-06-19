@@ -141,7 +141,10 @@ function unwrapList<T>(data: any): T[] {
 function normalizeUser(data: any): AppUserInfo {
   const unwrapped = unwrap<any>(data);
   const value = unwrapped?.user ?? unwrapped;
-  const accountRole = value?.role ?? value?.accountRole;
+  const rawAccountRole = value?.role ?? value?.accountRole;
+  const accountRole = typeof rawAccountRole === "string" ? rawAccountRole.toLowerCase() : rawAccountRole;
+  const branchId = value?.branch_id ?? value?.branchId ?? value?.branch?.id ??
+    (typeof value?.branch === "number" ? value.branch : undefined);
   const branchSlug = value?.branch_slug ?? value?.branchSlug ?? value?.branch?.slug;
   const branchType = value?.branch_type ?? value?.branchType ?? value?.branch?.branch_type;
   const branchName = value?.branchName ?? value?.branch_name ?? value?.branch?.name ?? "";
@@ -168,6 +171,7 @@ function normalizeUser(data: any): AppUserInfo {
       "",
     role,
     accountRole,
+    branchId,
     branchSlug,
     branchType,
     branchName: branchName || branchSlug || role || "",
@@ -192,16 +196,33 @@ function normalizeAccount(value: any) {
 }
 
 async function enrichUserBranch(user: AppUserInfo): Promise<AppUserInfo> {
-  if (user.accountRole !== "admin" || !user.branchSlug) return user;
-  const branch = await optionalRequest<any>(
-    `/branches/${encodeURIComponent(user.branchSlug)}/`,
-    null,
-  );
-  const value = unwrap<any>(branch);
+  if (user.accountRole !== "admin") return user;
+
+  let value: any = null;
+  if (user.branchSlug) {
+    const branch = await optionalRequest<any>(
+      `/branches/${encodeURIComponent(user.branchSlug)}/`,
+      null,
+    );
+    value = unwrap<any>(branch);
+  }
+
+  if (!value) {
+    const branches = unwrapList<any>(
+      await optionalRequest<any>("/branches/?page_size=1000", []),
+    );
+    value = branches.find((branch) =>
+      (user.branchId != null && String(branch.id) === String(user.branchId)) ||
+      (user.branchName && branch.name === user.branchName),
+    );
+  }
+
   if (!value) return user;
   return {
     ...user,
     role: value.branch_type === "shop" ? "shop" : "restaurant1",
+    branchId: value.id,
+    branchSlug: value.slug,
     branchType: value.branch_type,
     branchName: value.name || user.branchName,
     branchIcon: value.branch_type === "shop" ? "🏪" : "🍽️",

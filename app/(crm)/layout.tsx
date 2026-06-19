@@ -62,7 +62,8 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const isShopAdmin =
     user?.role === "shop" ||
     user?.branchType === "shop" ||
-    currentBranch?.branch_type === "shop";
+    currentBranch?.branch_type === "shop" ||
+    /shop|dokon|do-kon|do'kon/i.test(`${user?.branchSlug || ""} ${user?.branchName || ""}`);
 
   useEffect(() => {
     let active = true;
