@@ -22,6 +22,7 @@ export type AppContextType = {
   lang: string;
   user: import("@/types").UserInfo;
   setTab: (tab: string) => void;
+  openBranchAnalysis: (branchSlug: string) => void;
 };
 
 export const AppContext = createContext<AppContextType | null>(null);

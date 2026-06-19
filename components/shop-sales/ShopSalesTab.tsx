@@ -4,8 +4,8 @@ import { ArrowLeft, FileSpreadsheet, Package, TrendingUp, Upload } from "lucide-
 import { PageWrap, Modal } from "@/components/ui";
 import { importShopSalesApi, uploadShopSalesExcelApi } from "@/lib/api";
 import { fmt, fmtDate, fmtKRW } from "@/lib/utils";
-import type { Product, StockMap, TabId, ParsedShopSale } from "@/types";
-import type { ShopSaleImport } from "@/types/domain";
+import type { Product, StockMap, TabId, ParsedShopSale, UserInfo } from "@/types";
+import type { Branch, ShopSaleImport } from "@/types/domain";
 
 function sourceHash(text: string) {
   let hash = 2166136261;
@@ -56,12 +56,15 @@ type Props = {
   products: Product[];
   shopStock: StockMap;
   shopSales: ShopSaleImport[];
+  user: UserInfo;
+  branches: Branch[];
+  selectedBranchSlug?: string;
   fetchAll: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
   setTab: (tab: TabId) => void;
 };
 
-export function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToast, setTab }: Props) {
+export function ShopSalesTab({ products, shopStock, shopSales, user, branches, selectedBranchSlug = "", fetchAll, showToast, setTab }: Props) {
   const [showImport, setShowImport] = useState(false);
   const [rows, setRows] = useState<ParsedShopSale[]>([]);
   const [fileName, setFileName] = useState("");
@@ -70,15 +73,38 @@ export function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToa
   const [reading, setReading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dateFilter, setDateFilter] = useState("all");
+  const [period, setPeriod] = useState<"daily" | "monthly" | "yearly">("daily");
   const [detail, setDetail] = useState<ShopSaleImport | null>(null);
 
-  const imports = shopSales;
+  const selectedBranch = branches.find((branch) => branch.slug === selectedBranchSlug);
+  const imports = shopSales.filter((item: any) => {
+    if (!selectedBranchSlug) return true;
+    const branchSlug =
+      item.branchSlug ?? item.branch_slug ?? item.branch?.slug ??
+      item.warehouseSlug ?? item.warehouse_slug;
+    return !branchSlug || branchSlug === selectedBranchSlug;
+  });
   const filteredImports = dateFilter === "all" ? imports : imports.filter((i) => i.saleDate === dateFilter);
   const totalSales = filteredImports.reduce((s, i) => s + i.totalSales, 0);
   const totalCost = filteredImports.reduce((s, i) => s + i.totalCost, 0);
   const totalProfit = filteredImports.reduce((s, i) => s + i.totalProfit, 0);
   const totalQuantity = filteredImports.reduce((s, i) => s + i.totalQuantity, 0);
   const margin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
+  const periodStats = Object.values(
+    imports.reduce((map: Record<string, { key: string; sales: number; profit: number; quantity: number }>, item) => {
+      const key = period === "daily"
+        ? item.saleDate
+        : period === "monthly"
+          ? item.saleDate.slice(0, 7)
+          : item.saleDate.slice(0, 4);
+      const current = map[key] || { key, sales: 0, profit: 0, quantity: 0 };
+      current.sales += item.totalSales;
+      current.profit += item.totalProfit;
+      current.quantity += item.totalQuantity;
+      map[key] = current;
+      return map;
+    }, {}),
+  ).sort((a, b) => b.key.localeCompare(a.key));
 
   const daily = Object.values(
     imports.reduce((map: Record<string, { date: string; sales: number; profit: number; quantity: number }>, item) => {
@@ -149,19 +175,27 @@ export function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToa
           <button className="topbar-control" onClick={() => setTab("dashboard")} title="Dashboardga qaytish">
             <ArrowLeft size={18} />
           </button>
-          Do'kon savdo tahlili
+          {selectedBranch?.name || user.branchName} — savdo tahlili
         </span>
       }
-      sub="Excel savdolar, foyda va sklad harakati"
-      action={
+      sub="Kunlik, oylik va yillik savdo, foyda hamda sklad harakati"
+      action={user.role === "shop" ? (
         <label className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
           <Upload size={17} />{reading ? "O'qilmoqda..." : "Excel import"}
           <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => readFile(e.target.files?.[0])} disabled={reading} style={{ display: "none" }} />
         </label>
-      }
+      ) : undefined}
     >
       {/* Date filters */}
       <div className="sales-filter-row">
+        <div>
+          <div className="form-label" style={{ marginBottom: 6 }}>HISOBOT DAVRI</div>
+          <select className="crm-input" value={period} onChange={(e) => setPeriod(e.target.value as any)} style={{ minWidth: 190 }}>
+            <option value="daily">Kunlik</option>
+            <option value="monthly">Oylik</option>
+            <option value="yearly">Yillik</option>
+          </select>
+        </div>
         <div>
           <div className="form-label" style={{ marginBottom: 6 }}>IMPORT SANASI</div>
           <input className="crm-input" type="date" value={importDate} onChange={(e) => setImportDate(e.target.value)} style={{ minWidth: 190 }} />
@@ -177,6 +211,33 @@ export function ShopSalesTab({ products, shopStock, shopSales, fetchAll, showToa
           {filteredImports.length} ta import
         </div>
       </div>
+
+      <section className="sales-panel" style={{ marginBottom: 16 }}>
+        <div className="sales-panel-head">
+          <div>
+            <div className="sales-panel-title">
+              {period === "daily" ? "Kunlik" : period === "monthly" ? "Oylik" : "Yillik"} savdo natijalari
+            </div>
+            <div className="sales-panel-sub">{selectedBranch?.name || user.branchName}</div>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="crm-table">
+            <thead><tr><th>Davr</th><th>Savdo</th><th>Foyda</th><th>Sotildi</th></tr></thead>
+            <tbody>
+              {periodStats.map((item) => (
+                <tr key={item.key}>
+                  <td style={{ fontWeight: 800 }}>{item.key}</td>
+                  <td style={{ fontWeight: 900 }}>{fmtKRW(item.sales)}</td>
+                  <td style={{ fontWeight: 900, color: item.profit >= 0 ? "#28c76f" : "#ea5455" }}>{fmtKRW(item.profit)}</td>
+                  <td>{fmt(item.quantity)} dona</td>
+                </tr>
+              ))}
+              {!periodStats.length && <tr><td colSpan={4} style={{ padding: 30, textAlign: "center", color: "var(--app-muted)" }}>Ma'lumot yo'q</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {/* KPI cards */}
       <div className="shop-kpi-grid">

@@ -99,6 +99,9 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     }
     router.push(TAB_ROUTES[tabId]);
   };
+  const openBranchAnalysis = (branchSlug: string) => {
+    router.push(`/analysis?branch=${encodeURIComponent(branchSlug)}`);
+  };
 
   if (!sessionReady)
     return (
@@ -168,7 +171,9 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
     { id: "products" as TabId, icon: Package, label: t.products },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
-    { id: "analysis" as TabId, icon: BarChart3, label: t.analysis },
+    ...(user.role === "shop"
+      ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }]
+      : []),
   ].filter((tab) => canAccessTab(user.role, tab.id));
   const commands = TABS.map(tab => ({
     ...tab,
@@ -188,7 +193,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   }));
 
   return (
-    <AppContext.Provider value={{ products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId) }}>
+    <AppContext.Provider value={{ products, stock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId), openBranchAnalysis }}>
       <div
         className={`${theme} theme-shell`}
         style={{ display: "flex", height: "100vh", background: "var(--app-bg)", fontFamily: "var(--font-ui)", color: "var(--app-text)", overflow: "hidden" }}

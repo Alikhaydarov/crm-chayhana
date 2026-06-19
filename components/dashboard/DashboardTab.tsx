@@ -18,10 +18,11 @@ type Props = {
   companies: any[];
   accounts: Account[];
   branches: Branch[];
+  openBranchAnalysis: (branchSlug: string) => void;
   t: Record<string, string>;
 };
 
-export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, branches, t }: Props) {
+export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, branches, openBranchAnalysis, t }: Props) {
   const isSA = user.role === "superadmin";
   const isShop = user.role === "shop";
   const branchReport = reports?.branchStats?.find((b: any) => b.branch === (user.branchSlug || user.role));
@@ -103,7 +104,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
                 <div
                   key={`${branch.role}:${branch.name}`}
                   className="fade-up"
-                  onClick={() => isShop && setTab("analysis")}
+                  onClick={() => isShop && openBranchAnalysis(branch.role)}
                   style={{
                     animationDelay: `${i * 80}ms`,
                     background: "var(--app-panel)",
