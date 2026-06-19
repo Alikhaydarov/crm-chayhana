@@ -305,6 +305,16 @@ export async function logoutApi() {
 export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
+    snapshot.products = unwrapList<Product>(snapshot.products);
+    snapshot.stock = normalizeStock(snapshot.stock);
+    snapshot.shopStock = normalizeStock(snapshot.shopStock);
+    snapshot.transfers = unwrapList<any>(snapshot.transfers);
+    snapshot.companies = unwrapList<Company>(snapshot.companies);
+    snapshot.orders = unwrapList<any>(snapshot.orders);
+    snapshot.companyPayments = unwrapList<any>(snapshot.companyPayments);
+    snapshot.shopSales = unwrapList<any>(snapshot.shopSales);
+    snapshot.staff = unwrapList<any>(snapshot.staff);
+    snapshot.accounts = unwrapList<any>(snapshot.accounts).map(normalizeAccount);
     const mainStockData = user.role === "superadmin"
       ? snapshot.stock
       : await optionalRequest<any>("/stock/main/", {});
