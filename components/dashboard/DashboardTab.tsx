@@ -22,16 +22,9 @@ type Props = {
 };
 
 export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, branches, t }: Props) {
-  if (!reports)
-    return (
-      <PageWrap>
-        <div style={{ color: "var(--app-muted)", padding: 40, textAlign: "center" }}>{t.loading}</div>
-      </PageWrap>
-    );
-
   const isSA = user.role === "superadmin";
   const isShop = user.role === "shop";
-  const branchReport = reports.branchStats?.find((b: any) => b.branch === user.role);
+  const branchReport = reports?.branchStats?.find((b: any) => b.branch === (user.branchSlug || user.role));
   const visibleTransfers = isSA
     ? transfers
     : transfers.filter((transfer: any) => transfer.toBranch === (user.branchSlug || user.role));
@@ -43,8 +36,8 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
 
   const stats = isSA
     ? [
-        { l: "Sklad qiymati", v: fmtM(Number(reports.mainStockValue) || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", Icon: CircleDollarSign },
-        { l: "Mahsulot turlari", v: String(reports.totalProducts || 0), c: "#7367f0", bg: "rgba(115,103,240,.08)", Icon: Boxes },
+        { l: "Sklad qiymati", v: fmtM(Number(reports?.mainStockValue) || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", Icon: CircleDollarSign },
+        { l: "Mahsulot turlari", v: String(reports?.totalProducts || 0), c: "#7367f0", bg: "rgba(115,103,240,.08)", Icon: Boxes },
         { l: "Jami foydalanuvchilar", v: String(accounts.filter(account => account.active !== false).length), c: "#3b82f6", bg: "rgba(59,130,246,.08)", Icon: Users },
         { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: totalDebt > 0 ? "rgba(248,81,73,.08)" : "rgba(63,185,80,.08)", Icon: ReceiptText },
       ]
@@ -103,7 +96,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, compani
           </div>
           <div className="branch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
             {accountBranches.map((branch, i) => {
-              const branchStat = reports.branchStats?.find((b: any) => b.branch === branch.role);
+              const branchStat = reports?.branchStats?.find((b: any) => b.branch === branch.role);
               const isShop = branch.branchType === "shop";
 
               return (

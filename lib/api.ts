@@ -139,7 +139,8 @@ function unwrapList<T>(data: any): T[] {
 }
 
 function normalizeUser(data: any): AppUserInfo {
-  const value = unwrap<any>(data);
+  const unwrapped = unwrap<any>(data);
+  const value = unwrapped?.user ?? unwrapped;
   const accountRole = value?.role ?? value?.accountRole;
   const branchSlug = value?.branch_slug ?? value?.branchSlug ?? value?.branch?.slug;
   const branchType = value?.branch_type ?? value?.branchType ?? value?.branch?.branch_type;
@@ -470,13 +471,30 @@ export async function createOrderApi(data: {
 }
 
 export async function payOrderApi(orderId: string, amount: number, note: string, receipt?: OrderReceipt) {
-  const result = await mutation(`/orders/${encodeURIComponent(orderId)}/payments/`, "POST", { amount, note });
-  if (!result.success || !receipt) return result;
+  let uploadedReceipt: OrderReceipt | undefined;
 
-  const form = new FormData();
-  form.append("orderId", String(orderId));
-  form.append("receipt", dataUrlToFile(receipt));
-  return mutation("/orders/upload-receipt/", "POST", form);
+  if (receipt) {
+    const file = dataUrlToFile(receipt);
+    const form = new FormData();
+    form.append("files", file);
+    form.append("receipt", file);
+    const upload = await mutation("/orders/upload-receipt/", "POST", form);
+    if (!upload.success) return upload;
+    const uploadData = (upload as any).data;
+    uploadedReceipt =
+      uploadData?.receipts?.[0] ??
+      uploadData?.receipt ??
+      (Array.isArray(uploadData) ? uploadData[0] : undefined);
+    if (!uploadedReceipt) {
+      return { success: false, message: "Chek serverga yuklandi, lekin javob formati noto'g'ri" };
+    }
+  }
+
+  return mutation(`/orders/${encodeURIComponent(orderId)}/payments/`, "POST", {
+    amount,
+    note,
+    ...(uploadedReceipt ? { receipt: uploadedReceipt } : {}),
+  });
 }
 
 export const addStaffApi = (data: Omit<Staff, "id">) =>

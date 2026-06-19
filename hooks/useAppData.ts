@@ -78,14 +78,11 @@ export function useAppData(user: UserInfo | null) {
     const refreshIfVisible = () => {
       if (document.visibilityState === "visible") fetchAll(true);
     };
-    const interval = window.setInterval(refreshIfVisible, 15000);
-
     window.addEventListener("focus", refreshIfVisible);
     window.addEventListener("online", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
 
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener("focus", refreshIfVisible);
       window.removeEventListener("online", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
