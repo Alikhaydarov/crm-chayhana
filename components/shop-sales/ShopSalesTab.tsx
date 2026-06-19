@@ -82,14 +82,7 @@ export function ShopSalesTab({ products, shopStock, shopSales, user, branches, s
     String(branch.id) === String(user.branchId || "") ||
     branch.name === user.branchName
   );
-  const canImportExcel =
-    user.role !== "superadmin" &&
-    (
-      user.role === "shop" ||
-      user.branchType === "shop" ||
-      currentBranch?.branch_type === "shop" ||
-      /shop|dokon|do-kon|do'kon/i.test(`${user.branchSlug || ""} ${user.branchName || ""}`)
-    );
+  const canImportExcel = user.role !== "superadmin";
   const imports = shopSales.filter((item: any) => {
     if (!selectedBranchSlug) return true;
     const branchSlug =

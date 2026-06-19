@@ -156,11 +156,11 @@ function normalizeUser(data: any): AppUserInfo {
   const role =
     accountRole === "ceo" || accountRole === "super_admin"
       ? "superadmin"
-      : accountRole === "admin"
-        ? isShopBranch
-          ? "shop"
-          : "restaurant1"
-        : accountRole ?? value?.branchCode ?? branchSlug;
+      : isShopBranch
+        ? "shop"
+        : accountRole === "admin"
+          ? "restaurant1"
+          : accountRole ?? value?.branchCode ?? branchSlug;
   return {
     ...value,
     id: String(value?.id ?? value?.userId ?? value?.username ?? ""),
@@ -174,7 +174,7 @@ function normalizeUser(data: any): AppUserInfo {
     role,
     accountRole,
     branchId,
-    branchSlug,
+    branchSlug: branchSlug || (isShopBranch ? "shop" : undefined),
     branchType,
     branchName: branchName || branchSlug || role || "",
     branchIcon: value?.branchIcon ?? value?.branch_icon ?? value?.branch?.icon ?? "",
