@@ -190,9 +190,21 @@ export function ShopSalesTab({ products, shopStock, shopSales, user, branches, s
       }
       sub="Kunlik, oylik va yillik savdo, foyda hamda sklad harakati"
       action={canImportExcel ? (
-        <label className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+        <label className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", position: "relative", overflow: "hidden" }}>
           <Upload size={17} />{reading ? "O'qilmoqda..." : "Excel import"}
-          <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => readFile(e.target.files?.[0])} disabled={reading} style={{ display: "none" }} />
+          <input
+            aria-label="Excel faylni tanlash"
+            data-testid="shop-sales-excel-input"
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              void readFile(file);
+              e.target.value = "";
+            }}
+            disabled={reading}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
+          />
         </label>
       ) : undefined}
     >
