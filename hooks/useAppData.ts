@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getAccountsApi, getBranchesApi, getSnapshotApi } from "@/lib/api";
+import { getMainStockApi } from "@/lib/mainStockApi";
 import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
@@ -33,14 +34,19 @@ export function useAppData(user: UserInfo | null) {
     }
     loadingRef.current = true;
     try {
-      const [d, canonicalBranches, canonicalAccounts]: any[] = await Promise.all([
+      const [d, canonicalMainStock, canonicalBranches, canonicalAccounts]: any[] = await Promise.all([
         getSnapshotApi(user),
+        getMainStockApi().catch(() => ({})),
         getBranchesApi().catch(() => []),
         user.role === "superadmin" ? getAccountsApi().catch(() => []) : Promise.resolve([]),
       ]);
       setProducts(d.products || []);
       setStock(d.stock || {});
-      setMainStock(d.mainStock || (user.role === "superadmin" ? d.stock : {}));
+      setMainStock(
+        canonicalMainStock && Object.keys(canonicalMainStock).length
+          ? canonicalMainStock
+          : d.mainStock || (user.role === "superadmin" ? d.stock : {}),
+      );
       setShopStock(user.role === "shop" ? (d.stock || d.shopStock || {}) : (d.shopStock || {}));
       setTransfers(d.transfers || []);
       setReports(d.reports);
