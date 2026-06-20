@@ -3,6 +3,24 @@ import type { StockMap } from "@/types";
 const API_BASE = "/api/backend";
 const ACCESS_TOKEN_KEY = "crm-access-token";
 
+function addStockAliases(stock: StockMap, item: any, quantity: number) {
+  const aliases = [
+    item?.productId,
+    item?.product_id,
+    item?.external_id,
+    item?.externalId,
+    item?.product?.external_id,
+    item?.product?.externalId,
+    item?.product?.id,
+    item?.id,
+  ];
+  aliases.forEach((id) => {
+    if (id !== undefined && id !== null && String(id).trim()) {
+      stock[String(id)] = quantity;
+    }
+  });
+}
+
 function normalizeMainStock(data: any): StockMap {
   const value =
     data?.data?.stock ??
@@ -17,16 +35,26 @@ function normalizeMainStock(data: any): StockMap {
     data;
 
   if (Array.isArray(value)) {
-    return Object.fromEntries(value.map((item: any) => [
-      String(item.productId ?? item.product_id ?? item.product?.external_id ?? item.product?.id ?? item.id),
-      Number(item.quantity ?? item.stock ?? item.amount ?? 0) || 0,
-    ]));
+    return value.reduce((stock: StockMap, item: any) => {
+      const quantity = Number(item.quantity ?? item.stock ?? item.amount ?? item.balance ?? 0) || 0;
+      addStockAliases(stock, item, quantity);
+      return stock;
+    }, {});
   }
 
   if (!value || typeof value !== "object") return {};
-  return Object.fromEntries(
-    Object.entries(value).map(([productId, quantity]) => [productId, Number(quantity) || 0]),
-  );
+  const stock: StockMap = {};
+  Object.entries(value).forEach(([productId, raw]) => {
+    if (raw && typeof raw === "object") {
+      const item = raw as any;
+      const quantity = Number(item.quantity ?? item.stock ?? item.amount ?? item.balance ?? 0) || 0;
+      stock[productId] = quantity;
+      addStockAliases(stock, item, quantity);
+    } else {
+      stock[productId] = Number(raw) || 0;
+    }
+  });
+  return stock;
 }
 
 export async function getMainStockApi(): Promise<StockMap> {
