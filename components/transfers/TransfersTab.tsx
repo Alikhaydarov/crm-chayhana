@@ -27,9 +27,10 @@ function TransferCard({ t, isSA, onDetail, onApprove, onReject }: { t: any; isSA
 type Props = { transfers: any[]; products: Product[]; mainStock: Record<string, number>; user: UserInfo; fetchAll: () => void; showToast: (msg: string, type?: "success" | "error") => void; t: Record<string, string>; };
 
 export function TransfersTab({ transfers, products, user, fetchAll, showToast, t }: Props) {
+  const ownBranch = String(user.branchId || user.branchSlug || user.role);
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<any>(null);
-  const [form, setForm] = useState({ toBranch: user.role === "superadmin" ? "restaurant1" : user.branchSlug || user.role, note: "" });
+  const [form, setForm] = useState({ toBranch: ownBranch, note: "" });
   const [items, setItems] = useState([{ pid: "", qty: 1 }]);
   const [loading, setLoading] = useState(false);
   const isSA = user.role === "superadmin";
@@ -38,8 +39,9 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
   const submit = async () => {
     const valid = items.filter((i) => i.pid && i.qty > 0);
     if (!valid.length) { showToast("Mahsulot tanlang", "error"); return; }
+    if (!user.branchId && !user.branchSlug) { showToast("Filial aniqlanmadi. Qayta login qiling", "error"); return; }
     setLoading(true);
-    const d = await createTransferApi(form.toBranch, valid.map((i) => ({ productId: i.pid, quantity: i.qty })), user.name, user.branchName, form.note);
+    const d = await createTransferApi(ownBranch, valid.map((i) => ({ productId: i.pid, quantity: i.qty })), user.name, user.branchName, form.note);
     if (d.success) { showToast("So'rov yuborildi! ✅"); setShowModal(false); setItems([{ pid: "", qty: 1 }]); fetchAll(); }
     else showToast((d as any).message || "Xatolik", "error");
     setLoading(false);
