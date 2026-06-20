@@ -55,6 +55,11 @@ function normalizeMainStock(data: any): StockMap {
   return stock;
 }
 
+function listFrom(data: any) {
+  const value = data?.data?.results ?? data?.data?.items ?? data?.results ?? data?.items ?? data?.data ?? data;
+  return Array.isArray(value) ? value : [];
+}
+
 async function fetchJson(path: string, headers: Headers) {
   const response = await fetch(`${API_BASE}${path}`, { headers, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
@@ -67,15 +72,24 @@ export async function getMainStockApi(): Promise<StockMap> {
   if (token) headers.set("authorization", `Bearer ${token}`);
 
   const candidates = ["/stock/main/", "/warehouses/main/stock/", "/stock/?warehouse=main&page_size=1000"];
-  let lastMessage = "Bosh sklad ma'lumoti topilmadi";
   for (const path of candidates) {
     const { response, data } = await fetchJson(path, headers);
-    if (!response.ok) {
-      lastMessage = data?.message || data?.detail || `Bosh sklad xatosi (${response.status})`;
-      continue;
-    }
+    if (!response.ok) continue;
     const stock = normalizeMainStock(data);
-    if (Object.keys(stock).length) return stock;
+    if (Object.values(stock).some((quantity) => quantity > 0)) return stock;
   }
-  throw new Error(lastMessage);
+
+  // Ayrim backend rollarida bosh sklad endpointi branch admin uchun yopiq.
+  // Mahsulot katalogidagi embedded qoldiqni ishlatamiz; u ham berilmasa
+  // dropdownni bo'sh qoldirmaslik uchun mahsulotni so'rovga tanlashga ruxsat beramiz.
+  const { response, data } = await fetchJson("/products/?page_size=1000", headers);
+  if (!response.ok) return {};
+  return listFrom(data).reduce((stock: StockMap, product: any) => {
+    const rawQuantity =
+      product.main_stock ?? product.mainStock ?? product.stock ?? product.quantity ??
+      product.available_quantity ?? product.available;
+    const quantity = rawQuantity === undefined || rawQuantity === null ? 1 : Number(rawQuantity) || 0;
+    addStockAliases(stock, product, quantity);
+    return stock;
+  }, {});
 }
