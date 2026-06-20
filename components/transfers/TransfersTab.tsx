@@ -1,10 +1,14 @@
 "use client";
 import { useState } from "react";
 import { PageWrap, Modal } from "@/components/ui";
-import { approveTransferApi, createTransferApi, getBranchesApi, rejectTransferApi } from "@/lib/api";
+import { approveTransferApi, createTransferApi, rejectTransferApi } from "@/lib/api";
 import { BRANCH_ICONS, BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
 import { fmtD, fmtM, fmt } from "@/lib/utils";
 import type { Product, UserInfo } from "@/types";
+
+function branchSlugFromName(value = "") {
+  return value.trim().toLocaleLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
 
 function TransferCard({ t, isSA, onDetail, onApprove, onReject }: { t: any; isSA: boolean; onDetail: () => void; onApprove: () => void; onReject: () => void; }) {
   const st = TRANSFER_STATUS_CONFIG[t.status as keyof typeof TRANSFER_STATUS_CONFIG];
@@ -38,26 +42,14 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
   const submit = async () => {
     const valid = items.filter((i) => i.pid && i.qty > 0);
     if (!valid.length) { showToast("Mahsulot tanlang", "error"); return; }
+    const savedSlug = String(user.branchSlug || "").trim();
+    const ownBranch = savedSlug && savedSlug !== "shop" ? savedSlug : branchSlugFromName(user.branchName);
+    if (!ownBranch) { showToast("Filial aniqlanmadi", "error"); return; }
     setLoading(true);
-    try {
-      const branches = await getBranchesApi();
-      const name = String(user.branchName || "").trim().toLocaleLowerCase();
-      const slug = String(user.branchSlug || "").trim().toLocaleLowerCase();
-      const branch = branches.find((item: any) =>
-        (user.branchId != null && String(item.id) === String(user.branchId)) ||
-        (name && String(item.name || "").trim().toLocaleLowerCase() === name) ||
-        (slug && slug !== "shop" && String(item.slug || "").trim().toLocaleLowerCase() === slug)
-      );
-      const ownBranch = String(branch?.slug || branch?.id || user.branchSlug || user.branchId || "");
-      if (!ownBranch || ownBranch === "shop") { showToast("Uzbegim filiali serverdan topilmadi", "error"); return; }
-      const d = await createTransferApi(ownBranch, valid.map((i) => ({ productId: i.pid, quantity: i.qty })), user.name, user.branchName, form.note);
-      if (d.success) { showToast("So'rov yuborildi! ✅"); setShowModal(false); setItems([{ pid: "", qty: 1 }]); fetchAll(); }
-      else showToast((d as any).message || "Xatolik", "error");
-    } catch (error: any) {
-      showToast(error?.message || "Filial ma'lumotini olib bo'lmadi", "error");
-    } finally {
-      setLoading(false);
-    }
+    const d = await createTransferApi(ownBranch, valid.map((i) => ({ productId: i.pid, quantity: i.qty })), user.name, user.branchName, form.note);
+    if (d.success) { showToast("So'rov yuborildi! ✅"); setShowModal(false); setItems([{ pid: "", qty: 1 }]); fetchAll(); }
+    else showToast((d as any).message || "Xatolik", "error");
+    setLoading(false);
   };
 
   const approve = async (id: string) => { const d = await approveTransferApi(id, user.name); if (d.success) { showToast("Tasdiqlandi!"); fetchAll(); } else showToast((d as any).message || "Xatolik", "error"); };
