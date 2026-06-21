@@ -3,12 +3,60 @@ import { NextRequest, NextResponse } from "next/server";
 const DEFAULT_BACKEND_URL =
   "https://remedial-coral-dispatch.ngrok-free.dev/api/v1";
 
+const SHOP_SALES_BRANCH_PARAMS = new Set(["branch", "branch_slug", "warehouse_slug"]);
+
+function saleBranch(item: any) {
+  return String(
+    item?.branchSlug ?? item?.branch_slug ?? item?.branch?.slug ??
+    item?.warehouseSlug ?? item?.warehouse_slug ?? item?.warehouse?.slug ?? "",
+  ).trim();
+}
+
+function scopeShopSalesList(value: unknown, branchSlug: string) {
+  if (!Array.isArray(value)) return value;
+  return value
+    .filter((item) => {
+      const existingBranch = saleBranch(item);
+      return !existingBranch || existingBranch === branchSlug;
+    })
+    .map((item) => {
+      if (!item || typeof item !== "object" || saleBranch(item)) return item;
+      return { ...item, branchSlug, branch_slug: branchSlug };
+    });
+}
+
+function scopeShopSalesPayload(payload: any, branchSlug: string): any {
+  if (!branchSlug) return payload;
+  if (Array.isArray(payload)) return scopeShopSalesList(payload, branchSlug);
+  if (!payload || typeof payload !== "object") return payload;
+
+  const next = { ...payload };
+  for (const key of ["results", "items", "shopSales", "shop_sales"]) {
+    if (Array.isArray(next[key])) next[key] = scopeShopSalesList(next[key], branchSlug);
+  }
+  if (Array.isArray(next.data)) next.data = scopeShopSalesList(next.data, branchSlug);
+  else if (next.data && typeof next.data === "object") {
+    next.data = scopeShopSalesPayload(next.data, branchSlug);
+  }
+  return next;
+}
+
 async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const baseUrl = (process.env.DJANGO_API_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, "");
-  const target = new URL(`${baseUrl}/${path.join("/")}/`);
+  const pathName = path.join("/");
+  const target = new URL(`${baseUrl}/${pathName}/`);
+  const isShopSalesGet = request.method === "GET" && pathName === "shop-sales";
+  const requestedBranch =
+    request.nextUrl.searchParams.get("branch_slug") ||
+    request.nextUrl.searchParams.get("branch") ||
+    request.nextUrl.searchParams.get("warehouse_slug") ||
+    "";
 
-  request.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
+  request.nextUrl.searchParams.forEach((value, key) => {
+    if (isShopSalesGet && SHOP_SALES_BRANCH_PARAMS.has(key)) return;
+    target.searchParams.append(key, value);
+  });
 
   const headers = new Headers();
   const authorization = request.headers.get("authorization");
@@ -34,13 +82,20 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
     if (response.status >= 500) {
       console.error("[django-proxy] Backend request failed", {
         method: request.method,
-        path: path.join("/"),
+        path: pathName,
+        status: response.status,
+      });
+    }
+
+    const responseContentType = response.headers.get("content-type") || "";
+    if (isShopSalesGet && response.ok && responseContentType.includes("application/json")) {
+      const payload = await response.json();
+      return NextResponse.json(scopeShopSalesPayload(payload, requestedBranch), {
         status: response.status,
       });
     }
 
     const responseHeaders = new Headers();
-    const responseContentType = response.headers.get("content-type");
     if (responseContentType) responseHeaders.set("content-type", responseContentType);
 
     return new NextResponse(response.body, {
@@ -50,7 +105,7 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   } catch (error) {
     console.error("[django-proxy] Backend is unreachable", {
       method: request.method,
-      path: path.join("/"),
+      path: pathName,
       error: error instanceof Error ? error.message : String(error),
     });
     return NextResponse.json(
