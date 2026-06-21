@@ -12,6 +12,13 @@ function saleBranch(item: any) {
   ).trim();
 }
 
+function shopSalesList(payload: any): any[] {
+  const value =
+    payload?.data?.results ?? payload?.data?.items ?? payload?.data?.shopSales ?? payload?.data?.shop_sales ??
+    payload?.results ?? payload?.items ?? payload?.shopSales ?? payload?.shop_sales ?? payload?.data ?? payload;
+  return Array.isArray(value) ? value : [];
+}
+
 function scopeShopSalesList(value: unknown, branchSlug: string) {
   if (!Array.isArray(value)) return value;
   return value
@@ -41,12 +48,30 @@ function scopeShopSalesPayload(payload: any, branchSlug: string): any {
   return next;
 }
 
+async function getShopSalesCount(baseUrl: string, headers: Headers) {
+  try {
+    const response = await fetch(`${baseUrl}/shop-sales/?page_size=1000`, {
+      headers: {
+        accept: "application/json",
+        authorization: headers.get("authorization") || "",
+        "ngrok-skip-browser-warning": "true",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return shopSalesList(await response.json()).length;
+  } catch {
+    return null;
+  }
+}
+
 async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;
   const baseUrl = (process.env.DJANGO_API_BASE_URL || DEFAULT_BACKEND_URL).replace(/\/$/, "");
   const pathName = path.join("/");
   const target = new URL(`${baseUrl}/${pathName}/`);
   const isShopSalesGet = request.method === "GET" && pathName === "shop-sales";
+  const isShopSalesUpload = request.method === "POST" && pathName === "shop-sales/upload";
   const requestedBranch =
     request.nextUrl.searchParams.get("branch_slug") ||
     request.nextUrl.searchParams.get("branch") ||
@@ -70,6 +95,9 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   headers.set("ngrok-skip-browser-warning", "true");
 
   try {
+    const countBefore = isShopSalesUpload
+      ? await getShopSalesCount(baseUrl, headers)
+      : null;
     const response = await fetch(target, {
       method: request.method,
       headers,
@@ -78,6 +106,18 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
         : await request.arrayBuffer(),
       cache: "no-store",
     });
+
+    if (isShopSalesUpload && response.status >= 500 && countBefore !== null) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const countAfter = await getShopSalesCount(baseUrl, headers);
+      if (countAfter !== null && countAfter > countBefore) {
+        return NextResponse.json({
+          success: true,
+          message: "Excel import qilindi",
+          saved_after_backend_error: true,
+        });
+      }
+    }
 
     if (response.status >= 500) {
       console.error("[django-proxy] Backend request failed", {
