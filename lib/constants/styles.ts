@@ -160,32 +160,12 @@ export const GLOBAL_CSS = `
     .modal-box { border-radius: 8px; max-height: 90vh; }
   }
 
-  .data-progress {
-    position: sticky;
-    top: 62px;
-    z-index: 145;
-    height: 2px;
-    overflow: hidden;
-    background: transparent;
-  }
   .transfer-quantity-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) repeat(3, auto);
     gap: 12px;
     padding: 8px 0;
     font-size: 12px;
-  }
-  .data-progress span {
-    display: block;
-    width: 42%;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--app-primary);
-    animation: dataProgress 1s ease-in-out infinite;
-  }
-  @keyframes dataProgress {
-    from { transform: translateX(-110%); }
-    to { transform: translateX(340%); }
   }
 
   .app-data-skeleton { padding: 28px 24px; }
@@ -217,7 +197,6 @@ export const GLOBAL_CSS = `
   @keyframes skeletonShimmer { to { transform: translateX(100%); } }
 
   @media (max-width: 720px) {
-    .data-progress { top: 66px; }
     .app-data-skeleton { padding: 18px 14px 100px; }
     .skeleton-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .skeleton-kpis .skeleton-block { height: 78px; }
@@ -228,7 +207,6 @@ export const GLOBAL_CSS = `
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .data-progress span,
     .skeleton-heading span::after,
     .skeleton-block::after { animation: none; }
   }

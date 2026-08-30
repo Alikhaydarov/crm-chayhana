@@ -30,7 +30,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const t = I18N[lang];
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
   const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user);
-  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, isLoading, isRefreshing } = rest as any;
+  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, isLoading } = rest as any;
   const currentBranch = user ? branches.find((branch: any) =>
     (user.branchId != null && String(branch.id) === String(user.branchId)) ||
     (user.branchSlug && branch.slug === user.branchSlug) ||
@@ -130,7 +130,6 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
       <Sidebar user={user} tabs={TABS} activeTab={activeTab} collapsed={sidebarCollapsed} theme={theme} lang={lang} onTabChange={handleTabChange} onToggleCollapse={() => setSidebarCollapsed(v => !v)} onCollapse={() => setSidebarCollapsed(true)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} />
       <main className="mobile-main" style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
         <Topbar user={user} activeTab={activeTab} tabs={TABS} sidebarCollapsed={sidebarCollapsed} theme={theme} lang={lang} onToggleSidebar={() => setSidebarCollapsed(v => !v)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} onSearch={() => setCommandOpen(true)} notifications={notifications} onNavigate={handleTabChange} />
-        {isRefreshing && <div className="data-progress" aria-label={t.loading}><span /></div>}
         {isLoading ? <AppDataSkeleton /> : children}
       </main>
       <BottomNav tabs={TABS} activeTab={activeTab} onTabChange={handleTabChange} />
