@@ -403,17 +403,6 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         : await rpc<any>("process_transfer", { p_transfer_id: id, p_action: action, p_approved_by: body.approvedBy || user.name });
       return json(updated);
     }
-    const transferReceive = route.match(/^transfers\/([^/]+)\/receive$/);
-    if (transferReceive && method === "POST") {
-      if (user.role === "superadmin") return json({ success: false, message: "Transferni kichik sklad qabul qilishi kerak" }, 403);
-      const id = decodeURIComponent(transferReceive[1]);
-      const body = await readBody(request);
-      const [transfer] = await sb<any[]>("transfers", {}, `?select=id,to_branch,status&id=eq.${encodeURIComponent(id)}&limit=1`);
-      if (!transfer) return json({ success: false, message: "Transfer topilmadi" }, 404);
-      if (transfer.to_branch !== user.role) return json({ success: false, message: "Ruxsat yo'q" }, 403);
-      const updated = await rpc<any>("receive_transfer", { p_transfer_id: id, p_items: body.items || [], p_received_by: body.receivedBy || user.name });
-      return json(updated);
-    }
 
     if (route === "companies" && method === "GET") return json((await snapshot(user)).companies);
     if (route === "companies" && method === "POST") {

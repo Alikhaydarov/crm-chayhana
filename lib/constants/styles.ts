@@ -18,8 +18,8 @@ export const GLOBAL_CSS = `
     background: var(--app-input) !important;
     color: var(--app-text) !important;
     border: 1.5px solid var(--app-border) !important;
-    border-radius: 10px !important;
-    padding: 11px 14px !important;
+    border-radius: 8px !important;
+    padding: 9px 12px !important;
     font-size: 13px !important;
     font-weight: 600 !important;
     outline: none !important;
@@ -37,10 +37,10 @@ export const GLOBAL_CSS = `
     background: var(--app-primary);
     border: none; color: #fff; border-radius: 8px;
     padding: 9px 14px; min-height: 36px; font-weight: 700; cursor: pointer; font-size: 12px;
-    transition: all .18s; box-shadow: 0 4px 12px rgba(115,103,240,.24);
+    transition: background .15s, box-shadow .15s, transform .15s; box-shadow: 0 3px 10px rgba(115,103,240,.2);
     white-space: nowrap; font-family: inherit;
   }
-  .btn-primary:hover:not(:disabled) { background: var(--app-primary-strong); box-shadow: 0 6px 18px rgba(115,103,240,.3); }
+  .btn-primary:hover:not(:disabled) { background: var(--app-primary-strong); box-shadow: 0 5px 14px rgba(115,103,240,.26); transform: translateY(-1px); }
   .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
 
   .btn-ghost {
@@ -88,10 +88,10 @@ export const GLOBAL_CSS = `
   }
   .modal-box {
     background: var(--app-panel); border: 1px solid var(--app-border);
-    border-radius: 12px 12px 0 0;
+    border-radius: 8px 8px 0 0;
     width: 100%; max-width: 620px; max-height: 92vh;
     overflow-y: auto; color: var(--app-text);
-    padding: 28px 24px 32px;
+    padding: 22px 20px 24px;
     animation: slideUp .28s cubic-bezier(.22,.68,0,1.1);
     box-shadow: 0 -16px 60px rgba(0,0,0,.4);
   }
@@ -106,7 +106,7 @@ export const GLOBAL_CSS = `
 
   .nav-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 11px; margin-bottom: 2px;
+    padding: 9px 11px; border-radius: 8px; margin-bottom: 2px;
     cursor: pointer; transition: all .15s; border: 1.5px solid transparent;
     font-size: 13px; font-weight: 500; color: var(--app-muted);
     white-space: nowrap; overflow: hidden;
@@ -126,7 +126,7 @@ export const GLOBAL_CSS = `
   .bnav-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 2px; }
   .bnav-btn {
     display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 7px 4px; border-radius: 12px; cursor: pointer;
+    padding: 6px 4px; border-radius: 8px; cursor: pointer;
     border: none; background: transparent; color: var(--app-muted);
     font-family: inherit; transition: all .15s;
   }
@@ -145,9 +145,9 @@ export const GLOBAL_CSS = `
   @media (max-width: 768px) {
     .sidebar { display: none !important; }
     .bottom-nav { display: block !important; }
-    .page-pad { padding: 16px 14px 100px !important; }
+    .page-pad { padding: 14px 12px 88px !important; }
     .modal-backdrop { align-items: flex-end; }
-    .modal-box { border-radius: 12px 12px 0 0; max-height: 88vh; }
+    .modal-box { border-radius: 8px 8px 0 0; max-height: 90dvh; padding: 18px 16px 22px; }
     .hide-mobile { display: none !important; }
     .stat-row { grid-template-columns: 1fr 1fr !important; }
     .firm-grid { grid-template-columns: 1fr !important; }
@@ -157,7 +157,7 @@ export const GLOBAL_CSS = `
   }
   @media (min-width: 769px) {
     .modal-backdrop { align-items: center; padding: 20px; }
-    .modal-box { border-radius: 12px; max-height: 90vh; }
+    .modal-box { border-radius: 8px; max-height: 90vh; }
   }
 
   .data-progress {

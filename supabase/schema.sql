@@ -325,11 +325,24 @@ begin
     if coalesce(v_available, 0) < v_quantity then raise exception 'Bosh skladda yetarli mahsulot yo''q: %', v_product_id; end if;
     update public.stock set quantity = quantity - v_quantity, updated_at = now()
     where product_id = v_product_id and branch = 'main';
+
+    insert into public.stock (product_id, branch, quantity)
+    values (v_product_id, v_transfer.to_branch, v_quantity)
+    on conflict (product_id, branch) do update
+    set quantity = public.stock.quantity + excluded.quantity,
+        updated_at = now();
+
     v_sent := v_sent || jsonb_build_array(v_requested || jsonb_build_object('quantity', v_quantity));
   end loop;
 
   update public.transfers
-  set status = 'approved', sent_items = v_sent, approved_by = p_approved_by, updated_at = now()
+  set status = 'received',
+      sent_items = v_sent,
+      received_items = v_sent,
+      approved_by = p_approved_by,
+      received_by = p_approved_by,
+      received_at = now(),
+      updated_at = now()
   where id = p_transfer_id returning * into v_transfer;
   return v_transfer;
 end;

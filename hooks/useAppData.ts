@@ -91,11 +91,13 @@ export function useAppData(user: UserInfo | null) {
     window.addEventListener("focus", refreshIfVisible);
     window.addEventListener("online", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
+    const interval = window.setInterval(refreshIfVisible, 5000);
 
     return () => {
       window.removeEventListener("focus", refreshIfVisible);
       window.removeEventListener("online", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.clearInterval(interval);
     };
   }, [user, fetchAll]);
 
