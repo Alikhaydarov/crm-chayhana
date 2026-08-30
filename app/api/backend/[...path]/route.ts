@@ -72,6 +72,16 @@ async function readBody(request: NextRequest) {
   return text ? JSON.parse(text) : {};
 }
 
+async function readReceipt(request: NextRequest) {
+  const form = await request.formData();
+  const file = form.get("receipt") ?? form.get("files");
+  if (!(file instanceof File)) throw new Error("Chek fayli topilmadi");
+  if (!file.type.startsWith("image/") && file.type !== "application/pdf") throw new Error("Chek faqat rasm yoki PDF bo'lishi kerak");
+  if (file.size > 2 * 1024 * 1024) throw new Error("Chek 2 MB dan kichik bo'lishi kerak");
+  const dataUrl = `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`;
+  return { orderId: String(form.get("orderId") || ""), receipt: { name: file.name.slice(0, 180), type: file.type, dataUrl } };
+}
+
 function encodeToken(user: AppUser, type: "access" | "refresh") {
   if (!AUTH_SECRET) throw new Error("AUTH_SECRET env missing");
   const now = Math.floor(Date.now() / 1000);
@@ -112,6 +122,16 @@ function authUser(request: NextRequest) {
   const user = decodeToken(request.headers.get("authorization"));
   if (!user) throw new Error("Avtorizatsiya kerak");
   return user;
+}
+
+function errorStatus(message: string) {
+  if (message === "Avtorizatsiya kerak") return 401;
+  if (message === "Ruxsat yo'q" || message.includes("ruxsat yo'q")) return 403;
+  if (/fayli topilmadi/i.test(message)) return 400;
+  if (/topilmadi/i.test(message)) return 404;
+  if (/duplicate key|unique constraint|already exists|avval import/i.test(message)) return 409;
+  if (/noto'g'ri|kerak|kichik bo'lishi|katta|yo'q|musbat|yetarli/i.test(message)) return 400;
+  return 500;
 }
 
 function toProduct(row: any) {
@@ -168,6 +188,7 @@ function mapOrder(row: any) {
     payStatus: row.pay_status,
     note: row.note || "",
     receipt: row.receipt || undefined,
+    orderDate: row.order_date || "",
     createdAt: row.created_at,
   };
 }
@@ -193,7 +214,6 @@ async function snapshot(user: AppUser) {
     transfers,
     companies,
     orders,
-    payments,
     staff,
     suppliers,
     shopSales,
@@ -204,13 +224,19 @@ async function snapshot(user: AppUser) {
     sb<any[]>("transfers", {}, transferQuery),
     user.role === "shop" ? Promise.resolve([]) : sb<any[]>("companies", {}, companyQuery),
     user.role === "shop" ? Promise.resolve([]) : sb<any[]>("orders", {}, orderQuery),
-    user.role === "shop" ? Promise.resolve([]) : sb<any[]>("company_payments", {}, `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`),
     sb<any[]>("staff", {}, staffQuery),
     sb<any[]>("suppliers", {}, `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`).catch(() => []),
     user.role === "restaurant1" || user.role === "restaurant2"
       ? Promise.resolve([])
       : sb<any[]>("shop_sales", {}, `?select=*&order=sale_date.desc&limit=${MAX_LIST_ROWS}`),
   ]);
+
+  const companyIds = companies.map((company) => String(company.id));
+  const payments = user.role === "shop" || (user.role !== "superadmin" && companyIds.length === 0)
+    ? []
+    : await sb<any[]>("company_payments", {}, user.role === "superadmin"
+      ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
+      : `?select=*&company_id=in.(${companyIds.join(",")})&order=created_at.desc&limit=${MAX_LIST_ROWS}`);
 
   return {
     products: productList,
@@ -389,18 +415,33 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       if (!company || (user.role !== "superadmin" && company.branch !== user.role)) {
         return json({ success: false, message: "Firma topilmadi yoki ruxsat yo'q" }, 404);
       }
-      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: body.items || [], total_price: total, paid_amount: Number(body.paidAmount || 0), pay_status: body.payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
+      const payStatus = body.payStatus === "paid" ? "paid" : "unpaid";
+      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: body.items || [], total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
       return json(mapOrder(created), 201);
+    }
+    if (route === "orders/upload-receipt" && method === "POST") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const upload = await readReceipt(request);
+      if (upload.orderId) {
+        const [order] = await sb<any[]>("orders", {}, `?select=id,branch&id=eq.${encodeURIComponent(upload.orderId)}&limit=1`);
+        if (!order) return json({ success: false, message: "Order topilmadi" }, 404);
+        if (user.role !== "superadmin" && order.branch !== user.role) return json({ success: false, message: "Ruxsat yo'q" }, 403);
+        await sb("orders", { method: "PATCH", body: JSON.stringify({ receipt: upload.receipt }) }, `?id=eq.${encodeURIComponent(upload.orderId)}`);
+      }
+      return json({ receipt: upload.receipt, receipts: [upload.receipt] }, 201);
     }
     const orderPayments = route.match(/^orders\/([^/]+)\/payments$/);
     if (orderPayments && method === "POST") {
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
       const body = await readBody(request);
       const orderId = decodeURIComponent(orderPayments[1]);
+      const [order] = await sb<any[]>("orders", {}, `?select=id,branch&id=eq.${encodeURIComponent(orderId)}&limit=1`);
+      if (!order) return json({ success: false, message: "Order topilmadi" }, 404);
+      if (user.role !== "superadmin" && order.branch !== user.role) return json({ success: false, message: "Ruxsat yo'q" }, 403);
+      if (body.receipt) await sb("orders", { method: "PATCH", body: JSON.stringify({ receipt: body.receipt }) }, `?id=eq.${encodeURIComponent(orderId)}`);
       const payment = await rpc<any>("pay_order", { p_order_id: orderId, p_amount: Number(body.amount || 0), p_note: body.note || "" });
       return json(payment, 201);
     }
-    if (route === "orders/upload-receipt" && method === "POST") return json({ success: true });
 
     if (route === "staff" && method === "POST") {
       requireRole(user, ["superadmin"]);
@@ -434,26 +475,15 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (route === "shop-sales/import_sales" && method === "POST") {
       requireRole(user, ["superadmin", "shop"]);
       const body = await readBody(request);
-      const productList = await products();
-      const items = (body.rows || []).map((row: any) => {
-        const product = productList.find((p) => p.id === row.productId);
-        return { ...row, productName: product?.name || row.sourceName, stockBefore: 0, stockAfter: -Number(row.quantity || 0), shortage: 0 };
-      });
-      const [created] = await sb<any[]>("shop_sales", {
-        method: "POST",
-        headers: { prefer: "return=representation" },
-        body: JSON.stringify({
-          source_key: body.sourceKey,
-          file_name: body.fileName,
-          sale_date: body.saleDate,
-          items,
-          total_quantity: items.reduce((s: number, i: any) => s + Number(i.quantity || 0), 0),
-          total_sales: items.reduce((s: number, i: any) => s + Number(i.salesAmount || 0), 0),
-          total_cost: items.reduce((s: number, i: any) => s + Number(i.costAmount || 0), 0),
-          total_profit: items.reduce((s: number, i: any) => s + Number(i.profitAmount || 0), 0),
-          shortage_count: 0,
-          skipped_rows: body.skippedRows || [],
-        }),
+      if (!body.sourceKey || !body.fileName || !body.saleDate || !Array.isArray(body.rows) || body.rows.length === 0) {
+        return json({ success: false, message: "Import ma'lumotlari to'liq emas" }, 400);
+      }
+      const created = await rpc<any>("import_shop_sale", {
+        p_source_key: body.sourceKey,
+        p_file_name: body.fileName,
+        p_sale_date: body.saleDate,
+        p_items: body.rows,
+        p_skipped_rows: body.skippedRows || [],
       });
       return json(created, 201);
     }
@@ -461,8 +491,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     return json({ success: false, message: `Endpoint topilmadi: ${method} /${route}` }, 404);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Server xatosi";
-    const status = message === "Avtorizatsiya kerak" ? 401 : message === "Ruxsat yo'q" ? 403 : 500;
-    return json({ success: false, message }, status);
+    return json({ success: false, message }, errorStatus(message));
   }
 }
 

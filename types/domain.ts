@@ -41,6 +41,7 @@ export type Order = {
   payStatus: PayStatus;
   note: string;
   receipt?: OrderReceipt;
+  orderDate?: string;
   createdAt: string;
 };
 

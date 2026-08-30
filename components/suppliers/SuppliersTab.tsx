@@ -183,7 +183,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
                     <div key={o.id} style={{ background: "var(--app-panel-soft)", borderRadius: 12, padding: "13px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                       <div>
                         <div style={{ fontWeight: 800 }}>Order <span style={{ fontFamily: "monospace", color: "#7367f0", fontSize: 12 }}>#{o.id.slice(-8)}</span></div>
-                        <div style={{ fontSize: 11, color: "var(--app-muted)", marginTop: 2 }}>{fmtDate(o.createdAt)} · {fmtM(o.totalPrice)}</div>
+                        <div style={{ fontSize: 11, color: "var(--app-muted)", marginTop: 2 }}>{fmtDate(o.orderDate || o.createdAt)} · {fmtM(o.totalPrice)}</div>
                         {debt > 0 && <div style={{ fontSize: 12, color: "#f85149", fontWeight: 700, marginTop: 2 }}>Qarz: {fmtM(debt)}</div>}
                         {o.receipt && <a href={o.receipt.dataUrl} download={o.receipt.name} onClick={(e) => e.stopPropagation()} style={{ display: "inline-block", fontSize: 11, color: "#7367f0", fontWeight: 700, marginTop: 5, textDecoration: "none" }}>📎 Chekni yuklash</a>}
                       </div>

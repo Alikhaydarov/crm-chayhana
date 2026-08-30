@@ -303,6 +303,95 @@ $$;
 revoke all on function public.pay_order(uuid, numeric, text) from public, anon, authenticated;
 grant execute on function public.pay_order(uuid, numeric, text) to service_role;
 
+create or replace function public.import_shop_sale(
+  p_source_key text,
+  p_file_name text,
+  p_sale_date date,
+  p_items jsonb,
+  p_skipped_rows jsonb default '[]'::jsonb
+)
+returns public.shop_sales
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_item jsonb;
+  v_items jsonb := '[]'::jsonb;
+  v_product public.products;
+  v_product_id text;
+  v_quantity numeric;
+  v_before numeric;
+  v_after numeric;
+  v_shortage numeric;
+  v_shortage_count integer := 0;
+  v_created public.shop_sales;
+begin
+  if coalesce(trim(p_source_key), '') = '' or coalesce(trim(p_file_name), '') = '' then
+    raise exception 'Import ma''lumotlari to''liq emas';
+  end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    raise exception 'Importda mahsulotlar yo''q';
+  end if;
+
+  for v_item in select value from jsonb_array_elements(p_items)
+  loop
+    v_product_id := v_item->>'productId';
+    v_quantity := coalesce((v_item->>'quantity')::numeric, 0);
+    if v_product_id is null or v_quantity <= 0 then
+      raise exception 'Mahsulot yoki miqdor noto''g''ri';
+    end if;
+
+    select * into v_product from public.products where id = v_product_id;
+    if not found then raise exception 'Mahsulot topilmadi: %', v_product_id; end if;
+
+    insert into public.stock (product_id, branch, quantity)
+    values (v_product_id, 'shop', 0)
+    on conflict (product_id, branch) do nothing;
+
+    select quantity into v_before
+    from public.stock
+    where product_id = v_product_id and branch = 'shop'
+    for update;
+
+    v_after := greatest(0, v_before - v_quantity);
+    v_shortage := greatest(0, v_quantity - v_before);
+    if v_shortage > 0 then v_shortage_count := v_shortage_count + 1; end if;
+
+    update public.stock
+    set quantity = v_after, updated_at = now()
+    where product_id = v_product_id and branch = 'shop';
+
+    v_items := v_items || jsonb_build_array(
+      v_item || jsonb_build_object(
+        'productName', coalesce(v_item->>'productName', v_item->>'sourceName', v_product.name),
+        'stockBefore', v_before,
+        'stockAfter', v_after,
+        'shortage', v_shortage
+      )
+    );
+  end loop;
+
+  insert into public.shop_sales (
+    source_key, file_name, sale_date, items, total_quantity,
+    total_sales, total_cost, total_profit, shortage_count, skipped_rows
+  ) values (
+    p_source_key, p_file_name, p_sale_date, v_items,
+    (select coalesce(sum((value->>'quantity')::numeric), 0) from jsonb_array_elements(v_items)),
+    (select coalesce(sum((value->>'salesAmount')::numeric), 0) from jsonb_array_elements(v_items)),
+    (select coalesce(sum((value->>'costAmount')::numeric), 0) from jsonb_array_elements(v_items)),
+    (select coalesce(sum((value->>'profitAmount')::numeric), 0) from jsonb_array_elements(v_items)),
+    v_shortage_count,
+    coalesce(p_skipped_rows, '[]'::jsonb)
+  ) returning * into v_created;
+
+  return v_created;
+end;
+$$;
+
+revoke all on function public.import_shop_sale(text, text, date, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.import_shop_sale(text, text, date, jsonb, jsonb) to service_role;
+
 insert into public.admin_users (user_id, password, name, role, branch_name, branch_icon)
 values
   ('admin', extensions.crypt('admin123', extensions.gen_salt('bf', 12)), 'Bosh Admin', 'superadmin', 'Bosh Admin', 'M'),

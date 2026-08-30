@@ -47,7 +47,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       items: valid.map((i) => ({ productId: i.pid, quantity: i.qty, pricePerUnit: i.price })),
       note: form.note,
       payStatus: form.payStatus,
-      paidAmount: 0,
+      paidAmount: form.payStatus === "paid" ? total : 0,
       orderDate: form.orderDate,
       receipt: form.receipt || undefined,
     });
@@ -216,7 +216,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                       <a href={o.receipt.dataUrl} download={o.receipt.name} style={{ display: "block", fontSize: 11, color: "#7367f0", fontWeight: 700, marginTop: 5, textDecoration: "none" }}>📎 Chek</a>
                     )}
                   </td>
-                  <td className="hide-mobile" style={{ fontSize: 11, color: "var(--app-muted)" }}>{fmtDate(o.createdAt)}</td>
+                  <td className="hide-mobile" style={{ fontSize: 11, color: "var(--app-muted)" }}>{fmtDate(o.orderDate || o.createdAt)}</td>
                 </tr>
               );
             })}
