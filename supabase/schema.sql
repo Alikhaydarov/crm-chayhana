@@ -156,6 +156,23 @@ create index if not exists shop_sales_date_idx on public.shop_sales (sale_date d
 -- The browser never receives table privileges. All access goes through the server route.
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
+-- Supabase's automatic-RLS trigger is internal only; it must not be callable via the Data API.
+do $$
+begin
+  if exists (
+    select 1 from pg_proc
+    where pronamespace = 'public'::regnamespace
+      and proname = 'rls_auto_enable'
+      and oidvectortypes(proargtypes) = ''
+  ) then
+    revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+  end if;
+end;
+$$;
 
 create or replace function public.authenticate_admin(p_user_id text, p_password text)
 returns table (
@@ -173,7 +190,7 @@ as $$
   from public.admin_users u
   where u.user_id = p_user_id
     and u.active
-    and u.password = crypt(p_password, u.password)
+    and u.password = extensions.crypt(p_password, u.password)
   limit 1;
 $$;
 
@@ -288,15 +305,15 @@ grant execute on function public.pay_order(uuid, numeric, text) to service_role;
 
 insert into public.admin_users (user_id, password, name, role, branch_name, branch_icon)
 values
-  ('admin', crypt('admin123', gen_salt('bf', 12)), 'Bosh Admin', 'superadmin', 'Bosh Admin', 'M'),
-  ('shop', crypt('shop123', gen_salt('bf', 12)), 'Do''kon Admin', 'shop', 'Do''kon', 'S'),
-  ('rest1', crypt('rest123', gen_salt('bf', 12)), 'Oshxona-1 Admin', 'restaurant1', 'Oshxona-1', 'R1'),
-  ('rest2', crypt('rest123', gen_salt('bf', 12)), 'Oshxona-2 Admin', 'restaurant2', 'Oshxona-2', 'R2')
+  ('admin', extensions.crypt('admin123', extensions.gen_salt('bf', 12)), 'Bosh Admin', 'superadmin', 'Bosh Admin', 'M'),
+  ('shop', extensions.crypt('shop123', extensions.gen_salt('bf', 12)), 'Do''kon Admin', 'shop', 'Do''kon', 'S'),
+  ('rest1', extensions.crypt('rest123', extensions.gen_salt('bf', 12)), 'Oshxona-1 Admin', 'restaurant1', 'Oshxona-1', 'R1'),
+  ('rest2', extensions.crypt('rest123', extensions.gen_salt('bf', 12)), 'Oshxona-2 Admin', 'restaurant2', 'Oshxona-2', 'R2')
 on conflict (user_id) do nothing;
 
 -- Upgrade earlier plaintext seed rows without changing already-hashed passwords.
 update public.admin_users
-set password = crypt(password, gen_salt('bf', 12))
+set password = extensions.crypt(password, extensions.gen_salt('bf', 12))
 where password not like '$2%';
 
 insert into public.products (id, name, category, unit, min_stock, price_per_unit, qr_code)
