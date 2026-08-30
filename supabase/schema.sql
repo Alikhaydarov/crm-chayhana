@@ -55,6 +55,8 @@ create table if not exists public.companies (
   created_at timestamptz not null default now()
 );
 
+alter table public.companies add column if not exists branch text;
+
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   company_id uuid references public.companies(id) on delete set null,
@@ -68,6 +70,8 @@ create table if not exists public.orders (
   order_date date not null default current_date,
   created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists branch text;
 
 create table if not exists public.company_payments (
   id uuid primary key default gen_random_uuid(),
@@ -129,13 +133,171 @@ alter table public.staff enable row level security;
 alter table public.suppliers enable row level security;
 alter table public.shop_sales enable row level security;
 
+-- Frequent filters and newest-first lists must stay index-backed as data grows.
+create unique index if not exists products_qr_code_unique_idx
+  on public.products (qr_code) where qr_code is not null;
+create index if not exists stock_branch_idx on public.stock (branch, product_id);
+create index if not exists transfers_branch_created_idx on public.transfers (to_branch, created_at desc);
+create index if not exists transfers_pending_created_idx on public.transfers (created_at desc)
+  where status = 'pending';
+create index if not exists companies_branch_created_idx on public.companies (branch, created_at desc);
+create index if not exists orders_branch_created_idx on public.orders (branch, created_at desc);
+create index if not exists orders_company_created_idx on public.orders (company_id, created_at desc);
+create index if not exists orders_date_created_idx on public.orders (order_date desc, created_at desc);
+create index if not exists orders_unpaid_created_idx on public.orders (created_at desc)
+  where pay_status <> 'paid';
+create index if not exists company_payments_company_created_idx
+  on public.company_payments (company_id, created_at desc);
+create index if not exists company_payments_order_idx on public.company_payments (order_id);
+create index if not exists staff_branch_name_idx on public.staff (branch, name);
+create unique index if not exists shop_sales_source_key_unique_idx on public.shop_sales (source_key);
+create index if not exists shop_sales_date_idx on public.shop_sales (sale_date desc, created_at desc);
+
+-- The browser never receives table privileges. All access goes through the server route.
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+
+create or replace function public.authenticate_admin(p_user_id text, p_password text)
+returns table (
+  id uuid,
+  name text,
+  role text,
+  branch_name text,
+  branch_icon text
+)
+language sql
+security invoker
+set search_path = ''
+as $$
+  select u.id, u.name, u.role, u.branch_name, u.branch_icon
+  from public.admin_users u
+  where u.user_id = p_user_id
+    and u.active
+    and u.password = crypt(p_password, u.password)
+  limit 1;
+$$;
+
+revoke all on function public.authenticate_admin(text, text) from public, anon, authenticated;
+grant execute on function public.authenticate_admin(text, text) to service_role;
+
+create or replace function public.process_transfer(
+  p_transfer_id uuid,
+  p_action text,
+  p_approved_by text
+)
+returns public.transfers
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_transfer public.transfers;
+  v_item jsonb;
+  v_product_id text;
+  v_quantity numeric;
+  v_available numeric;
+begin
+  if p_action not in ('approve', 'reject') then
+    raise exception 'Noto''g''ri transfer amali';
+  end if;
+
+  select * into v_transfer
+  from public.transfers
+  where id = p_transfer_id
+  for update;
+
+  if not found then raise exception 'Transfer topilmadi'; end if;
+  if v_transfer.status <> 'pending' then raise exception 'Transfer avval qayta ishlangan'; end if;
+
+  if p_action = 'approve' then
+    for v_item in select * from jsonb_array_elements(v_transfer.items)
+    loop
+      v_product_id := v_item->>'productId';
+      v_quantity := (v_item->>'quantity')::numeric;
+      if v_quantity <= 0 then raise exception 'Mahsulot miqdori noto''g''ri'; end if;
+
+      select quantity into v_available
+      from public.stock
+      where product_id = v_product_id and branch = 'main'
+      for update;
+
+      if coalesce(v_available, 0) < v_quantity then
+        raise exception 'Skladda yetarli mahsulot yo''q: %', v_product_id;
+      end if;
+
+      update public.stock
+      set quantity = quantity - v_quantity, updated_at = now()
+      where product_id = v_product_id and branch = 'main';
+
+      insert into public.stock (product_id, branch, quantity)
+      values (v_product_id, v_transfer.to_branch, v_quantity)
+      on conflict (product_id, branch) do update
+      set quantity = public.stock.quantity + excluded.quantity, updated_at = now();
+    end loop;
+  end if;
+
+  update public.transfers
+  set status = case when p_action = 'approve' then 'approved' else 'rejected' end,
+      approved_by = p_approved_by,
+      updated_at = now()
+  where id = p_transfer_id
+  returning * into v_transfer;
+
+  return v_transfer;
+end;
+$$;
+
+revoke all on function public.process_transfer(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.process_transfer(uuid, text, text) to service_role;
+
+create or replace function public.pay_order(
+  p_order_id uuid,
+  p_amount numeric,
+  p_note text
+)
+returns public.company_payments
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_order public.orders;
+  v_payment public.company_payments;
+  v_paid numeric;
+begin
+  if p_amount <= 0 then raise exception 'To''lov miqdori musbat bo''lishi kerak'; end if;
+
+  select * into v_order from public.orders where id = p_order_id for update;
+  if not found then raise exception 'Order topilmadi'; end if;
+
+  v_paid := least(v_order.total_price, v_order.paid_amount + p_amount);
+  update public.orders
+  set paid_amount = v_paid,
+      pay_status = case when v_paid >= total_price then 'paid' else 'unpaid' end
+  where id = p_order_id;
+
+  insert into public.company_payments (company_id, order_id, amount, note)
+  values (v_order.company_id, p_order_id, least(p_amount, v_order.total_price - v_order.paid_amount), coalesce(p_note, ''))
+  returning * into v_payment;
+  return v_payment;
+end;
+$$;
+
+revoke all on function public.pay_order(uuid, numeric, text) from public, anon, authenticated;
+grant execute on function public.pay_order(uuid, numeric, text) to service_role;
+
 insert into public.admin_users (user_id, password, name, role, branch_name, branch_icon)
 values
-  ('admin', 'admin123', 'Bosh Admin', 'superadmin', 'Bosh Admin', 'M'),
-  ('shop', 'shop123', 'Do''kon Admin', 'shop', 'Do''kon', 'S'),
-  ('rest1', 'rest123', 'Oshxona-1 Admin', 'restaurant1', 'Oshxona-1', 'R1'),
-  ('rest2', 'rest123', 'Oshxona-2 Admin', 'restaurant2', 'Oshxona-2', 'R2')
+  ('admin', crypt('admin123', gen_salt('bf', 12)), 'Bosh Admin', 'superadmin', 'Bosh Admin', 'M'),
+  ('shop', crypt('shop123', gen_salt('bf', 12)), 'Do''kon Admin', 'shop', 'Do''kon', 'S'),
+  ('rest1', crypt('rest123', gen_salt('bf', 12)), 'Oshxona-1 Admin', 'restaurant1', 'Oshxona-1', 'R1'),
+  ('rest2', crypt('rest123', gen_salt('bf', 12)), 'Oshxona-2 Admin', 'restaurant2', 'Oshxona-2', 'R2')
 on conflict (user_id) do nothing;
+
+-- Upgrade earlier plaintext seed rows without changing already-hashed passwords.
+update public.admin_users
+set password = crypt(password, gen_salt('bf', 12))
+where password not like '$2%';
 
 insert into public.products (id, name, category, unit, min_stock, price_per_unit, qr_code)
 values
