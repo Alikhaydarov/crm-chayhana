@@ -168,6 +168,13 @@ export const GLOBAL_CSS = `
     overflow: hidden;
     background: transparent;
   }
+  .transfer-quantity-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 12px;
+  }
   .data-progress span {
     display: block;
     width: 42%;
@@ -216,6 +223,8 @@ export const GLOBAL_CSS = `
     .skeleton-kpis .skeleton-block { height: 78px; }
     .skeleton-content { grid-template-columns: 1fr; gap: 8px; }
     .skeleton-content .skeleton-block { height: 210px; }
+    .transfer-quantity-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .transfer-quantity-row > span:first-child { grid-column: 1 / -1; }
   }
 
   @media (prefers-reduced-motion: reduce) {

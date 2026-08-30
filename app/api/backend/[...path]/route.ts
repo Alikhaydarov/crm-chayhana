@@ -249,6 +249,10 @@ async function snapshot(user: AppUser) {
       totalValue: Number(tr.total_value || 0),
       requestedBy: tr.requested_by,
       approvedBy: tr.approved_by || "",
+      sentItems: tr.sent_items || [],
+      receivedItems: tr.received_items || [],
+      receivedBy: tr.received_by || "",
+      receivedAt: tr.received_at || "",
       status: tr.status,
       note: tr.note || "",
       createdAt: tr.created_at,
@@ -394,7 +398,20 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const id = decodeURIComponent(transferAction[1]);
       const action = transferAction[2];
       const body = await readBody(request);
-      const updated = await rpc<any>("process_transfer", { p_transfer_id: id, p_action: action, p_approved_by: body.approvedBy || user.name });
+      const updated = action === "approve"
+        ? await rpc<any>("dispatch_transfer", { p_transfer_id: id, p_items: body.items || [], p_approved_by: body.approvedBy || user.name })
+        : await rpc<any>("process_transfer", { p_transfer_id: id, p_action: action, p_approved_by: body.approvedBy || user.name });
+      return json(updated);
+    }
+    const transferReceive = route.match(/^transfers\/([^/]+)\/receive$/);
+    if (transferReceive && method === "POST") {
+      if (user.role === "superadmin") return json({ success: false, message: "Transferni kichik sklad qabul qilishi kerak" }, 403);
+      const id = decodeURIComponent(transferReceive[1]);
+      const body = await readBody(request);
+      const [transfer] = await sb<any[]>("transfers", {}, `?select=id,to_branch,status&id=eq.${encodeURIComponent(id)}&limit=1`);
+      if (!transfer) return json({ success: false, message: "Transfer topilmadi" }, 404);
+      if (transfer.to_branch !== user.role) return json({ success: false, message: "Ruxsat yo'q" }, 403);
+      const updated = await rpc<any>("receive_transfer", { p_transfer_id: id, p_items: body.items || [], p_received_by: body.receivedBy || user.name });
       return json(updated);
     }
 

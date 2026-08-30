@@ -47,6 +47,22 @@ create table if not exists public.transfers (
   updated_at timestamptz not null default now()
 );
 
+alter table public.transfers add column if not exists sent_items jsonb not null default '[]'::jsonb;
+alter table public.transfers add column if not exists received_items jsonb not null default '[]'::jsonb;
+alter table public.transfers add column if not exists received_by text;
+alter table public.transfers add column if not exists received_at timestamptz;
+
+alter table public.transfers drop constraint if exists transfers_status_check;
+update public.transfers
+set status = 'received',
+    sent_items = case when sent_items = '[]'::jsonb then items else sent_items end,
+    received_items = case when received_items = '[]'::jsonb then items else received_items end,
+    received_by = coalesce(received_by, approved_by, 'Oldingi transfer'),
+    received_at = coalesce(received_at, updated_at)
+where status = 'approved';
+alter table public.transfers add constraint transfers_status_check
+  check (status in ('pending', 'approved', 'received', 'rejected'));
+
 create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -266,6 +282,117 @@ $$;
 
 revoke all on function public.process_transfer(uuid, text, text) from public, anon, authenticated;
 grant execute on function public.process_transfer(uuid, text, text) to service_role;
+
+create or replace function public.dispatch_transfer(
+  p_transfer_id uuid,
+  p_items jsonb,
+  p_approved_by text
+)
+returns public.transfers
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_transfer public.transfers;
+  v_requested jsonb;
+  v_item jsonb;
+  v_sent jsonb := '[]'::jsonb;
+  v_product_id text;
+  v_quantity numeric;
+  v_requested_quantity numeric;
+  v_available numeric;
+begin
+  select * into v_transfer from public.transfers where id = p_transfer_id for update;
+  if not found then raise exception 'Transfer topilmadi'; end if;
+  if v_transfer.status <> 'pending' then raise exception 'Transfer avval qayta ishlangan'; end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then raise exception 'Beriladigan mahsulotlar yo''q'; end if;
+
+  for v_item in select value from jsonb_array_elements(p_items)
+  loop
+    v_product_id := v_item->>'productId';
+    v_quantity := coalesce((v_item->>'quantity')::numeric, 0);
+    select value into v_requested
+    from jsonb_array_elements(v_transfer.items)
+    where value->>'productId' = v_product_id
+    limit 1;
+    if v_requested is null then raise exception 'So''ralmagan mahsulot: %', v_product_id; end if;
+    v_requested_quantity := (v_requested->>'quantity')::numeric;
+    if v_quantity <= 0 or v_quantity > v_requested_quantity then raise exception 'Beriladigan miqdor noto''g''ri: %', v_product_id; end if;
+
+    select quantity into v_available from public.stock
+    where product_id = v_product_id and branch = 'main' for update;
+    if coalesce(v_available, 0) < v_quantity then raise exception 'Bosh skladda yetarli mahsulot yo''q: %', v_product_id; end if;
+    update public.stock set quantity = quantity - v_quantity, updated_at = now()
+    where product_id = v_product_id and branch = 'main';
+    v_sent := v_sent || jsonb_build_array(v_requested || jsonb_build_object('quantity', v_quantity));
+  end loop;
+
+  update public.transfers
+  set status = 'approved', sent_items = v_sent, approved_by = p_approved_by, updated_at = now()
+  where id = p_transfer_id returning * into v_transfer;
+  return v_transfer;
+end;
+$$;
+
+revoke all on function public.dispatch_transfer(uuid, jsonb, text) from public, anon, authenticated;
+grant execute on function public.dispatch_transfer(uuid, jsonb, text) to service_role;
+
+create or replace function public.receive_transfer(
+  p_transfer_id uuid,
+  p_items jsonb,
+  p_received_by text
+)
+returns public.transfers
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_transfer public.transfers;
+  v_sent_item jsonb;
+  v_item jsonb;
+  v_received jsonb := '[]'::jsonb;
+  v_product_id text;
+  v_quantity numeric;
+  v_sent_quantity numeric;
+begin
+  select * into v_transfer from public.transfers where id = p_transfer_id for update;
+  if not found then raise exception 'Transfer topilmadi'; end if;
+  if v_transfer.status <> 'approved' then raise exception 'Transfer qabul qilishga tayyor emas'; end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then raise exception 'Qabul qilingan mahsulotlar yo''q'; end if;
+
+  for v_item in select value from jsonb_array_elements(p_items)
+  loop
+    v_product_id := v_item->>'productId';
+    v_quantity := coalesce((v_item->>'quantity')::numeric, 0);
+    select value into v_sent_item
+    from jsonb_array_elements(v_transfer.sent_items)
+    where value->>'productId' = v_product_id
+    limit 1;
+    if v_sent_item is null then raise exception 'Jo''natilmagan mahsulot: %', v_product_id; end if;
+    v_sent_quantity := (v_sent_item->>'quantity')::numeric;
+    if v_quantity < 0 or v_quantity > v_sent_quantity then raise exception 'Qabul qilingan miqdor noto''g''ri: %', v_product_id; end if;
+
+    if v_quantity > 0 then
+      insert into public.stock (product_id, branch, quantity)
+      values (v_product_id, v_transfer.to_branch, v_quantity)
+      on conflict (product_id, branch) do update
+      set quantity = public.stock.quantity + excluded.quantity, updated_at = now();
+    end if;
+    v_received := v_received || jsonb_build_array(v_sent_item || jsonb_build_object('quantity', v_quantity));
+  end loop;
+
+  update public.transfers
+  set status = 'received', received_items = v_received, received_by = p_received_by,
+      received_at = now(), updated_at = now()
+  where id = p_transfer_id returning * into v_transfer;
+  return v_transfer;
+end;
+$$;
+
+revoke all on function public.receive_transfer(uuid, jsonb, text) from public, anon, authenticated;
+grant execute on function public.receive_transfer(uuid, jsonb, text) to service_role;
 
 create or replace function public.pay_order(
   p_order_id uuid,

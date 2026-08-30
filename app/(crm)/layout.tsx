@@ -91,10 +91,10 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const notifications: AdminNotification[] = user.role === "superadmin" ? [
     ...transfers.map((transfer: any) => ({
       id: `transfer-${transfer.id}-${transfer.status}`, type: "transfer" as const,
-      title: transfer.status === "pending" ? "Yangi transfer so'rovi" : transfer.status === "approved" ? "Transfer tasdiqlandi" : "Transfer rad etildi",
+      title: transfer.status === "pending" ? "Yangi transfer so'rovi" : transfer.status === "approved" ? "Transfer jo'natildi" : transfer.status === "received" ? "Transfer qabul qilindi" : "Transfer rad etildi",
       description: `${transfer.branchName || transfer.toBranchName || BRANCH_NAMES[transfer.toBranch] || transfer.toBranch} · ${transfer.items?.length || 0} ta mahsulot`,
       createdAt: transfer.updatedAt || transfer.createdAt, tab: "transfers" as const,
-      level: transfer.status === "pending" ? "warning" as const : transfer.status === "approved" ? "success" as const : "danger" as const,
+      level: transfer.status === "pending" ? "warning" as const : transfer.status === "approved" ? "info" as const : transfer.status === "received" ? "success" as const : "danger" as const,
     })),
     ...products.filter((product: any) => (stock[product.id] || 0) <= product.minStock).map((product: any) => ({
       id: `stock-${product.id}-${stock[product.id] || 0}`, type: "stock" as const, title: "Skladda mahsulot kam qoldi",

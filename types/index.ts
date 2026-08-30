@@ -35,7 +35,11 @@ export type Transfer = {
   totalValue: number;
   requestedBy: string;
   approvedBy?: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "received" | "rejected";
+  sentItems?: TransferItem[];
+  receivedItems?: TransferItem[];
+  receivedBy?: string;
+  receivedAt?: string;
   note?: string;
   createdAt: string;
   updatedAt: string;

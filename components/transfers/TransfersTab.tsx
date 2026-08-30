@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { PageWrap, Modal } from "@/components/ui";
-import { approveTransferApi, createTransferApi, rejectTransferApi } from "@/lib/api";
+import { approveTransferApi, createTransferApi, receiveTransferApi, rejectTransferApi } from "@/lib/api";
 import { BRANCH_ICONS, BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
 import { fmtD, fmtM, fmt } from "@/lib/utils";
 import type { Product, UserInfo } from "@/types";
@@ -10,7 +10,7 @@ function branchSlugFromName(value = "") {
   return value.trim().toLocaleLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-function TransferCard({ t, isSA, onDetail, onApprove, onReject }: { t: any; isSA: boolean; onDetail: () => void; onApprove: () => void; onReject: () => void; }) {
+function TransferCard({ t, isSA, onDetail, onApprove, onReject, onReceive }: { t: any; isSA: boolean; onDetail: () => void; onApprove: () => void; onReject: () => void; onReceive: () => void; }) {
   const st = TRANSFER_STATUS_CONFIG[t.status as keyof typeof TRANSFER_STATUS_CONFIG];
   const branchName = t.branchName || t.toBranchName || BRANCH_NAMES[t.toBranch] || t.toBranch;
   return (
@@ -22,7 +22,8 @@ function TransferCard({ t, isSA, onDetail, onApprove, onReject }: { t: any; isSA
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span className="badge" style={{ background: st.bg, color: st.c }}>{st.i} {st.l}</span>
         <button className="btn-icon" onClick={onDetail} style={{ color: "#7367f0", background: "rgba(115,103,240,.1)", borderColor: "rgba(115,103,240,.2)" }}>Ko'rish</button>
-        {isSA && t.status === "pending" && <><button className="btn-icon" onClick={onApprove} style={{ color: "#3fb950", background: "rgba(63,185,80,.1)", borderColor: "rgba(63,185,80,.2)" }}>✅</button><button className="btn-icon" onClick={onReject} style={{ color: "#f85149", background: "rgba(248,81,73,.1)", borderColor: "rgba(248,81,73,.2)" }}>❌</button></>}
+        {isSA && t.status === "pending" && <><button className="btn-icon" onClick={onApprove} style={{ color: "#3fb950", background: "rgba(63,185,80,.1)", borderColor: "rgba(63,185,80,.2)" }}>Jo'natish</button><button className="btn-icon" onClick={onReject} style={{ color: "#f85149", background: "rgba(248,81,73,.1)", borderColor: "rgba(248,81,73,.2)" }}>Rad</button></>}
+        {!isSA && t.status === "approved" && <button className="btn-primary compact-btn" onClick={onReceive}>Qabul qilish</button>}
       </div>
     </div>
   );
@@ -30,12 +31,13 @@ function TransferCard({ t, isSA, onDetail, onApprove, onReject }: { t: any; isSA
 
 type Props = { transfers: any[]; products: Product[]; mainStock: Record<string, number>; user: UserInfo; fetchAll: () => void; showToast: (msg: string, type?: "success" | "error") => void; t: Record<string, string>; };
 
-export function TransfersTab({ transfers, products, user, fetchAll, showToast, t }: Props) {
+export function TransfersTab({ transfers, products, mainStock, user, fetchAll, showToast, t }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<any>(null);
   const [form, setForm] = useState({ note: "" });
   const [items, setItems] = useState([{ pid: "", qty: 1 }]);
   const [loading, setLoading] = useState(false);
+  const [action, setAction] = useState<{ mode: "dispatch" | "receive"; transfer: any; quantities: Record<string, number> } | null>(null);
   const isSA = user.role === "superadmin";
   const requestProducts = products;
 
@@ -52,8 +54,28 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
     setLoading(false);
   };
 
-  const approve = async (id: string) => { const d = await approveTransferApi(id, user.name); if (d.success) { showToast("Tasdiqlandi!"); fetchAll(); } else showToast((d as any).message || "Xatolik", "error"); };
   const reject = async (id: string) => { const d = await rejectTransferApi(id, user.name); if (d.success) { showToast("Rad etildi"); fetchAll(); } else showToast((d as any).message || "Xatolik", "error"); };
+  const openAction = (transfer: any, mode: "dispatch" | "receive") => {
+    const source = mode === "dispatch" ? transfer.items : transfer.sentItems;
+    setAction({ mode, transfer, quantities: Object.fromEntries((source || []).map((item: any) => [item.productId, Number(item.quantity || 0)])) });
+  };
+  const submitAction = async () => {
+    if (!action) return;
+    const source = action.mode === "dispatch" ? action.transfer.items : action.transfer.sentItems;
+    const items = (source || []).map((item: any) => ({ productId: item.productId, quantity: Number(action.quantities[item.productId] ?? 0) }));
+    const invalid = items.some((item: any, index: number) => item.quantity < (action.mode === "dispatch" ? 1 : 0) || item.quantity > Number(source[index].quantity || 0));
+    if (invalid) { showToast("Miqdor so'ralgan yoki jo'natilgan sondan oshmasligi kerak", "error"); return; }
+    setLoading(true);
+    const result = action.mode === "dispatch"
+      ? await approveTransferApi(action.transfer.id, user.name, items)
+      : await receiveTransferApi(action.transfer.id, user.name, items);
+    setLoading(false);
+    if (!result.success) { showToast((result as any).message || "Xatolik", "error"); return; }
+    showToast(action.mode === "dispatch" ? "Mahsulotlar jo'natildi" : "Mahsulotlar skladga qabul qilindi");
+    setAction(null);
+    setDetail(null);
+    fetchAll();
+  };
   const groups = { pending: transfers.filter((tr) => tr.status === "pending"), other: transfers.filter((tr) => tr.status !== "pending") };
 
   return (
@@ -77,16 +99,33 @@ export function TransfersTab({ transfers, products, user, fetchAll, showToast, t
         <div style={{ display: "flex", gap: 10 }}><button className="btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>{t.cancel}</button><button className="btn-primary" onClick={submit} disabled={loading} style={{ flex: 2 }}>{loading ? "Yuborilmoqda..." : `📤 ${t.send}`}</button></div>
       </Modal>}
 
+      {action && <Modal onClose={() => !loading && setAction(null)}>
+        <div className="modal-title">{action.mode === "dispatch" ? "Mahsulotlarni jo'natish" : "Mahsulotlarni qabul qilish"}</div>
+        <div style={{ color: "var(--app-muted)", fontSize: 12, marginBottom: 16 }}>
+          {action.mode === "dispatch" ? "Haqiqatan berilayotgan miqdorni kiriting. Bu son bosh skladdan ayriladi." : "Haqiqatan kelgan miqdorni kiriting. Tasdiqlangach kichik skladga qo'shiladi."}
+        </div>
+        <div style={{ display: "grid", gap: 9, marginBottom: 18 }}>
+          {(action.mode === "dispatch" ? action.transfer.items : action.transfer.sentItems || []).map((item: any) => (
+            <div key={item.productId} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 110px", gap: 10, alignItems: "center", padding: 11, borderRadius: 10, background: "var(--app-panel-soft)" }}>
+              <div><div style={{ fontWeight: 800 }}>{item.productName}</div><div style={{ color: "var(--app-muted)", fontSize: 11, marginTop: 3 }}>{action.mode === "dispatch" ? `So'raldi: ${fmt(item.quantity)} ${item.unit} · Bosh sklad: ${fmt(mainStock[item.productId] || 0)}` : `Jo'natildi: ${fmt(item.quantity)} ${item.unit}`}</div></div>
+              <input className="crm-input" type="number" min={action.mode === "dispatch" ? 1 : 0} max={item.quantity} value={action.quantities[item.productId] ?? 0} onChange={(event) => setAction((current) => current ? { ...current, quantities: { ...current.quantities, [item.productId]: Number(event.target.value) } } : current)} />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 10 }}><button className="btn-ghost" disabled={loading} onClick={() => setAction(null)} style={{ flex: 1 }}>Bekor</button><button className="btn-primary" disabled={loading} onClick={submitAction} style={{ flex: 2 }}>{loading ? "Saqlanmoqda..." : action.mode === "dispatch" ? "Jo'natishni tasdiqlash" : "Qabul qilish"}</button></div>
+      </Modal>}
+
       {detail && <Modal onClose={() => setDetail(null)}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}><div className="modal-title" style={{ margin: 0 }}>Transfer #{detail.id.slice(-8)}</div><span className="badge" style={{ background: TRANSFER_STATUS_CONFIG[detail.status as keyof typeof TRANSFER_STATUS_CONFIG].bg, color: TRANSFER_STATUS_CONFIG[detail.status as keyof typeof TRANSFER_STATUS_CONFIG].c }}>{TRANSFER_STATUS_CONFIG[detail.status as keyof typeof TRANSFER_STATUS_CONFIG].i} {TRANSFER_STATUS_CONFIG[detail.status as keyof typeof TRANSFER_STATUS_CONFIG].l}</span></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>{[["Filial", `${BRANCH_ICONS[detail.toBranch] || "🏢"} ${detail.branchName || detail.toBranchName || BRANCH_NAMES[detail.toBranch] || detail.toBranch}`], ["So'ragan", detail.requestedBy], ["Sana", fmtD(detail.createdAt)], ["Tasdiqlagan", detail.approvedBy || "—"]].map(([l, v]) => <div key={String(l)} style={{ background: "var(--app-panel-soft)", borderRadius: 11, padding: "11px 13px" }}><div style={{ fontSize: 10, color: "var(--app-muted)", marginBottom: 4, fontWeight: 700 }}>{l}</div><div style={{ fontWeight: 700 }}>{v}</div></div>)}</div>
-        <div style={{ background: "var(--app-panel-soft)", borderRadius: 12, padding: 14, marginBottom: 14 }}>{detail.items.map((it: any, i: number) => <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < detail.items.length - 1 ? "1px solid var(--app-border)" : "none" }}><span style={{ fontWeight: 700 }}>{it.productName}</span><span style={{ color: "var(--app-muted)" }}>{fmt(it.quantity)} {it.unit}</span></div>)}</div>
+        <div style={{ background: "var(--app-panel-soft)", borderRadius: 12, padding: 14, marginBottom: 14 }}>{detail.items.map((it: any, i: number) => { const sent = detail.sentItems?.find((value: any) => value.productId === it.productId); const received = detail.receivedItems?.find((value: any) => value.productId === it.productId); return <div key={i} className="transfer-quantity-row" style={{ borderBottom: i < detail.items.length - 1 ? "1px solid var(--app-border)" : "none" }}><span style={{ fontWeight: 700 }}>{it.productName}</span><span style={{ color: "var(--app-muted)" }}>So'raldi: {fmt(it.quantity)}</span><span style={{ color: "#3b82f6" }}>Berildi: {sent ? fmt(sent.quantity) : "—"}</span><span style={{ color: "#3fb950" }}>Qabul: {received ? fmt(received.quantity) : "—"} {it.unit}</span></div>; })}</div>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid var(--app-border)", marginBottom: 16 }}><span style={{ fontWeight: 700, color: "var(--app-muted)" }}>Jami qiymat</span><span style={{ fontWeight: 900, color: "#3fb950", fontSize: 16 }}>{fmtM(detail.totalValue)}</span></div>
-        {isSA && detail.status === "pending" && <div style={{ display: "flex", gap: 10 }}><button onClick={() => { reject(detail.id); setDetail(null); }} style={{ flex: 1, padding: "12px", borderRadius: 11, border: "1.5px solid rgba(248,81,73,.3)", background: "rgba(248,81,73,.1)", color: "#f85149", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>❌ Rad etish</button><button onClick={() => { approve(detail.id); setDetail(null); }} style={{ flex: 2, padding: "12px", borderRadius: 11, border: "none", background: "linear-gradient(135deg,#3fb950,#27a73c)", color: "#fff", fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>✅ Tasdiqlash</button></div>}
+        {isSA && detail.status === "pending" && <div style={{ display: "flex", gap: 10 }}><button onClick={() => { reject(detail.id); setDetail(null); }} className="btn-ghost" style={{ flex: 1, color: "#f85149" }}>Rad etish</button><button onClick={() => openAction(detail, "dispatch")} className="btn-primary" style={{ flex: 2 }}>Jo'natish</button></div>}
+        {!isSA && detail.status === "approved" && <button onClick={() => openAction(detail, "receive")} className="btn-primary" style={{ width: "100%" }}>Qabul qilish</button>}
       </Modal>}
 
-      {groups.pending.length > 0 && <div style={{ marginBottom: 24 }}><div style={{ fontSize: 13, fontWeight: 800, color: "#f0a500", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>⏳ Kutilayotgan <span style={{ background: "rgba(240,165,0,.15)", padding: "2px 8px", borderRadius: 12 }}>{groups.pending.length}</span></div><div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{groups.pending.map((tr: any) => <TransferCard key={tr.id} t={tr} isSA={isSA} onDetail={() => setDetail(tr)} onApprove={() => approve(tr.id)} onReject={() => reject(tr.id)} />)}</div></div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{groups.other.map((tr: any) => <TransferCard key={tr.id} t={tr} isSA={isSA} onDetail={() => setDetail(tr)} onApprove={() => approve(tr.id)} onReject={() => reject(tr.id)} />)}{transfers.length === 0 && <div style={{ textAlign: "center", padding: 60, color: "var(--app-muted)" }}>Transfer yo'q</div>}</div>
+      {groups.pending.length > 0 && <div style={{ marginBottom: 24 }}><div style={{ fontSize: 13, fontWeight: 800, color: "#f0a500", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>⏳ Kutilayotgan <span style={{ background: "rgba(240,165,0,.15)", padding: "2px 8px", borderRadius: 12 }}>{groups.pending.length}</span></div><div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{groups.pending.map((tr: any) => <TransferCard key={tr.id} t={tr} isSA={isSA} onDetail={() => setDetail(tr)} onApprove={() => openAction(tr, "dispatch")} onReject={() => reject(tr.id)} onReceive={() => openAction(tr, "receive")} />)}</div></div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{groups.other.map((tr: any) => <TransferCard key={tr.id} t={tr} isSA={isSA} onDetail={() => setDetail(tr)} onApprove={() => openAction(tr, "dispatch")} onReject={() => reject(tr.id)} onReceive={() => openAction(tr, "receive")} />)}{transfers.length === 0 && <div style={{ textAlign: "center", padding: 60, color: "var(--app-muted)" }}>Transfer yo'q</div>}</div>
     </PageWrap>
   );
 }
