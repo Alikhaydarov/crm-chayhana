@@ -140,6 +140,16 @@ export const GLOBAL_CSS = `
   }
   .form-group { margin-bottom: 14px; }
 
+  .camera-scanner { border: 1px solid var(--app-border); border-radius: 8px; overflow: hidden; background: #111827; margin-bottom: 14px; }
+  .camera-scanner-head { min-height: 42px; padding: 8px 10px 8px 12px; display: flex; align-items: center; justify-content: space-between; color: #f8fafc; font-size: 12px; font-weight: 800; }
+  .camera-scanner-head span { display: flex; align-items: center; gap: 7px; }
+  .camera-scanner-head button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 6px; color: #f8fafc; background: rgba(255,255,255,.1); cursor: pointer; }
+  .camera-preview { position: relative; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #030712; }
+  .camera-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera-frame { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; background: linear-gradient(rgba(3,7,18,.35),rgba(3,7,18,.35)); }
+  .camera-frame span { width: min(78%, 390px); height: 42%; border: 2px solid #fff; border-radius: 8px; box-shadow: 0 0 0 999px rgba(3,7,18,.38); }
+  .camera-error { padding: 10px 12px; color: #fecaca; background: #7f1d1d; font-size: 12px; font-weight: 700; }
+
   .sidebar { display: flex; flex-direction: column; flex-shrink: 0; width: 240px; background: var(--app-panel); border-right: 1px solid var(--app-border); }
 
   @media (max-width: 768px) {
@@ -154,6 +164,10 @@ export const GLOBAL_CSS = `
     .branch-grid { grid-template-columns: 1fr !important; }
     .action-row { flex-direction: column; }
     .action-row .btn-primary { width: 100%; justify-content: center; }
+    .product-form-grid { grid-template-columns: 1fr !important; }
+    .product-form-grid > * { grid-column: 1 !important; }
+    .barcode-input-row { grid-template-columns: minmax(0, 1fr) auto !important; }
+    .barcode-input-row .btn-primary { grid-column: 1 / -1; width: 100%; }
   }
   @media (min-width: 769px) {
     .modal-backdrop { align-items: center; padding: 20px; }
