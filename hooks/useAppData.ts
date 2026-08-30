@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getAccountsApi, getBranchesApi, getSnapshotApi } from "@/lib/api";
+import { getSnapshotApi } from "@/lib/api";
 import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
@@ -19,10 +19,13 @@ export function useAppData(user: UserInfo | null) {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast, show: showToast } = useToast();
   const loadingRef = useRef(false);
   const pendingRefreshRef = useRef(false);
   const pendingRefreshSilentRef = useRef(true);
+  const hasDataRef = useRef(false);
 
   const fetchAll = useCallback(async (silent = false) => {
     if (!user) return;
@@ -32,12 +35,10 @@ export function useAppData(user: UserInfo | null) {
       return;
     }
     loadingRef.current = true;
+    setIsRefreshing(true);
+    if (!silent && !hasDataRef.current) setIsLoading(true);
     try {
-      const [d, canonicalBranches, canonicalAccounts]: any[] = await Promise.all([
-        getSnapshotApi(user),
-        getBranchesApi().catch(() => []),
-        user.role === "superadmin" ? getAccountsApi().catch(() => []) : Promise.resolve([]),
-      ]);
+      const d: any = await getSnapshotApi(user);
       setProducts(d.products || []);
       setStock(d.stock || {});
       setMainStock(d.mainStock || (user.role === "superadmin" ? d.stock : {}));
@@ -57,18 +58,17 @@ export function useAppData(user: UserInfo | null) {
         d.users?.users ??
         d.users ??
         [];
-      setAccounts(canonicalAccounts.length
-        ? canonicalAccounts
-        : Array.isArray(accountData) ? accountData : []);
-      setBranches(canonicalBranches.length
-        ? canonicalBranches
-        : Array.isArray(d.branches) ? d.branches : []);
+      setAccounts(Array.isArray(accountData) ? accountData : []);
+      setBranches(Array.isArray(d.branches) ? d.branches : []);
+      hasDataRef.current = true;
     } catch (error: any) {
       if (!silent) {
         showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");
       }
     } finally {
       loadingRef.current = false;
+      setIsLoading(false);
+      setIsRefreshing(false);
       if (pendingRefreshRef.current) {
         const nextSilent = pendingRefreshSilentRef.current;
         pendingRefreshRef.current = false;
@@ -113,6 +113,8 @@ export function useAppData(user: UserInfo | null) {
     staff,
     accounts,
     branches,
+    isLoading,
+    isRefreshing,
     fetchAll,
     showToast,
     toast,

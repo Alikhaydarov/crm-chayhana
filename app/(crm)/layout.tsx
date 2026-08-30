@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { startTransition, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ArrowLeftRight, BarChart3, LayoutDashboard, Package, ShoppingCart, Store, Warehouse } from "lucide-react";
 import { logoutApi, restoreSessionApi } from "@/lib/api";
@@ -30,7 +30,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const t = I18N[lang];
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
   const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user);
-  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches } = rest as any;
+  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, isLoading, isRefreshing } = rest as any;
   const currentBranch = user ? branches.find((branch: any) =>
     (user.branchId != null && String(branch.id) === String(user.branchId)) ||
     (user.branchSlug && branch.slug === user.branchSlug) ||
@@ -69,13 +69,18 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user && !canUseTab(activeTab)) router.replace("/dashboard");
   }, [activeTab, isShopAdmin, router, user]);
+  useEffect(() => {
+    if (!user) return;
+    Object.values(TAB_ROUTES).forEach((route) => router.prefetch(route));
+  }, [router, user]);
 
   const signOut = async () => { await logoutApi(); setUser(null); router.replace("/"); };
   const toggleTheme = () => setTheme((v) => v === "dark" ? "light" : "dark");
   const toggleLang = () => setLang((v) => v === "uz" ? "ko" : "uz");
   const handleTabChange = (tabId: TabId) => {
     if (!user || !canUseTab(tabId)) { router.push("/dashboard"); return; }
-    router.push(TAB_ROUTES[tabId]);
+    if (TAB_ROUTES[tabId] === pathname) return;
+    startTransition(() => router.push(TAB_ROUTES[tabId]));
   };
   const openBranchAnalysis = (branchSlug: string) => router.push(`/analysis?branch=${encodeURIComponent(branchSlug)}`);
 
@@ -125,10 +130,19 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
       <Sidebar user={user} tabs={TABS} activeTab={activeTab} collapsed={sidebarCollapsed} theme={theme} lang={lang} onTabChange={handleTabChange} onToggleCollapse={() => setSidebarCollapsed(v => !v)} onCollapse={() => setSidebarCollapsed(true)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} />
       <main className="mobile-main" style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
         <Topbar user={user} activeTab={activeTab} tabs={TABS} sidebarCollapsed={sidebarCollapsed} theme={theme} lang={lang} onToggleSidebar={() => setSidebarCollapsed(v => !v)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} onSearch={() => setCommandOpen(true)} notifications={notifications} onNavigate={handleTabChange} />
-        {children}
+        {isRefreshing && <div className="data-progress" aria-label={t.loading}><span /></div>}
+        {isLoading ? <AppDataSkeleton /> : children}
       </main>
       <BottomNav tabs={TABS} activeTab={activeTab} onTabChange={handleTabChange} />
       <CommandPalette commands={commands} open={commandOpen} onClose={() => setCommandOpen(false)} onSelect={(tab) => { setCommandOpen(false); handleTabChange(tab); }} />
     </div>
   </AppContext.Provider>;
+}
+
+function AppDataSkeleton() {
+  return <div className="app-data-skeleton" aria-busy="true" aria-label="Ma'lumotlar yuklanmoqda">
+    <div className="skeleton-heading"><span /><span /></div>
+    <div className="skeleton-kpis">{Array.from({ length: 4 }, (_, index) => <div key={index} className="skeleton-block" />)}</div>
+    <div className="skeleton-content"><div className="skeleton-block" /><div className="skeleton-block" /></div>
+  </div>;
 }

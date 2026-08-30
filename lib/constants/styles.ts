@@ -159,4 +159,68 @@ export const GLOBAL_CSS = `
     .modal-backdrop { align-items: center; padding: 20px; }
     .modal-box { border-radius: 12px; max-height: 90vh; }
   }
+
+  .data-progress {
+    position: sticky;
+    top: 62px;
+    z-index: 145;
+    height: 2px;
+    overflow: hidden;
+    background: transparent;
+  }
+  .data-progress span {
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--app-primary);
+    animation: dataProgress 1s ease-in-out infinite;
+  }
+  @keyframes dataProgress {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(340%); }
+  }
+
+  .app-data-skeleton { padding: 28px 24px; }
+  .skeleton-heading { display: grid; gap: 9px; margin-bottom: 24px; }
+  .skeleton-heading span,
+  .skeleton-block {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: var(--app-panel-soft);
+    position: relative;
+  }
+  .skeleton-heading span:first-child { width: 190px; height: 24px; }
+  .skeleton-heading span:last-child { width: 280px; max-width: 70%; height: 12px; }
+  .skeleton-heading span::after,
+  .skeleton-block::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(148, 163, 184, .16), transparent);
+    animation: skeletonShimmer 1.25s ease-in-out infinite;
+  }
+  .skeleton-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .skeleton-kpis .skeleton-block { height: 92px; }
+  .skeleton-content { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .75fr); gap: 12px; margin-top: 12px; }
+  .skeleton-content .skeleton-block { height: 300px; }
+  @keyframes skeletonShimmer { to { transform: translateX(100%); } }
+
+  @media (max-width: 720px) {
+    .data-progress { top: 66px; }
+    .app-data-skeleton { padding: 18px 14px 100px; }
+    .skeleton-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .skeleton-kpis .skeleton-block { height: 78px; }
+    .skeleton-content { grid-template-columns: 1fr; gap: 8px; }
+    .skeleton-content .skeleton-block { height: 210px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .data-progress span,
+    .skeleton-heading span::after,
+    .skeleton-block::after { animation: none; }
+  }
 `;

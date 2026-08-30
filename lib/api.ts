@@ -10,6 +10,8 @@ import { branchForRole } from "@/lib/permissions";
 const API_BASE = "/api/backend";
 const ACCESS_TOKEN_KEY = "crm-access-token";
 const REFRESH_TOKEN_KEY = "crm-refresh-token";
+let sessionUserCache: AppUserInfo | null = null;
+let restoreSessionPromise: Promise<ApiResult<{ user: AppUserInfo }>> | null = null;
 
 type ApiResult<T = undefined> =
   | ({ success: true } & (T extends undefined ? Record<string, never> : T))
@@ -20,7 +22,7 @@ type RequestOptions = RequestInit & { retryAuth?: boolean };
 function isBrowser() { return typeof window !== "undefined"; }
 function getToken(key: string) { return isBrowser() ? localStorage.getItem(key) : null; }
 function saveTokens(access?: string, refresh?: string) { if (!isBrowser()) return; if (access) localStorage.setItem(ACCESS_TOKEN_KEY, access); if (refresh) localStorage.setItem(REFRESH_TOKEN_KEY, refresh); }
-export function clearSession() { if (!isBrowser()) return; localStorage.removeItem(ACCESS_TOKEN_KEY); localStorage.removeItem(REFRESH_TOKEN_KEY); }
+export function clearSession() { sessionUserCache = null; restoreSessionPromise = null; if (!isBrowser()) return; localStorage.removeItem(ACCESS_TOKEN_KEY); localStorage.removeItem(REFRESH_TOKEN_KEY); }
 export function hasSession() { return Boolean(getToken(ACCESS_TOKEN_KEY) || getToken(REFRESH_TOKEN_KEY)); }
 
 async function parseResponse(response: Response) { const contentType = response.headers.get("content-type") || ""; if (contentType.includes("application/json")) return response.json(); const text = await response.text(); return text ? { message: text } : {}; }
@@ -39,8 +41,24 @@ function normalizeStock(data: any): Record<string, number> { const value = data?
 async function optionalRequest<T>(path: string, fallback: T): Promise<T> { try { return await request<T>(path); } catch (error) { console.warn(`[crm-api] ${path} failed`, error); return fallback; } }
 function dataUrlToFile(receipt: OrderReceipt) { const [meta, encoded = ""] = receipt.dataUrl.split(","); const mime = meta.match(/data:([^;]+)/)?.[1] || receipt.type || "application/octet-stream"; const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0)); return new File([bytes], receipt.name, { type: mime }); }
 
-export async function loginApi(userId: string, password: string): Promise<ApiResult<{ user: AppUserInfo }>> { try { const data = await request<any>("/auth/login/", { method: "POST", body: JSON.stringify({ userId, password }), retryAuth: false }); saveTokens(data.access, data.refresh); return success({ user: await enrichUserBranch(normalizeUser(data.user)) }); } catch (error) { return failure(error); } }
-export async function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo }>> { try { if (!hasSession()) throw new Error("Sessiya topilmadi"); const data = await request<any>("/auth/me/"); return success({ user: await enrichUserBranch(normalizeUser(data.user ?? data)) }); } catch (error) { return failure(error); } }
+export async function loginApi(userId: string, password: string): Promise<ApiResult<{ user: AppUserInfo }>> { try { const data = await request<any>("/auth/login/", { method: "POST", body: JSON.stringify({ userId, password }), retryAuth: false }); saveTokens(data.access, data.refresh); sessionUserCache = await enrichUserBranch(normalizeUser(data.user)); return success({ user: sessionUserCache }); } catch (error) { return failure(error); } }
+export function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo }>> {
+  if (sessionUserCache) return Promise.resolve(success({ user: sessionUserCache }));
+  if (restoreSessionPromise) return restoreSessionPromise;
+  restoreSessionPromise = (async () => {
+    try {
+      if (!hasSession()) throw new Error("Sessiya topilmadi");
+      const data = await request<any>("/auth/me/");
+      sessionUserCache = await enrichUserBranch(normalizeUser(data.user ?? data));
+      return success({ user: sessionUserCache });
+    } catch (error) {
+      return failure(error);
+    } finally {
+      restoreSessionPromise = null;
+    }
+  })();
+  return restoreSessionPromise;
+}
 export async function logoutApi() { try { const refresh = getToken(REFRESH_TOKEN_KEY); if (refresh) await request("/auth/logout/", { method: "POST", body: JSON.stringify({ refresh }), retryAuth: false }); } catch {} finally { clearSession(); } }
 
 export async function getSnapshotApi(user: AppUserInfo) {
@@ -48,10 +66,6 @@ export async function getSnapshotApi(user: AppUserInfo) {
     const snapshot = unwrap<any>(await request("/snapshot/"));
     const embeddedMainStock = snapshot.mainStock ?? snapshot.main_stock ?? snapshot.mainWarehouseStock ?? snapshot.main_warehouse_stock;
     snapshot.products = unwrapList<Product>(snapshot.products); snapshot.stock = normalizeStock(snapshot.stock); snapshot.shopStock = normalizeStock(snapshot.shopStock); snapshot.transfers = unwrapList<any>(snapshot.transfers); snapshot.companies = unwrapList<Company>(snapshot.companies); snapshot.orders = unwrapList<any>(snapshot.orders); snapshot.companyPayments = unwrapList<any>(snapshot.companyPayments); snapshot.shopSales = unwrapList<any>(snapshot.shopSales); snapshot.staff = unwrapList<any>(snapshot.staff); snapshot.accounts = unwrapList<any>(snapshot.accounts).map(normalizeAccount); snapshot.mainStock = normalizeStock(user.role === "superadmin" ? snapshot.stock : embeddedMainStock ?? {});
-    snapshot.branches = unwrapList<any>(await optionalRequest<any>("/branches/?page_size=1000", []));
-    if (user.role === "superadmin") snapshot.accounts = unwrapList<any>(await optionalRequest<any>("/auth/users/?page_size=1000", [])).map(normalizeAccount);
-    if (!Array.isArray(snapshot.products) || snapshot.products.length === 0) snapshot.products = unwrapList<Product>(await optionalRequest<any>("/products/?page_size=1000", []));
-    if ((user.role === "superadmin" || user.role.startsWith("restaurant")) && (!Array.isArray(snapshot.companies) || snapshot.companies.length === 0)) snapshot.companies = unwrapList<Company>(await optionalRequest<any>("/companies/?page_size=1000", []));
     if (user.role !== "superadmin") { snapshot.transfers = (snapshot.transfers || []).filter((transfer: any) => transfer.toBranch === (user.branchSlug || user.role)); if (user.role === "shop") { snapshot.companies = []; snapshot.orders = []; snapshot.companyPayments = []; snapshot.staff = (snapshot.staff || []).filter((member: any) => member.branch === "shop"); } else { snapshot.shopSales = []; snapshot.shopStock = {}; snapshot.staff = (snapshot.staff || []).filter((member: any) => member.branch === user.role); } }
     return snapshot;
   } catch (snapshotError) {
