@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { CheckCircle2, ScanLine } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { addProductApi } from "@/lib/api";
 import { fmt, fmtM } from "@/lib/utils";
@@ -18,6 +19,9 @@ type Props = {
 export function ProductsTab({ products, stock, companies, fetchAll, showToast, t }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [scannerReady, setScannerReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const barcodeRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: "", category: "gosht", unit: "kg",
     minStock: "0", pricePerUnit: "0", perBox: "0",
@@ -27,6 +31,12 @@ export function ProductsTab({ products, stock, companies, fetchAll, showToast, t
 const submit = async () => {
   if (!form.name.trim()) {
     showToast("Nom kiriting", "error");
+    return;
+  }
+  const barcode = form.qrCode.trim();
+  if (barcode && products.some((product) => product.qrCode?.trim() === barcode)) {
+    showToast("Bu shtrix-kod boshqa mahsulotga biriktirilgan", "error");
+    barcodeRef.current?.focus();
     return;
   }
 
@@ -43,15 +53,18 @@ const submit = async () => {
     pricePerUnit: Number(form.pricePerUnit) || 0,
     perBox: Number(form.perBox) || 0,
     boxUnit: form.boxUnit || "",
-    qrCode: form.qrCode || "",
+    qrCode: barcode,
+    supplierId: form.supplierId,
   };
 
   try {
+    setSaving(true);
     const d = await addProductApi(payload);
 
     if (d.success) {
       showToast("Mahsulot qo'shildi!");
       setShowModal(false);
+      setScannerReady(false);
 
       setForm({
         name: "",
@@ -72,8 +85,33 @@ const submit = async () => {
   } catch (error) {
     console.error(error);
     showToast("Server bilan bog'lanishda xatolik", "error");
+  } finally {
+    setSaving(false);
   }
 };
+
+  const armScanner = () => {
+    setScannerReady(true);
+    requestAnimationFrame(() => {
+      barcodeRef.current?.focus();
+      barcodeRef.current?.select();
+    });
+  };
+
+  const confirmBarcode = () => {
+    const barcode = form.qrCode.trim();
+    if (!barcode) return;
+    const duplicate = products.find((product) => product.qrCode?.trim() === barcode);
+    if (duplicate) {
+      setScannerReady(false);
+      showToast(`Bu kod ${duplicate.name} mahsulotida mavjud`, "error");
+      barcodeRef.current?.select();
+      return;
+    }
+    setForm((current) => ({ ...current, qrCode: barcode }));
+    setScannerReady(false);
+    showToast("Shtrix-kod qabul qilindi");
+  };
 
   const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -84,7 +122,7 @@ const submit = async () => {
       action={<button className="btn-primary" onClick={() => setShowModal(true)}>{t.addNewProduct}</button>}
     >
       {showModal && (
-        <Modal onClose={() => setShowModal(false)}>
+        <Modal onClose={() => { setShowModal(false); setScannerReady(false); }}>
           <div className="modal-title">🏷️ {t.addNewProduct}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 4 }}>
             <div style={{ gridColumn: "1/-1" }} className="form-group">
@@ -133,14 +171,35 @@ const submit = async () => {
             <div style={{ gridColumn: "1/-1" }} className="form-group">
               <label className="form-label">SHTRIX KOD / QR</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-                <input className="crm-input" value={form.qrCode} onChange={(e) => setForm({ ...form, qrCode: e.target.value })} placeholder="Qo'lda kiriting yoki skaner ishlating" />
-                <button style={{ padding: "0 14px", borderRadius: 10, border: "1.5px solid rgba(59,130,246,.3)", background: "rgba(59,130,246,.1)", color: "#3b82f6", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit", whiteSpace: "nowrap" }}>📷 Skan</button>
+                <input
+                  ref={barcodeRef}
+                  className="crm-input"
+                  value={form.qrCode}
+                  onChange={(e) => setForm({ ...form, qrCode: e.target.value })}
+                  onFocus={() => setScannerReady(true)}
+                  onBlur={() => setScannerReady(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      confirmBarcode();
+                    }
+                  }}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="Skanerda uring yoki qo'lda kiriting"
+                />
+                <button type="button" onClick={armScanner} className="btn-ghost compact-btn" style={{ whiteSpace: "nowrap" }}>
+                  <ScanLine size={17} /> Skaner
+                </button>
+              </div>
+              <div style={{ minHeight: 18, marginTop: 6, color: scannerReady ? "var(--app-primary)" : form.qrCode ? "#28c76f" : "var(--app-muted)", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+                {scannerReady ? <><ScanLine size={14} /> Skaner tayyor. Kodni uring.</> : form.qrCode ? <><CheckCircle2 size={14} /> Kod kiritildi. Enter bilan tekshiriladi.</> : "USB yoki Bluetooth skaner qo'llab-quvvatlanadi."}
               </div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button className="btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Bekor</button>
-            <button className="btn-primary" onClick={submit} style={{ flex: 2 }}>💾 Saqlash</button>
+            <button className="btn-primary" onClick={submit} disabled={saving} style={{ flex: 2 }}>{saving ? "Saqlanmoqda..." : "Saqlash"}</button>
           </div>
         </Modal>
       )}
