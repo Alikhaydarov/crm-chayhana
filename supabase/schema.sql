@@ -302,11 +302,17 @@ declare
   v_quantity numeric;
   v_requested_quantity numeric;
   v_available numeric;
+  v_unit_price numeric;
+  v_total numeric := 0;
 begin
   select * into v_transfer from public.transfers where id = p_transfer_id for update;
   if not found then raise exception 'Transfer topilmadi'; end if;
   if v_transfer.status <> 'pending' then raise exception 'Transfer avval qayta ishlangan'; end if;
   if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then raise exception 'Beriladigan mahsulotlar yo''q'; end if;
+  if exists (
+    select 1 from jsonb_array_elements(p_items)
+    group by value->>'productId' having count(*) > 1
+  ) then raise exception 'Bir mahsulot ikki marta yuborilgan'; end if;
 
   for v_item in select value from jsonb_array_elements(p_items)
   loop
@@ -319,6 +325,10 @@ begin
     if v_requested is null then raise exception 'So''ralmagan mahsulot: %', v_product_id; end if;
     v_requested_quantity := (v_requested->>'quantity')::numeric;
     if v_quantity <= 0 or v_quantity > v_requested_quantity then raise exception 'Beriladigan miqdor noto''g''ri: %', v_product_id; end if;
+
+    select price_per_unit into v_unit_price from public.products where id = v_product_id;
+    v_unit_price := coalesce(nullif(v_requested->>'pricePerUnit', '')::numeric, v_unit_price, 0);
+    v_total := v_total + (v_quantity * v_unit_price);
 
     select quantity into v_available from public.stock
     where product_id = v_product_id and branch = 'main' for update;
@@ -342,6 +352,7 @@ begin
       approved_by = p_approved_by,
       received_by = p_approved_by,
       received_at = now(),
+      total_value = v_total,
       updated_at = now()
   where id = p_transfer_id returning * into v_transfer;
   return v_transfer;

@@ -379,7 +379,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const productList = await products();
       const items = (body.items || []).map((item: any) => {
         const p = productList.find((product) => product.id === item.productId);
-        return { productId: item.productId, productName: p?.name || item.productId, quantity: Number(item.quantity || 0), unit: p?.unit || "" };
+        return { productId: item.productId, productName: p?.name || item.productId, quantity: Number(item.quantity || 0), unit: p?.unit || "", pricePerUnit: Number(p?.pricePerUnit || 0) };
       });
       const total = items.reduce((sum: number, item: any) => {
         const p = productList.find((product) => product.id === item.productId);

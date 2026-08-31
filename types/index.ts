@@ -50,6 +50,7 @@ export type TransferItem = {
   productName: string;
   quantity: number;
   unit: string;
+  pricePerUnit?: number;
 };
 
 export type ThemeMode = "dark" | "light";
