@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Image as ImageIcon, RefreshCw, X } from "lucide-react";
 
 type Props = { open: boolean; onClose: () => void; onDetected: (code: string) => void };
+type NativeBarcodeDetector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue?: string }>> };
+type NativeBarcodeDetectorConstructor = new (options: { formats: string[] }) => NativeBarcodeDetector;
 
 export function CameraCodeScanner({ open, onClose, onDetected }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -19,19 +21,23 @@ export function CameraCodeScanner({ open, onClose, onDetected }: Props) {
     let cancelled = false;
     let controls: { stop: () => void } | undefined;
     let activeStream: MediaStream | undefined;
+    let nativeTimer: ReturnType<typeof setTimeout> | undefined;
     detectedRef.current = false;
+
+    const complete = (code: string) => {
+      const value = code.trim();
+      if (!value || cancelled || detectedRef.current) return;
+      detectedRef.current = true;
+      navigator.vibrate?.(60);
+      onDetectedRef.current(value);
+    };
 
     const start = async () => {
       try {
         setError("");
         setStarting(true);
         if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) throw new Error("UNSUPPORTED_CAMERA");
-        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
         if (cancelled || !videoRef.current) return;
-        const hints = new Map();
-        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF, BarcodeFormat.QR_CODE]);
-        hints.set(DecodeHintType.TRY_HARDER, true);
-        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 120, delayBetweenScanSuccess: 500 });
         try {
           activeStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
         } catch (preferredCameraError) {
@@ -45,15 +51,41 @@ export function CameraCodeScanner({ open, onClose, onDetected }: Props) {
         if (capabilities?.focusMode?.includes("continuous")) {
           await videoTrack.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] });
         }
+        const video = videoRef.current;
+        video.srcObject = activeStream;
+        await video.play();
+        const Detector = (window as Window & { BarcodeDetector?: NativeBarcodeDetectorConstructor }).BarcodeDetector;
+        if (Detector) {
+          const detector = new Detector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code"] });
+          let scanning = false;
+          const scanNative = async () => {
+            if (cancelled || detectedRef.current) return;
+            if (!scanning && video.readyState >= 2) {
+              scanning = true;
+              try {
+                const result = await detector.detect(video);
+                const code = result.find((item) => item.rawValue)?.rawValue;
+                if (code) complete(code);
+              } catch {} finally { scanning = false; }
+            }
+            if (!cancelled && !detectedRef.current) nativeTimer = setTimeout(scanNative, 50);
+          };
+          setStarting(false);
+          nativeTimer = setTimeout(scanNative, 0);
+          controls = { stop: () => { if (nativeTimer) clearTimeout(nativeTimer); } };
+          return;
+        }
+
+        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
+        const hints = new Map();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF, BarcodeFormat.QR_CODE]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 35, delayBetweenScanSuccess: 300 });
         controls = await reader.decodeFromStream(
           activeStream,
           videoRef.current,
           (result) => {
-            if (!result || cancelled || detectedRef.current) return;
-            const code = result.getText().trim();
-            if (!code) return;
-            detectedRef.current = true;
-            onDetectedRef.current(code);
+            if (result) complete(result.getText());
           },
         );
         setStarting(false);
@@ -69,6 +101,7 @@ export function CameraCodeScanner({ open, onClose, onDetected }: Props) {
     start();
     return () => {
       cancelled = true;
+      if (nativeTimer) clearTimeout(nativeTimer);
       controls?.stop();
       activeStream?.getTracks().forEach((track) => track.stop());
       const stream = videoRef.current?.srcObject;

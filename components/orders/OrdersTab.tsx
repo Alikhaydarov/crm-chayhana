@@ -60,12 +60,14 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     const product = availableProducts.find((item) => item.qrCode?.trim() === code);
     if (product) {
       addProductToOrder(product);
+      setNewProductOpen(false);
+      setProductSearch(product.name);
       showToast(`${product.name} orderga qo'shildi`);
       return;
     }
     setProductDraft((current) => ({ ...current, qrCode: code }));
     setNewProductOpen(true);
-    showToast("Kod topilmadi. Yangi mahsulot ma'lumotlarini kiriting", "error");
+    showToast("Shtrix-kod kiritildi. Endi mahsulot nomi va narxini kiriting");
   };
 
   const selectFromSearch = () => {
