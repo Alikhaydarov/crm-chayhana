@@ -192,11 +192,11 @@ const submit = async () => {
                   autoComplete="off"
                   placeholder="Skanerda uring yoki qo'lda kiriting"
                 />
-                <button type="button" onClick={armScanner} className="btn-ghost compact-btn" style={{ whiteSpace: "nowrap" }}>
-                  <ScanLine size={17} /> Skaner
-                </button>
                 <button type="button" onClick={() => setCameraOpen(true)} className="btn-primary compact-btn" style={{ whiteSpace: "nowrap" }}>
-                  <Camera size={17} /> Kamera
+                  <Camera size={17} /> QR skanerlash
+                </button>
+                <button type="button" onClick={armScanner} className="btn-ghost compact-btn" style={{ whiteSpace: "nowrap" }}>
+                  <ScanLine size={17} /> USB skaner
                 </button>
               </div>
               <div style={{ minHeight: 18, marginTop: 6, color: scannerReady ? "var(--app-primary)" : form.qrCode ? "#28c76f" : "var(--app-muted)", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>

@@ -149,6 +149,9 @@ export const GLOBAL_CSS = `
   .camera-frame { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; background: linear-gradient(rgba(3,7,18,.35),rgba(3,7,18,.35)); }
   .camera-frame span { width: min(78%, 390px); height: 42%; border: 2px solid #fff; border-radius: 8px; box-shadow: 0 0 0 999px rgba(3,7,18,.38); }
   .camera-error { padding: 10px 12px; color: #fecaca; background: #7f1d1d; font-size: 12px; font-weight: 700; }
+  .camera-starting { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; background: rgba(3,7,18,.58); font-size: 12px; font-weight: 800; }
+  .camera-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; background: #111827; }
+  .camera-actions .btn-ghost { min-width: 0; cursor: pointer; border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.08); color: #f8fafc; }
   .product-code-field { order: -2; }
   .product-camera-panel { order: -1; }
 
