@@ -68,8 +68,20 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     showToast("Kod topilmadi. Yangi mahsulot ma'lumotlarini kiriting", "error");
   };
 
+  const selectFromSearch = () => {
+    const query = productSearch.trim().toLowerCase();
+    if (!query) return;
+    const product = availableProducts.find((item) => item.qrCode?.trim().toLowerCase() === query)
+      || availableProducts.find((item) => item.name.trim().toLowerCase() === query);
+    if (!product) { showToast("Mahsulot topilmadi. Yangi mahsulot sifatida qo'shishingiz mumkin", "error"); return; }
+    addProductToOrder(product);
+    setProductSearch(product.name);
+    showToast(`${product.name} orderga qo'shildi`);
+  };
+
   const saveNewProduct = async () => {
     if (!productDraft.name.trim()) { showToast("Mahsulot nomini kiriting", "error"); return; }
+    if (Number(productDraft.pricePerUnit) <= 0) { showToast("Mahsulot narxini kiriting", "error"); return; }
     if (productDraft.qrCode && availableProducts.some((product) => product.qrCode?.trim() === productDraft.qrCode.trim())) { showToast("Bu kod boshqa mahsulotda mavjud", "error"); return; }
     setProductSaving(true);
     const payload = { name: productDraft.name.trim(), category: productDraft.category, unit: productDraft.unit, minStock: Number(productDraft.minStock) || 0, pricePerUnit: Number(productDraft.pricePerUnit) || 0, perBox: 0, boxUnit: "", qrCode: productDraft.qrCode.trim(), supplierId: productDraft.supplierId };
@@ -105,6 +117,9 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     if (d.success) {
       showToast("Order saqlandi ✅");
       setShowModal(false);
+      setCameraOpen(false);
+      setNewProductOpen(false);
+      setProductSearch("");
       setForm(emptyForm());
       setItems([{ pid: "", qty: 1, price: 0 }]);
       fetchAll();
@@ -136,7 +151,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
 
           <div className="order-scan-first">
             <div className="form-label"><ScanLine size={14} /> MAHSULOTNI QIDIRISH YOKI SKANERLASH</div>
-            <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> Kamera</button></div>
+            <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); selectFromSearch(); } }} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> Kamera</button></div>
             <CameraCodeScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={handleScannedCode} />
           </div>
 
@@ -160,6 +175,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                 <label className="form-label">MAHSULOTLAR</label>
                 {items.map((item, i) => {
                   const prod = availableProducts.find((p) => p.id === item.pid);
+                  const optionProducts = prod && !filteredProducts.some((product) => product.id === prod.id) ? [prod, ...filteredProducts] : filteredProducts;
                   return (
                     <div key={i} style={{ background: "var(--app-panel-soft)", borderRadius: 12, padding: 12, marginBottom: 10 }}>
                       <div className="order-item-fields" style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: prod ? 8 : 0 }}>
@@ -171,7 +187,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                           setItems(n);
                         }}>
                           <option value="">Mahsulot</option>
-                          {filteredProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.qrCode ? ` · ${p.qrCode}` : ""}</option>)}
+                          {optionProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.qrCode ? ` · ${p.qrCode}` : ""}</option>)}
                         </select>
                         <input className="crm-input" type="number" value={item.qty} min={1} placeholder="Son" onChange={(e) => { const n = [...items]; n[i].qty = parseFloat(e.target.value) || 1; setItems(n); }} />
                         <input className="crm-input" type="number" value={item.price || ""} placeholder="Narx" onChange={(e) => { const n = [...items]; n[i].price = parseFloat(e.target.value) || 0; setItems(n); }} />
