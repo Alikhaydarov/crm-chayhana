@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Camera, PackagePlus, Search, ScanLine } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
-import { createOrderApi } from "@/lib/api";
+import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
+import { addProductApi, createOrderApi } from "@/lib/api";
 import { PAY_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtDate } from "@/lib/utils";
 import type { Product } from "@/types";
@@ -33,8 +35,57 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
   const [form, setForm] = useState(emptyForm);
   const [items, setItems] = useState([{ pid: "", qty: 1, price: 0 }]);
   const [loading, setLoading] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [createdProducts, setCreatedProducts] = useState<Product[]>([]);
+  const [newProductOpen, setNewProductOpen] = useState(false);
+  const [productSaving, setProductSaving] = useState(false);
+  const [productDraft, setProductDraft] = useState({ name: "", category: "boshqa", unit: "dona", minStock: "0", pricePerUnit: "0", qrCode: "", supplierId: "" });
+  const availableProducts = useMemo(() => [...products, ...createdProducts.filter((created) => !products.some((product) => product.id === created.id))], [products, createdProducts]);
+  const filteredProducts = availableProducts.filter((product) => `${product.name} ${product.qrCode || ""}`.toLowerCase().includes(productSearch.trim().toLowerCase()));
 
   const total = items.reduce((s, i) => s + i.qty * (i.price || 0), 0);
+
+  const addProductToOrder = (product: Product) => {
+    setItems((current) => {
+      const emptyIndex = current.findIndex((item) => !item.pid);
+      if (emptyIndex < 0) return [...current, { pid: product.id, qty: 1, price: product.pricePerUnit || 0 }];
+      return current.map((item, index) => index === emptyIndex ? { pid: product.id, qty: item.qty || 1, price: product.pricePerUnit || 0 } : item);
+    });
+  };
+
+  const handleScannedCode = (code: string) => {
+    setCameraOpen(false);
+    setProductSearch(code);
+    const product = availableProducts.find((item) => item.qrCode?.trim() === code);
+    if (product) {
+      addProductToOrder(product);
+      showToast(`${product.name} orderga qo'shildi`);
+      return;
+    }
+    setProductDraft((current) => ({ ...current, qrCode: code }));
+    setNewProductOpen(true);
+    showToast("Kod topilmadi. Yangi mahsulot ma'lumotlarini kiriting", "error");
+  };
+
+  const saveNewProduct = async () => {
+    if (!productDraft.name.trim()) { showToast("Mahsulot nomini kiriting", "error"); return; }
+    if (productDraft.qrCode && availableProducts.some((product) => product.qrCode?.trim() === productDraft.qrCode.trim())) { showToast("Bu kod boshqa mahsulotda mavjud", "error"); return; }
+    setProductSaving(true);
+    const payload = { name: productDraft.name.trim(), category: productDraft.category, unit: productDraft.unit, minStock: Number(productDraft.minStock) || 0, pricePerUnit: Number(productDraft.pricePerUnit) || 0, perBox: 0, boxUnit: "", qrCode: productDraft.qrCode.trim(), supplierId: productDraft.supplierId };
+    const result = await addProductApi(payload);
+    setProductSaving(false);
+    if (!result.success) { showToast((result as any).message || "Mahsulotni saqlab bo'lmadi", "error"); return; }
+    const returned = (result as any).data || {};
+    const product: Product = { ...payload, id: String(returned.id ?? returned.external_id ?? `p${Date.now()}`), name: returned.name ?? payload.name, qrCode: returned.qrCode ?? returned.qr_code ?? payload.qrCode, pricePerUnit: Number(returned.pricePerUnit ?? returned.price_per_unit ?? payload.pricePerUnit) };
+    setCreatedProducts((current) => [...current, product]);
+    addProductToOrder(product);
+    setProductSearch(product.name);
+    setNewProductOpen(false);
+    setProductDraft({ name: "", category: "boshqa", unit: "dona", minStock: "0", pricePerUnit: "0", qrCode: "", supplierId: "" });
+    showToast("Yangi mahsulot yaratildi va orderga qo'shildi");
+    fetchAll();
+  };
 
   const submit = async () => {
     if (!form.companyId) { showToast("Firma tanlang", "error"); return; }
@@ -78,8 +129,16 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       action={<button className="btn-primary" onClick={() => setShowModal(true)}>+ Yangi order</button>}
     >
       {showModal && (
-        <Modal onClose={() => setShowModal(false)}>
+        <Modal className={newProductOpen ? "order-modal-wide" : ""} onClose={() => { setShowModal(false); setCameraOpen(false); setNewProductOpen(false); }}>
           <div className="modal-title">🛒 Yangi order</div>
+          <div className="order-modal-layout">
+          <div className="order-main-form">
+
+          <div className="order-scan-first">
+            <div className="form-label"><ScanLine size={14} /> MAHSULOTNI QIDIRISH YOKI SKANERLASH</div>
+            <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> Kamera</button></div>
+            <CameraCodeScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={handleScannedCode} />
+          </div>
 
           <div className="form-group">
             <label className="form-label">FIRMA</label>
@@ -100,19 +159,19 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
               <div className="form-group">
                 <label className="form-label">MAHSULOTLAR</label>
                 {items.map((item, i) => {
-                  const prod = products.find((p) => p.id === item.pid);
+                  const prod = availableProducts.find((p) => p.id === item.pid);
                   return (
                     <div key={i} style={{ background: "var(--app-panel-soft)", borderRadius: 12, padding: 12, marginBottom: 10 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: prod ? 8 : 0 }}>
+                      <div className="order-item-fields" style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: prod ? 8 : 0 }}>
                         <select className="crm-input" value={item.pid} onChange={(e) => {
                           const n = [...items];
-                          const p = products.find((x) => x.id === e.target.value);
+                          const p = availableProducts.find((x) => x.id === e.target.value);
                           n[i].pid = e.target.value;
                           n[i].price = p?.pricePerUnit || 0;
                           setItems(n);
                         }}>
                           <option value="">Mahsulot</option>
-                          {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          {filteredProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.qrCode ? ` · ${p.qrCode}` : ""}</option>)}
                         </select>
                         <input className="crm-input" type="number" value={item.qty} min={1} placeholder="Son" onChange={(e) => { const n = [...items]; n[i].qty = parseFloat(e.target.value) || 1; setItems(n); }} />
                         <input className="crm-input" type="number" value={item.price || ""} placeholder="Narx" onChange={(e) => { const n = [...items]; n[i].price = parseFloat(e.target.value) || 0; setItems(n); }} />
@@ -129,6 +188,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                 <button onClick={() => setItems([...items, { pid: "", qty: 1, price: 0 }])} style={{ width: "100%", padding: "9px", borderRadius: 10, border: "1.5px dashed rgba(115,103,240,.4)", background: "rgba(115,103,240,.05)", color: "#7367f0", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}>
                   + Mahsulot
                 </button>
+                <button type="button" className="order-new-product-button" onClick={() => setNewProductOpen((open) => !open)}><PackagePlus size={17} /> Yangi mahsulot kelganmi? Shu yerda qo'shing</button>
               </div>
 
               {total > 0 && (
@@ -181,6 +241,23 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
             <button className="btn-primary" onClick={submit} disabled={loading || !form.companyId} style={{ flex: 2 }}>
               {loading ? t.sending : `💾 ${t.save} + ${t.savedToStock}`}
             </button>
+          </div>
+          </div>
+
+          {newProductOpen && <aside className="inline-product-panel">
+            <div className="inline-product-title"><div><PackagePlus size={18} /> Yangi mahsulot</div><button type="button" onClick={() => setNewProductOpen(false)}>×</button></div>
+            <p>Mahsulot saqlangach shu orderga avtomatik qo'shiladi.</p>
+            <div className="form-group"><label className="form-label">QR / SHTRIX-KOD</label><div className="inline-code-row"><input className="crm-input" value={productDraft.qrCode} onChange={(e) => setProductDraft({ ...productDraft, qrCode: e.target.value })} placeholder="Kod" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)} aria-label="Kamera bilan skanerlash"><Camera size={17} /></button></div></div>
+            <div className="form-group"><label className="form-label">NOMI</label><input className="crm-input" value={productDraft.name} onChange={(e) => setProductDraft({ ...productDraft, name: e.target.value })} autoFocus /></div>
+            <div className="inline-product-grid">
+              <div className="form-group"><label className="form-label">KATEGORIYA</label><select className="crm-input" value={productDraft.category} onChange={(e) => setProductDraft({ ...productDraft, category: e.target.value })}>{["gosht", "sabzavot", "don", "sut", "meva", "ziravorlar", "ichimlik", "boshqa"].map((value) => <option key={value}>{value}</option>)}</select></div>
+              <div className="form-group"><label className="form-label">BIRLIK</label><select className="crm-input" value={productDraft.unit} onChange={(e) => setProductDraft({ ...productDraft, unit: e.target.value })}>{["kg", "g", "l", "ml", "dona", "qop", "quti", "karobka"].map((value) => <option key={value}>{value}</option>)}</select></div>
+              <div className="form-group"><label className="form-label">NARXI (WON)</label><input className="crm-input" type="number" value={productDraft.pricePerUnit} onChange={(e) => setProductDraft({ ...productDraft, pricePerUnit: e.target.value })} /></div>
+              <div className="form-group"><label className="form-label">MINIMAL QOLDIQ</label><input className="crm-input" type="number" value={productDraft.minStock} onChange={(e) => setProductDraft({ ...productDraft, minStock: e.target.value })} /></div>
+            </div>
+            <div className="form-group"><label className="form-label">FIRMA</label><select className="crm-input" value={productDraft.supplierId} onChange={(e) => setProductDraft({ ...productDraft, supplierId: e.target.value })}><option value="">Firma tanlang</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></div>
+            <button type="button" className="btn-primary" onClick={saveNewProduct} disabled={productSaving} style={{ width: "100%" }}>{productSaving ? "Saqlanmoqda..." : "Saqlash va orderga qo'shish"}</button>
+          </aside>}
           </div>
         </Modal>
       )}

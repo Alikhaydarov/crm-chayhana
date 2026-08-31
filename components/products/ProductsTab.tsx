@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { Camera, CheckCircle2, ScanLine, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Camera, CheckCircle2, ScanLine } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
+import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
 import { addProductApi } from "@/lib/api";
 import { fmt, fmtM } from "@/lib/utils";
 import type { Product, StockMap } from "@/types";
@@ -21,63 +22,14 @@ export function ProductsTab({ products, stock, companies, fetchAll, showToast, t
   const [search, setSearch] = useState("");
   const [scannerReady, setScannerReady] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
   const [saving, setSaving] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const productsRef = useRef(products);
   const [form, setForm] = useState({
     name: "", category: "gosht", unit: "kg",
     minStock: "0", pricePerUnit: "0", perBox: "0",
     boxUnit: "", qrCode: "", supplierId: "",
   });
 
-  useEffect(() => { productsRef.current = products; }, [products]);
-
-  useEffect(() => {
-    if (!cameraOpen || !videoRef.current) return;
-    let cancelled = false;
-    let controls: { stop: () => void } | undefined;
-
-    const startCamera = async () => {
-      try {
-        setCameraError("");
-        const { BrowserMultiFormatReader } = await import("@zxing/browser");
-        if (cancelled || !videoRef.current) return;
-        const reader = new BrowserMultiFormatReader(undefined, { delayBetweenScanAttempts: 180 });
-        controls = await reader.decodeFromConstraints(
-          { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-          videoRef.current,
-          (result) => {
-            if (!result || cancelled) return;
-            const code = result.getText().trim();
-            const duplicate = productsRef.current.find((product) => product.qrCode?.trim() === code);
-            if (duplicate) {
-              setCameraOpen(false);
-              showToast(`Bu kod ${duplicate.name} mahsulotida mavjud`, "error");
-              return;
-            }
-            setForm((current) => ({ ...current, qrCode: code }));
-            setScannerReady(false);
-            setCameraOpen(false);
-            showToast("Kod kameradan avtomatik olindi");
-          },
-        );
-      } catch (error) {
-        if (cancelled) return;
-        const name = error instanceof DOMException ? error.name : "";
-        setCameraError(name === "NotAllowedError" ? "Kameraga ruxsat berilmadi. Brauzer sozlamasidan ruxsat bering." : "Kamerani ochib bo'lmadi. HTTPS va kamera ruxsatini tekshiring.");
-      }
-    };
-
-    startCamera();
-    return () => {
-      cancelled = true;
-      controls?.stop();
-      const stream = videoRef.current?.srcObject;
-      if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
-    };
-  }, [cameraOpen, showToast]);
 
 const submit = async () => {
   if (!form.name.trim()) {
@@ -220,7 +172,7 @@ const submit = async () => {
               <label className="form-label">QUTI BIRLIGI</label>
               <input className="crm-input" value={form.boxUnit} onChange={(e) => setForm({ ...form, boxUnit: e.target.value })} placeholder="shisha, dona..." />
             </div>
-            <div style={{ gridColumn: "1/-1" }} className="form-group">
+            <div style={{ gridColumn: "1/-1" }} className="form-group product-code-field">
               <label className="form-label">SHTRIX KOD / QR</label>
               <div className="barcode-input-row" style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8 }}>
                 <input
@@ -251,14 +203,14 @@ const submit = async () => {
                 {scannerReady ? <><ScanLine size={14} /> Skaner tayyor. Kodni uring.</> : form.qrCode ? <><CheckCircle2 size={14} /> Kod kiritildi. Enter bilan tekshiriladi.</> : "Telefon kamerasi, USB yoki Bluetooth skaner qo'llab-quvvatlanadi."}
               </div>
             </div>
-            {cameraOpen && <div className="camera-scanner" style={{ gridColumn: "1/-1" }}>
-              <div className="camera-scanner-head"><span><Camera size={16} /> Kodni ramka ichiga olib keling</span><button type="button" onClick={() => setCameraOpen(false)} aria-label="Kamerani yopish"><X size={18} /></button></div>
-              <div className="camera-preview">
-                <video ref={videoRef} muted playsInline />
-                <div className="camera-frame"><span /></div>
-              </div>
-              {cameraError && <div className="camera-error">{cameraError}</div>}
-            </div>}
+            <div className="product-camera-panel" style={{ gridColumn: "1/-1" }}><CameraCodeScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={(code) => {
+              const duplicate = products.find((product) => product.qrCode?.trim() === code);
+              setCameraOpen(false);
+              if (duplicate) { showToast(`Bu kod ${duplicate.name} mahsulotida mavjud`, "error"); return; }
+              setForm((current) => ({ ...current, qrCode: code }));
+              setScannerReady(false);
+              showToast("Kod kameradan avtomatik olindi");
+            }} /></div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button className="btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Bekor</button>

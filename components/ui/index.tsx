@@ -1,7 +1,7 @@
-export function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+export function Modal({ onClose, children, className = "" }: { onClose: () => void; children: React.ReactNode; className?: string }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal-box ${className}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-drag" />
         {children}
       </div>
