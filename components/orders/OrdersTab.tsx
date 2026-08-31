@@ -151,7 +151,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
 
           <div className="order-scan-first">
             <div className="form-label"><ScanLine size={14} /> MAHSULOTNI QIDIRISH YOKI SKANERLASH</div>
-            <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); selectFromSearch(); } }} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> QR skanerlash</button></div>
+            <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); selectFromSearch(); } }} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> Shtrix-kod skanerlash</button></div>
             <CameraCodeScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={handleScannedCode} />
           </div>
 

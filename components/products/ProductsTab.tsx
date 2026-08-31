@@ -193,7 +193,7 @@ const submit = async () => {
                   placeholder="Skanerda uring yoki qo'lda kiriting"
                 />
                 <button type="button" onClick={() => setCameraOpen(true)} className="btn-primary compact-btn" style={{ whiteSpace: "nowrap" }}>
-                  <Camera size={17} /> QR skanerlash
+                  <Camera size={17} /> Shtrix-kod skanerlash
                 </button>
                 <button type="button" onClick={armScanner} className="btn-ghost compact-btn" style={{ whiteSpace: "nowrap" }}>
                   <ScanLine size={17} /> USB skaner
