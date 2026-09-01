@@ -91,6 +91,7 @@ export type Staff = {
 
 export type Account = {
   id: string;
+  userId?: string;
   name: string;
   role: string;
   branchName: string;

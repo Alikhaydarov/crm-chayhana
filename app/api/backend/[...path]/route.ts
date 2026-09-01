@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { hash } from "bcryptjs";
 import type { Role } from "@/types";
 
 export const runtime = "nodejs";
@@ -263,6 +264,7 @@ async function snapshot(user: AppUser) {
     };
   };
   const mainSummary = stockSummary(mainStock);
+  const adminAccounts = user.role === "superadmin" ? await sb<any[]>("admin_users", {}, "?select=id,user_id,name,role,branch_name,branch_icon,active&role=neq.superadmin&order=role.asc") : [];
 
   return {
     products: productList,
@@ -321,6 +323,7 @@ async function snapshot(user: AppUser) {
     staff: staff
       .filter((member) => user.role === "superadmin" || member.branch === user.role)
       .map((s) => ({ id: s.id, name: s.name, role: s.role, branch: s.branch, phone: s.phone || "", salary: Number(s.salary || 0), joinDate: s.join_date || "", active: Boolean(s.active) })),
+    accounts: adminAccounts.map((account) => ({ id: account.id, userId: account.user_id, name: account.name, role: account.role, branchName: account.branch_name || branchNames[account.role as Role], branchSlug: account.role, active: Boolean(account.active) })),
     suppliers,
   };
 }
@@ -367,6 +370,26 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     const user = authUser(request);
     if (route === "snapshot" && method === "GET") return json(await snapshot(user));
     if (route === "products" && method === "GET") return json(await products());
+    const warehouseAdmin = route.match(/^warehouses\/(restaurant1|restaurant2|shop)$/);
+    if (warehouseAdmin && method === "PATCH") {
+      requireRole(user, ["superadmin"]);
+      const role = warehouseAdmin[1] as Role;
+      const body = await readBody(request);
+      const branchName = String(body.branchName || "").trim();
+      const adminName = String(body.adminName || "").trim();
+      const userId = String(body.userId || "").trim();
+      const password = String(body.password || "");
+      if (!branchName || !adminName || !userId) return json({ success: false, message: "Sklad nomi, admin nomi va loginni kiriting" }, 400);
+      if (branchName.length > 100 || adminName.length > 100 || userId.length > 100) return json({ success: false, message: "Kiritilgan ma'lumot juda uzun" }, 400);
+      if (password && password.length < 8) return json({ success: false, message: "Yangi parol kamida 8 ta belgidan iborat bo'lsin" }, 400);
+      const duplicates = await sb<any[]>("admin_users", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&role=neq.${role}&limit=1`);
+      if (duplicates.length) return json({ success: false, message: "Bu login boshqa adminda mavjud" }, 409);
+      const update: Record<string, unknown> = { branch_name: branchName, name: adminName, user_id: userId };
+      if (password) update.password = (await hash(password, 12)).replace(/^\$2b\$/, "$2a$");
+      const [updated] = await sb<any[]>("admin_users", { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(update) }, `?role=eq.${role}`);
+      if (!updated) return json({ success: false, message: "Sklad admini topilmadi" }, 404);
+      return json({ id: updated.id, userId: updated.user_id, name: updated.name, role: updated.role, branchName: updated.branch_name, branchSlug: updated.role, active: updated.active });
+    }
     if (route === "products" && method === "POST") {
       requireRole(user, ["superadmin"]);
       const [created] = await sb<any[]>("products", {
