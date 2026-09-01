@@ -1447,8 +1447,8 @@ body {
   .app-sidebar nav .nav-icon { width: 22px; height: 22px; }
 
   .page-pad { padding: 18px 12px !important; }
-  .action-row { align-items: center !important; gap: 10px !important; margin-bottom: 16px !important; }
-  .action-row > div:first-child { min-width: 0; flex: 1 1 160px; }
+  .action-row { flex-direction: row !important; align-items: center !important; gap: 10px !important; margin-bottom: 16px !important; }
+  .action-row > div:first-child { min-width: 0; flex: 1 1 auto; }
   .page-heading h1 { font-size: 20px !important; letter-spacing: 0 !important; }
   .page-action { flex: 0 0 auto; }
   .page-action .btn-primary { min-height: 38px; padding: 0 12px; font-size: 11px; }
@@ -1558,7 +1558,9 @@ body {
   .camera-preview { aspect-ratio: 4 / 3; max-height: 52dvh; }
   .camera-actions { flex-direction: column; }
   .modal-title { font-size: 17px; margin-bottom: 14px; }
-  .dashboard-metric { min-height: 96px; padding: 13px; }
+  .dashboard-metric { min-height: 96px; gap: 7px; padding: 11px; }
+  .dashboard-metric-icon { width: 30px; height: 30px; }
+  .dashboard-metric-copy > strong { font-size: 18px; }
   .dashboard-metric:nth-child(n) { border-right: 0; }
   .dashboard-metric:nth-child(odd) { border-right: 1px solid var(--app-border); }
   .dashboard-metric:nth-last-child(-n+2) { border-bottom: 0; }
