@@ -169,13 +169,13 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
 
   return (
     <PageWrap
-      title="🛒 Orderlar"
+      title="Orderlar"
       sub={`${orders.length} ta order`}
       action={<button className="btn-primary" onClick={() => setShowModal(true)}>+ Yangi order</button>}
     >
       {showModal && (
         <Modal className={newProductOpen ? "order-modal-wide" : ""} onClose={() => { setShowModal(false); setCameraOpen(false); setNewProductOpen(false); }}>
-          <div className="modal-title">🛒 Yangi order</div>
+          <div className="modal-title">Yangi order</div>
           <div className="order-modal-layout">
           <div className="order-main-form">
 

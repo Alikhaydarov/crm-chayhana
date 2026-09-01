@@ -75,9 +75,9 @@ export function TransfersTab({ transfers, products, mainStock, user, fetchAll, s
   const groups = { pending: transfers.filter((tr) => tr.status === "pending"), other: transfers.filter((tr) => tr.status !== "pending") };
 
   return (
-    <PageWrap title="🔄 Transferlar" action={!isSA && <button className="btn-primary" onClick={() => setShowModal(true)}>+ Yangi so'rov</button>}>
+    <PageWrap title="Transferlar" action={!isSA && <button className="btn-primary" onClick={() => setShowModal(true)}>+ Yangi so'rov</button>}>
       {showModal && <Modal onClose={() => setShowModal(false)}>
-        <div className="modal-title">📤 Transfer so'rovi</div>
+        <div className="modal-title">Transfer so'rovi</div>
         <div className="form-group"><label className="form-label">FILIAL</label><div className="crm-input" style={{ display: "flex", alignItems: "center", opacity: .9 }}>{user.branchIcon || BRANCH_ICONS[user.role] || "🏢"} {user.branchName}</div></div>
         <div className="form-group">
           <label className="form-label">MAHSULOTLAR</label>

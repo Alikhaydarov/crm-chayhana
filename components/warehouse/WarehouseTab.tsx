@@ -48,7 +48,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
 
   return (
     <PageWrap
-      title="📦 Sklad"
+      title="Sklad"
       sub={
         <>
           Jami: <strong style={{ color: "#3fb950" }}>{fmtM(totalVal)}</strong>

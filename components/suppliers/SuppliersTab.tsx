@@ -73,13 +73,13 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
 
   return (
     <PageWrap
-      title="🏢 Firmalar"
+      title="Firmalar"
       sub={`${companies.length} ta firma`}
       action={<button className="btn-primary" onClick={() => setShowAdd(true)}>+ Yangi firma</button>}
     >
       {showAdd && (
         <Modal onClose={() => setShowAdd(false)}>
-          <div className="modal-title">🏢 Yangi firma</div>
+          <div className="modal-title">Yangi firma</div>
           {[["FIRMA NOMI", "name", "Masalan: Mars LLC"], ["MANZIL", "address", "Toshkent, Chilonzor"], ["TELEFON", "phone", "+998 90 123 45 67"]].map(([l, k, p]) => (
             <div key={k} className="form-group">
               <label className="form-label">{l}</label>
@@ -95,7 +95,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
 
       {payModal && (
         <Modal onClose={closePayModal}>
-          <div className="modal-title">💳 To'lov kiritish</div>
+          <div className="modal-title">To'lov kiritish</div>
           <div style={{ background: "linear-gradient(135deg,rgba(115,103,240,.1),rgba(101,91,211,.05))", border: "1px solid rgba(115,103,240,.25)", borderRadius: 14, padding: "18px 20px", marginBottom: 20, textAlign: "center" }}>
             <div style={{ fontSize: 12, color: "var(--app-muted)", marginBottom: 6, fontWeight: 700 }}>Order #{payModal.id.slice(-8)} · Qolgan qarz</div>
             <div style={{ fontWeight: 900, fontSize: 32, color: "#7367f0" }}>{fmtM(payModal.totalPrice - payModal.paidAmount)}</div>

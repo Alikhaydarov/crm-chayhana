@@ -34,11 +34,11 @@ export function PageWrap({
             marginBottom: 26,
           }}
         >
-          <div>
+          <div className="page-heading">
             {title && (
-              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.4, marginBottom: 4 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.4, margin: "0 0 4px" }}>
                 {title}
-              </div>
+              </h1>
             )}
             {sub && <div style={{ color: "var(--app-muted)", fontSize: 13 }}>{sub}</div>}
           </div>

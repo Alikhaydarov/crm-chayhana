@@ -177,13 +177,13 @@ const submit = async () => {
 
   return (
     <PageWrap
-      title="🏷️ Mahsulotlar"
+      title="Mahsulotlar"
       sub={`${products.length} ta mahsulot`}
       action={<button className="btn-primary" onClick={() => setShowModal(true)}>{t.addNewProduct}</button>}
     >
       {showModal && (
         <Modal onClose={() => { setShowModal(false); setScannerReady(false); setCameraOpen(false); }}>
-          <div className="modal-title">🏷️ {t.addNewProduct}</div>
+          <div className="modal-title">{t.addNewProduct}</div>
           <div className="product-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 4 }}>
             <div style={{ gridColumn: "1/-1" }} className="form-group">
               <label className="form-label">MAHSULOT NOMI</label>
