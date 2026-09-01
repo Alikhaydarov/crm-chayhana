@@ -42,7 +42,7 @@ export function PageWrap({
             )}
             {sub && <div style={{ color: "var(--app-muted)", fontSize: 13 }}>{sub}</div>}
           </div>
-          {action && <div>{action}</div>}
+          {action && <div className="page-action">{action}</div>}
         </div>
       )}
       {children}
@@ -53,6 +53,7 @@ export function PageWrap({
 export function Toast({ msg, type }: { msg: string; type: "success" | "error" }) {
   return (
     <div
+      className="app-toast"
       style={{
         position: "fixed",
         top: 20,
