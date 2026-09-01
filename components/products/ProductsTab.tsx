@@ -1,9 +1,10 @@
 "use client";
 import { useRef, useState } from "react";
-import { Camera, CheckCircle2, ScanLine } from "lucide-react";
+import { Camera, CheckCircle2, Package, Save, ScanLine, Trash2 } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
+import { DeleteProductDialog, ProductDialog } from "@/components/ui/product-dialog";
 import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
-import { addProductApi } from "@/lib/api";
+import { addProductApi, deleteProductApi, updateProductApi } from "@/lib/api";
 import { fmt, fmtM } from "@/lib/utils";
 import type { Product, StockMap } from "@/types";
 import type { Company } from "@/types/domain";
@@ -22,13 +23,48 @@ export function ProductsTab({ products, stock, companies, fetchAll, showToast, t
   const [search, setSearch] = useState("");
   const [scannerReady, setScannerReady] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [editCameraOpen, setEditCameraOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: "", category: "gosht", unit: "kg",
     minStock: "0", pricePerUnit: "0", perBox: "0",
     boxUnit: "", qrCode: "", supplierId: "",
   });
+  const [editForm, setEditForm] = useState({ name: "", category: "boshqa", unit: "dona", minStock: "0", pricePerUnit: "0", perBox: "0", boxUnit: "", qrCode: "", supplierId: "" });
+
+  const openProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setEditForm({ name: product.name, category: product.category, unit: product.unit, minStock: String(product.minStock), pricePerUnit: String(product.pricePerUnit), perBox: String(product.perBox || 0), boxUnit: product.boxUnit || "", qrCode: product.qrCode || "", supplierId: product.supplierId || "" });
+  };
+
+  const saveProduct = async () => {
+    if (!selectedProduct || !editForm.name.trim()) { showToast("Mahsulot nomini kiriting", "error"); return; }
+    const barcode = editForm.qrCode.trim();
+    if (barcode && products.some((product) => product.id !== selectedProduct.id && product.qrCode?.trim() === barcode)) { showToast("Bu shtrix-kod boshqa mahsulotda mavjud", "error"); return; }
+    setSaving(true);
+    const result = await updateProductApi(selectedProduct.id, { name: editForm.name.trim(), category: editForm.category, unit: editForm.unit, minStock: Number(editForm.minStock) || 0, pricePerUnit: Number(editForm.pricePerUnit) || 0, perBox: Number(editForm.perBox) || 0, boxUnit: editForm.boxUnit.trim(), qrCode: barcode, supplierId: editForm.supplierId });
+    setSaving(false);
+    if (!result.success) { showToast(result.message || "Mahsulotni yangilab bo'lmadi", "error"); return; }
+    showToast("Mahsulot ma'lumotlari yangilandi");
+    setSelectedProduct(null);
+    fetchAll();
+  };
+
+  const removeProduct = async () => {
+    if (!selectedProduct) return;
+    setDeleting(true);
+    const result = await deleteProductApi(selectedProduct.id);
+    setDeleting(false);
+    if (!result.success) { showToast(result.message || "Mahsulotni o'chirib bo'lmadi", "error"); return; }
+    setDeleteOpen(false);
+    setSelectedProduct(null);
+    showToast("Mahsulot o'chirildi");
+    fetchAll();
+  };
 
 
 const submit = async () => {
@@ -219,6 +255,30 @@ const submit = async () => {
         </Modal>
       )}
 
+      <ProductDialog open={Boolean(selectedProduct)} onOpenChange={(open) => { if (!open) { setSelectedProduct(null); setEditCameraOpen(false); } }} title="Mahsulot ma'lumotlari" description="Ma'lumotlarni yangilang yoki mahsulotni bazadan o'chiring.">
+        {selectedProduct && <>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", marginBottom: 16, borderRadius: 8, background: "var(--app-panel-soft)", border: "1px solid var(--app-border)" }}>
+            <div style={{ display: "grid", width: 40, height: 40, placeItems: "center", borderRadius: 8, background: "rgba(115,103,240,.12)", color: "#7367f0" }}><Package size={20} /></div>
+            <div style={{ minWidth: 0, flex: 1 }}><strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedProduct.name}</strong><span style={{ color: "var(--app-muted)", fontSize: 12 }}>Skladda: {fmt(stock[selectedProduct.id] || 0)} {selectedProduct.unit}</span></div>
+            {selectedProduct.qrCode && <code style={{ color: "var(--app-muted)", fontSize: 11 }}>{selectedProduct.qrCode}</code>}
+          </div>
+          <div className="product-edit-grid">
+            <div className="form-group product-edit-span"><label className="form-label">MAHSULOT NOMI</label><input className="crm-input" value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} autoFocus /></div>
+            <div className="form-group"><label className="form-label">KATEGORIYA</label><select className="crm-input" value={editForm.category} onChange={(event) => setEditForm({ ...editForm, category: event.target.value })}>{["gosht", "sabzavot", "don", "sut", "meva", "ziravorlar", "ichimlik", "boshqa"].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">BIRLIK</label><select className="crm-input" value={editForm.unit} onChange={(event) => setEditForm({ ...editForm, unit: event.target.value })}>{["kg", "g", "l", "ml", "dona", "qop", "quti", "karobka"].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">MINIMAL QOLDIQ</label><input className="crm-input" type="number" min="0" value={editForm.minStock} onChange={(event) => setEditForm({ ...editForm, minStock: event.target.value })} /></div>
+            <div className="form-group"><label className="form-label">1 DONA NARXI (WON)</label><input className="crm-input" type="number" min="0" value={editForm.pricePerUnit} onChange={(event) => setEditForm({ ...editForm, pricePerUnit: event.target.value })} /></div>
+            <div className="form-group"><label className="form-label">QUTIDAGI SONI</label><input className="crm-input" type="number" min="0" value={editForm.perBox} onChange={(event) => setEditForm({ ...editForm, perBox: event.target.value })} /></div>
+            <div className="form-group"><label className="form-label">QUTI BIRLIGI</label><input className="crm-input" value={editForm.boxUnit} onChange={(event) => setEditForm({ ...editForm, boxUnit: event.target.value })} /></div>
+            <div className="form-group product-edit-span"><label className="form-label">FIRMA</label><select className="crm-input" value={editForm.supplierId} onChange={(event) => setEditForm({ ...editForm, supplierId: event.target.value })}><option value="">— Firma tanlanmagan —</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></div>
+            <div className="form-group product-edit-span"><label className="form-label">SHTRIX-KOD</label><div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}><input className="crm-input" inputMode="numeric" value={editForm.qrCode} onChange={(event) => setEditForm({ ...editForm, qrCode: event.target.value })} /><button type="button" className="btn-ghost" onClick={() => setEditCameraOpen(true)} title="Kamera bilan skanerlash"><Camera size={17} /></button></div></div>
+          </div>
+          <CameraCodeScanner open={editCameraOpen} onClose={() => setEditCameraOpen(false)} onDetected={(code) => { const duplicate = products.find((product) => product.id !== selectedProduct.id && product.qrCode?.trim() === code); setEditCameraOpen(false); if (duplicate) { showToast(`Bu kod ${duplicate.name} mahsulotida mavjud`, "error"); return; } setEditForm((current) => ({ ...current, qrCode: code })); }} />
+          <div className="radix-dialog-actions" style={{ justifyContent: "space-between" }}><button type="button" className="btn-danger" onClick={() => setDeleteOpen(true)}><Trash2 size={16} /> O'chirish</button><div style={{ display: "flex", gap: 8 }}><button type="button" className="btn-ghost" onClick={() => setSelectedProduct(null)}>Bekor</button><button type="button" className="btn-primary" onClick={saveProduct} disabled={saving}><Save size={16} /> {saving ? "Saqlanmoqda..." : "Yangilash"}</button></div></div>
+        </>}
+      </ProductDialog>
+      <DeleteProductDialog open={deleteOpen} onOpenChange={setDeleteOpen} productName={selectedProduct?.name || ""} loading={deleting} onConfirm={removeProduct} />
+
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
         <input className="crm-input" placeholder="🔍 Mahsulot qidirish..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
@@ -236,7 +296,7 @@ const submit = async () => {
               const qty = stock[p.id] || 0;
               const c = qty <= p.minStock ? "#f85149" : qty <= p.minStock * 2 ? "#f0a500" : "#3fb950";
               return (
-                <tr key={p.id}>
+                <tr key={p.id} className="product-row-clickable" tabIndex={0} onClick={() => openProduct(p)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProduct(p); } }} aria-label={`${p.name} mahsulotini ochish`}>
                   <td style={{ color: "var(--app-muted)", fontSize: 11, width: 36 }}>{i + 1}</td>
                   <td style={{ fontWeight: 700 }}>{p.name}</td>
                   <td className="hide-mobile"><span className="badge" style={{ background: "rgba(115,103,240,.08)", color: "#7367f0" }}>{p.category}</span></td>

@@ -366,6 +366,30 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       }, "?on_conflict=product_id,branch");
       return json(toProduct(created), 201);
     }
+    const productDetail = route.match(/^products\/([^/]+)$/);
+    if (productDetail && method === "PATCH") {
+      requireRole(user, ["superadmin"]);
+      const id = decodeURIComponent(productDetail[1]);
+      const body = await readBody(request);
+      if (!String(body.name || "").trim()) return json({ success: false, message: "Mahsulot nomini kiriting" }, 400);
+      const barcode = String(body.qrCode || "").trim();
+      if (barcode) {
+        const duplicates = await sb<any[]>("products", {}, `?select=id,name&qr_code=eq.${encodeURIComponent(barcode)}&id=neq.${encodeURIComponent(id)}&limit=1`);
+        if (duplicates.length) return json({ success: false, message: `Bu shtrix-kod ${duplicates[0].name} mahsulotida mavjud` }, 409);
+      }
+      const { id: _ignored, ...row } = productRow({ ...body, id });
+      const [updated] = await sb<any[]>("products", { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(row) }, `?id=eq.${encodeURIComponent(id)}`);
+      if (!updated) return json({ success: false, message: "Mahsulot topilmadi" }, 404);
+      return json(toProduct(updated));
+    }
+    if (productDetail && method === "DELETE") {
+      requireRole(user, ["superadmin"]);
+      const id = decodeURIComponent(productDetail[1]);
+      const existing = await sb<any[]>("products", {}, `?select=id&id=eq.${encodeURIComponent(id)}&limit=1`);
+      if (!existing.length) return json({ success: false, message: "Mahsulot topilmadi" }, 404);
+      await sb("products", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id)}`);
+      return json({ success: true });
+    }
 
     if (route === "stock/main" && method === "GET") return json(await stock("main"));
     const stockMain = route.match(/^stock\/main\/([^/]+)$/);

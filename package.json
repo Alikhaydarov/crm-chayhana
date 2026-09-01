@@ -8,6 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
+    "@radix-ui/react-alert-dialog": "^1.1.23",
+    "@radix-ui/react-dialog": "^1.1.23",
     "@tailwindcss/postcss": "^4.3.0",
     "@zxing/browser": "0.1.5",
     "@zxing/library": "0.21.3",
