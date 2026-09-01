@@ -45,6 +45,16 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
   const filteredProducts = availableProducts.filter((product) => `${product.name} ${product.qrCode || ""}`.toLowerCase().includes(productSearch.trim().toLowerCase()));
 
   const total = items.reduce((s, i) => s + i.qty * (i.price || 0), 0);
+  const selectedCompany = companies.find((company) => company.id === form.companyId);
+
+  const selectCompany = (companyId: string) => {
+    setForm((current) => ({ ...current, companyId }));
+    setItems([{ pid: "", qty: 1, price: 0 }]);
+    setProductSearch("");
+    setNewProductOpen(false);
+    setCameraOpen(false);
+    setProductDraft((current) => ({ ...current, supplierId: companyId }));
+  };
 
   const addProductToOrder = (product: Product) => {
     setItems((current) => {
@@ -151,15 +161,9 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
           <div className="order-modal-layout">
           <div className="order-main-form">
 
-          <div className="order-scan-first">
-            <div className="form-label"><ScanLine size={14} /> MAHSULOTNI QIDIRISH YOKI SKANERLASH</div>
-            <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); selectFromSearch(); } }} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> Shtrix-kod skanerlash</button></div>
-            <CameraCodeScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={handleScannedCode} />
-          </div>
-
           <div className="form-group">
-            <label className="form-label">FIRMA</label>
-            <select className="crm-input" value={form.companyId} onChange={(e) => setForm({ ...form, companyId: e.target.value })}>
+            <label className="form-label">1. FIRMANI TANLANG</label>
+            <select className="crm-input" value={form.companyId} onChange={(e) => selectCompany(e.target.value)} autoFocus>
               <option value="">— Firma tanlang —</option>
               {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -168,6 +172,12 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
 
           {form.companyId && (
             <>
+              <div className="order-scan-first">
+                <div className="form-label"><ScanLine size={14} /> 2. MAHSULOTNI QIDIRISH YOKI SKANERLASH</div>
+                <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); selectFromSearch(); } }} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> Shtrix-kod skanerlash</button></div>
+                <CameraCodeScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={handleScannedCode} />
+              </div>
+
               <div className="form-group">
                 <label className="form-label">ORDER SANASI</label>
                 <input className="crm-input" type="date" value={form.orderDate} onChange={(e) => setForm({ ...form, orderDate: e.target.value })} />
@@ -273,7 +283,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
               <div className="form-group"><label className="form-label">NARXI (WON)</label><input className="crm-input" type="number" value={productDraft.pricePerUnit} onChange={(e) => setProductDraft({ ...productDraft, pricePerUnit: e.target.value })} /></div>
               <div className="form-group"><label className="form-label">MINIMAL QOLDIQ</label><input className="crm-input" type="number" value={productDraft.minStock} onChange={(e) => setProductDraft({ ...productDraft, minStock: e.target.value })} /></div>
             </div>
-            <div className="form-group"><label className="form-label">FIRMA</label><select className="crm-input" value={productDraft.supplierId} onChange={(e) => setProductDraft({ ...productDraft, supplierId: e.target.value })}><option value="">Firma tanlang</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">FIRMA</label><input className="crm-input" value={selectedCompany?.name || ""} readOnly /></div>
             <button type="button" className="btn-primary" onClick={saveNewProduct} disabled={productSaving} style={{ width: "100%" }}>{productSaving ? "Saqlanmoqda..." : "Saqlash va orderga qo'shish"}</button>
           </aside>}
           </div>
