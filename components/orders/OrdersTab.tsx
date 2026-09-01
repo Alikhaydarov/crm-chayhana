@@ -34,7 +34,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     productDocument: null as OrderReceipt | null,
   });
   const [form, setForm] = useState(emptyForm);
-  const [items, setItems] = useState([{ pid: "", qty: 1, price: 0 }]);
+  const [items, setItems] = useState<{ pid: string; qty: number; price: number }[]>([]);
   const [loading, setLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
@@ -51,7 +51,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
 
   const selectCompany = (companyId: string) => {
     setForm((current) => ({ ...current, companyId }));
-    setItems([{ pid: "", qty: 1, price: 0 }]);
+    setItems([]);
     setProductSearch("");
     setNewProductOpen(false);
     setCameraOpen(false);
@@ -60,9 +60,9 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
 
   const addProductToOrder = (product: Product) => {
     setItems((current) => {
-      const emptyIndex = current.findIndex((item) => !item.pid);
-      if (emptyIndex < 0) return [...current, { pid: product.id, qty: 1, price: product.pricePerUnit || 0 }];
-      return current.map((item, index) => index === emptyIndex ? { pid: product.id, qty: item.qty || 1, price: product.pricePerUnit || 0 } : item);
+      const existing = current.find((item) => item.pid === product.id);
+      if (existing) return current.map((item) => item.pid === product.id ? { ...item, qty: item.qty + 1 } : item);
+      return [...current, { pid: product.id, qty: 1, price: product.pricePerUnit || 0 }];
     });
   };
 
@@ -143,7 +143,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       setProductSearch("");
       setProductDocumentFile(null);
       setForm(emptyForm());
-      setItems([{ pid: "", qty: 1, price: 0 }]);
+      setItems([]);
       fetchAll();
     } else showToast((d as any).message || "Xatolik", "error");
     setLoading(false);
@@ -209,24 +209,15 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
 
               <div className="form-group">
                 <label className="form-label">MAHSULOTLAR</label>
+                {items.length === 0 && <div style={{ border: "1.5px dashed var(--app-border)", borderRadius: 10, padding: 14, color: "var(--app-muted)", fontSize: 12, textAlign: "center", marginBottom: 10 }}><ScanLine size={18} style={{ verticalAlign: "middle", marginRight: 7 }} />Yuqoridan shtrix-kodni skanerlang yoki nomi/kodini qidiring</div>}
                 {items.map((item, i) => {
                   const prod = availableProducts.find((p) => p.id === item.pid);
-                  const optionProducts = prod && !filteredProducts.some((product) => product.id === prod.id) ? [prod, ...filteredProducts] : filteredProducts;
                   return (
                     <div key={i} style={{ background: "var(--app-panel-soft)", borderRadius: 12, padding: 12, marginBottom: 10 }}>
                       <div className="order-item-fields" style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: prod ? 8 : 0 }}>
-                        <select className="crm-input" value={item.pid} onChange={(e) => {
-                          const n = [...items];
-                          const p = availableProducts.find((x) => x.id === e.target.value);
-                          n[i].pid = e.target.value;
-                          n[i].price = p?.pricePerUnit || 0;
-                          setItems(n);
-                        }}>
-                          <option value="">Mahsulot</option>
-                          {optionProducts.map((p) => <option key={p.id} value={p.id}>{p.name}{p.qrCode ? ` · ${p.qrCode}` : ""}</option>)}
-                        </select>
-                        <input className="crm-input" type="number" value={item.qty} min={1} placeholder="Son" onChange={(e) => { const n = [...items]; n[i].qty = parseFloat(e.target.value) || 1; setItems(n); }} />
-                        <input className="crm-input" type="number" value={item.price || ""} placeholder="Narx" onChange={(e) => { const n = [...items]; n[i].price = parseFloat(e.target.value) || 0; setItems(n); }} />
+                        <div className="crm-input" style={{ minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}><strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{prod?.name || "Mahsulot topilmadi"}</strong>{prod?.qrCode && <small style={{ color: "var(--app-muted)" }}>{prod.qrCode}</small>}</div>
+                        <input className="crm-input" aria-label="Miqdor" title="Miqdor" type="number" value={item.qty} min={1} placeholder="Son" onChange={(e) => { const n = [...items]; n[i].qty = parseFloat(e.target.value) || 1; setItems(n); }} />
+                        <input className="crm-input" aria-label="Birlik narxi" title="1 dona narxi" type="number" value={item.price || ""} placeholder="1 dona narxi" onChange={(e) => { const n = [...items]; n[i].price = parseFloat(e.target.value) || 0; setItems(n); }} />
                         <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} style={{ background: "rgba(248,81,73,.1)", border: "1.5px solid rgba(248,81,73,.25)", color: "#f85149", borderRadius: 9, cursor: "pointer", fontWeight: 900, fontSize: 16 }}>×</button>
                       </div>
                       {prod && item.price > 0 && (
@@ -237,9 +228,6 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                     </div>
                   );
                 })}
-                <button onClick={() => setItems([...items, { pid: "", qty: 1, price: 0 }])} style={{ width: "100%", padding: "9px", borderRadius: 10, border: "1.5px dashed rgba(115,103,240,.4)", background: "rgba(115,103,240,.05)", color: "#7367f0", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}>
-                  + Mahsulot
-                </button>
                 <button type="button" className="order-new-product-button" onClick={() => setNewProductOpen((open) => !open)}><PackagePlus size={17} /> Yangi mahsulot kelganmi? Shu yerda qo'shing</button>
               </div>
 
