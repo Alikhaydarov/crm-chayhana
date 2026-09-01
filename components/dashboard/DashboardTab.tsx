@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { AlertTriangle, ArrowRight, ArrowUpRight, Boxes, Building2, CircleDollarSign, Clock3, PackageSearch, ReceiptText, TrendingUp, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, Boxes, CircleDollarSign, Clock3, PackageSearch, ReceiptText, TrendingUp, Users, Warehouse } from "lucide-react";
 import { PageWrap } from "@/components/ui";
 import { BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
 import { fmtD, fmtM } from "@/lib/utils";
@@ -34,7 +34,7 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, account
     { label: "Asosiy sklad", value: fmtM(Number(reports?.mainStockValue) || 0), detail: `${reports?.totalProducts || products.length} turdagi mahsulot`, Icon: CircleDollarSign, tone: "green" },
     { label: "Kutilayotgan transfer", value: String(pendingTransfers.length), detail: `${visibleTransfers.length} ta jami transfer`, Icon: Clock3, tone: pendingTransfers.length ? "amber" : "blue" },
     { label: "Firma qarzi", value: fmtM(totalDebt), detail: `${unpaidOrders.length} ta yopilmagan order`, Icon: ReceiptText, tone: totalDebt ? "red" : "green" },
-    { label: "Faol foydalanuvchi", value: String(activeAccounts.length), detail: `${branches.filter((branch) => branch.is_active !== false).length} ta faol filial`, Icon: Users, tone: "blue" },
+    { label: "Faol foydalanuvchi", value: String(activeAccounts.length), detail: `${1 + (reports?.branchStats?.length || 0)} ta sklad`, Icon: Users, tone: "blue" },
   ] : [
     { label: "Sklad qiymati", value: fmtM(Number(branchReport?.stockValue) || 0), detail: `${products.length} turdagi mahsulot`, Icon: CircleDollarSign, tone: "green" },
     { label: "Transferlar", value: String(visibleTransfers.length), detail: `${pendingTransfers.length} ta kutilmoqda`, Icon: TrendingUp, tone: "blue" },
@@ -42,7 +42,10 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, account
     isShop ? { label: "Tasdiqlangan", value: String(visibleTransfers.filter((transfer: any) => transfer.status === "approved" || transfer.status === "received").length), detail: "Qabul qilingan transfer", Icon: Boxes, tone: "green" } : { label: "Firma qarzi", value: fmtM(totalDebt), detail: `${unpaidOrders.length} ta order`, Icon: ReceiptText, tone: totalDebt ? "red" : "green" },
   ];
 
-  const activeBranches = branches.filter((branch) => branch.is_active !== false);
+  const warehouses = [
+    { key: "main", name: "Asosiy sklad", location: "Markaziy ombor", stockValue: Number(reports?.mainStockValue || 0), lowStockCount: Number(reports?.mainLowStockCount || 0), productCount: Number(reports?.mainProductCount || reports?.totalProducts || 0) },
+    ...(reports?.branchStats || []).map((report: any) => ({ key: report.branch, name: `${BRANCH_NAMES[report.branch] || report.branch} skladi`, location: report.branch === "shop" ? "Do‘kon ombori" : "Oshxona ombori", stockValue: Number(report.stockValue || 0), lowStockCount: Number(report.lowStockCount || 0), productCount: Number(report.productCount || 0) })),
+  ];
   const attentionItems = [
     ...(pendingTransfers.length ? [{ label: "Tasdiq kutayotgan transferlar", value: `${pendingTransfers.length} ta`, tone: "amber", action: () => setTab("transfers") }] : []),
     ...(totalDebt > 0 ? [{ label: "Yopilmagan firma qarzi", value: fmtM(totalDebt), tone: "red", action: () => setTab("orders") }] : []),
@@ -52,13 +55,10 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, account
   return <PageWrap title="Boshqaruv paneli" sub={`${user.branchName} · ${today}`} action={isShop ? <button className="btn-primary" onClick={() => setTab("analysis")}><TrendingUp size={16} /> Savdo tahlili</button> : undefined}>
     <div className="dashboard-metrics">{metrics.map((metric) => <MetricCard key={metric.label} metric={metric} />)}</div>
 
-    {isSuperAdmin && <section className="dashboard-section"><div className="dashboard-section-head"><div><h2><Building2 size={18} /> Filiallar</h2><p>Filiallar bo‘yicha sklad va foydalanuvchilar holati</p></div><span className="dashboard-count">{activeBranches.length} ta</span></div><div className="dashboard-branch-grid">
-      {activeBranches.map((branch) => {
-        const report = reports?.branchStats?.find((item: any) => item.branch === branch.slug);
-        const branchAccounts = accounts.filter((account) => account.branchSlug === branch.slug);
-        const lowCount = Number(report?.lowStockCount || 0);
-        const clickable = branch.branch_type === "shop";
-        return <button key={branch.id} type="button" className="dashboard-branch-card" onClick={() => clickable && openBranchAnalysis(branch.slug)} disabled={!clickable}><div className="dashboard-branch-top"><div className="dashboard-branch-mark">{branch.name.slice(0, 1).toUpperCase()}</div><div><strong>{branch.name}</strong><span>{branch.branch_type === "shop" ? "Do‘kon" : "Restoran"} · {branchAccounts.length} account</span></div>{clickable && <ArrowUpRight size={17} />}</div><div className="dashboard-branch-data"><div><span>Sklad qiymati</span><strong>{fmtM(Number(report?.stockValue) || 0)}</strong></div><div><span>Kam qolgan</span><strong className={lowCount ? "is-danger" : "is-success"}>{lowCount} ta</strong></div></div><div className="dashboard-branch-foot"><span><i className={branchAccounts.some((account) => account.active !== false) ? "online" : "offline"} />{branchAccounts.filter((account) => account.active !== false).length} faol</span><span>{branch.warehouse?.name || "Filial skladi"}</span></div></button>;
+    {isSuperAdmin && <section className="dashboard-section"><div className="dashboard-section-head"><div><h2><Warehouse size={18} /> Skladlar</h2><p>Markaziy va bo‘lim skladlarining joriy holati</p></div><span className="dashboard-count">{warehouses.length} ta</span></div><div className="dashboard-branch-grid">
+      {warehouses.map((warehouse) => {
+        const clickable = warehouse.key === "main" || warehouse.key === "shop";
+        return <button key={warehouse.key} type="button" className="dashboard-branch-card" onClick={() => warehouse.key === "shop" ? openBranchAnalysis("shop") : warehouse.key === "main" ? setTab("warehouse") : undefined} disabled={!clickable}><div className="dashboard-branch-top"><div className="dashboard-branch-mark"><Warehouse size={18} /></div><div><strong>{warehouse.name}</strong><span>{warehouse.location}</span></div></div><div className="dashboard-branch-data"><div><span>Sklad qiymati</span><strong>{fmtM(warehouse.stockValue)}</strong></div><div><span>Kam qolgan</span><strong className={warehouse.lowStockCount ? "is-danger" : "is-success"}>{warehouse.lowStockCount} ta</strong></div></div><div className="dashboard-branch-foot"><span><i className={warehouse.productCount > 0 ? "online" : "offline"} />{warehouse.productCount} tur mahsulot</span><span>{warehouse.stockValue > 0 ? "Faol" : "Bo‘sh"}</span></div></button>;
       })}
     </div></section>}
 

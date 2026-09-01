@@ -251,6 +251,19 @@ async function snapshot(user: AppUser) {
       ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
       : `?select=*&company_id=in.(${companyIds.join(",")})&order=created_at.desc&limit=${MAX_LIST_ROWS}`);
 
+  const warehouseStocks = user.role === "superadmin"
+    ? Object.fromEntries(await Promise.all((["restaurant1", "restaurant2", "shop"] as Role[]).map(async (branch) => [branch, branch === "shop" ? shopStock : await stock(branch)])))
+    : { [user.role]: mainStock };
+  const stockSummary = (stockMap: Record<string, number>) => {
+    const entries = Object.entries(stockMap);
+    return {
+      stockValue: entries.reduce((sum, [productId, quantity]) => sum + quantity * Number(productList.find((product) => product.id === productId)?.pricePerUnit || 0), 0),
+      lowStockCount: entries.filter(([productId, quantity]) => quantity <= Number(productList.find((product) => product.id === productId)?.minStock || 0)).length,
+      productCount: entries.filter(([, quantity]) => quantity > 0).length,
+    };
+  };
+  const mainSummary = stockSummary(mainStock);
+
   return {
     products: productList,
     stock: mainStock,
@@ -273,10 +286,12 @@ async function snapshot(user: AppUser) {
     })),
     reports: {
       totalProducts: productList.length,
+      mainStockValue: mainSummary.stockValue,
+      mainLowStockCount: mainSummary.lowStockCount,
+      mainProductCount: mainSummary.productCount,
       branchStats: (["restaurant1", "restaurant2", "shop"] as Role[]).map((branch) => ({
         branch,
-        stockValue: 0,
-        lowStockCount: 0,
+        ...stockSummary(warehouseStocks[branch] || {}),
       })),
     },
     companies: companies.map((c) => ({ id: c.id, name: c.name, address: c.address || "", phone: c.phone || "", createdAt: c.created_at })),
