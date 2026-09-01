@@ -1,6 +1,6 @@
 "use client";
-import { useRef, useState } from "react";
-import { Camera, CheckCircle2, Package, Save, ScanLine, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Camera, CheckCircle2, Package, Search, Save, ScanLine, Trash2, X } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { DeleteProductDialog, ProductDialog } from "@/components/ui/product-dialog";
 import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
@@ -21,6 +21,9 @@ type Props = {
 export function ProductsTab({ products, stock, companies, fetchAll, showToast, t }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
+  const [searchCameraOpen, setSearchCameraOpen] = useState(false);
   const [scannerReady, setScannerReady] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [editCameraOpen, setEditCameraOpen] = useState(false);
@@ -153,7 +156,24 @@ const submit = async () => {
     showToast("Shtrix-kod qabul qilindi");
   };
 
-  const filtered = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+  const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean))).sort(), [products]);
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return products.filter((product) => {
+      const company = companies.find((item) => item.id === product.supplierId);
+      const haystack = `${product.name} ${product.qrCode || ""} ${product.category} ${product.unit} ${company?.name || ""}`.toLocaleLowerCase();
+      const quantity = Number(stock[product.id] || 0);
+      const matchesStock = stockFilter === "all" || (stockFilter === "available" && quantity > 0) || (stockFilter === "low" && quantity > 0 && quantity <= Number(product.minStock || 0)) || (stockFilter === "out" && quantity <= 0);
+      return (!query || haystack.includes(query)) && (categoryFilter === "all" || product.category === categoryFilter) && matchesStock;
+    }).sort((a, b) => {
+      const aExact = a.qrCode?.trim().toLocaleLowerCase() === query || a.name.trim().toLocaleLowerCase() === query;
+      const bExact = b.qrCode?.trim().toLocaleLowerCase() === query || b.name.trim().toLocaleLowerCase() === query;
+      return Number(bExact) - Number(aExact) || a.name.localeCompare(b.name);
+    });
+  }, [products, companies, stock, search, categoryFilter, stockFilter]);
+  const hasFilters = Boolean(search.trim() || categoryFilter !== "all" || stockFilter !== "all");
+  const findExactProduct = (value: string) => products.find((product) => product.qrCode?.trim() === value.trim()) || products.find((product) => product.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase());
+  const clearFilters = () => { setSearch(""); setCategoryFilter("all"); setStockFilter("all"); };
 
   return (
     <PageWrap
@@ -279,9 +299,15 @@ const submit = async () => {
       </ProductDialog>
       <DeleteProductDialog open={deleteOpen} onOpenChange={setDeleteOpen} productName={selectedProduct?.name || ""} loading={deleting} onConfirm={removeProduct} />
 
-      <div style={{ marginBottom: 16, maxWidth: 320 }}>
-        <input className="crm-input" placeholder="🔍 Mahsulot qidirish..." value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
+      <section className="product-search-panel">
+        <div className="product-search-input"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { const product = findExactProduct(search); if (product) openProduct(product); } }} placeholder="Nomi, shtrix-kodi yoki firma..." autoComplete="off" />{search && <button type="button" onClick={() => setSearch("")} aria-label="Qidiruvni tozalash"><X size={15} /></button>}</div>
+        <select className="crm-input product-filter-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="Kategoriya filtri"><option value="all">Barcha kategoriyalar</option>{categories.map((category) => <option key={category} value={category}>{category}</option>)}</select>
+        <select className="crm-input product-filter-select" value={stockFilter} onChange={(event) => setStockFilter(event.target.value)} aria-label="Sklad holati filtri"><option value="all">Barcha qoldiqlar</option><option value="available">Skladda mavjud</option><option value="low">Kam qolgan</option><option value="out">Tugagan</option></select>
+        <button type="button" className="btn-primary product-search-scan" onClick={() => setSearchCameraOpen(true)}><Camera size={17} /><span>Shtrix-kod</span></button>
+        {hasFilters && <button type="button" className="btn-ghost product-search-clear" onClick={clearFilters} title="Barcha filtrlarni tozalash"><X size={16} /></button>}
+      </section>
+      <div className="product-search-meta"><span><strong>{filtered.length}</strong> ta natija</span>{search.trim() && <span>“{search.trim()}” bo‘yicha</span>}</div>
+      <CameraCodeScanner open={searchCameraOpen} onClose={() => setSearchCameraOpen(false)} onDetected={(code) => { setSearchCameraOpen(false); setSearch(code); const product = findExactProduct(code); if (product) { openProduct(product); showToast(`${product.name} topildi`); } else showToast("Bu shtrix-kod bo'yicha mahsulot topilmadi", "error"); }} />
 
       <div className="table-wrap">
         <table className="crm-table">
