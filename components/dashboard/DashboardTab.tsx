@@ -1,220 +1,73 @@
 "use client";
-import {
-  AlertTriangle, ArrowLeftRight, Boxes, Building2, CircleDollarSign,
-  Clock3, PackageSearch, ReceiptText, TrendingUp, Users,
-} from "lucide-react";
+
+import type { ComponentType } from "react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, Boxes, Building2, CircleDollarSign, Clock3, PackageSearch, ReceiptText, TrendingUp, Users } from "lucide-react";
 import { PageWrap } from "@/components/ui";
-import { BRANCH_ICONS, BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
-import { fmtM, fmtD } from "@/lib/utils";
-import type { UserInfo, TabId } from "@/types";
+import { BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
+import { fmtD, fmtM } from "@/lib/utils";
+import type { Product, StockMap, TabId, UserInfo } from "@/types";
 import type { Account, Branch, Order, ReportSummary } from "@/types/domain";
 
-type Props = {
-  reports: ReportSummary | null;
-  user: UserInfo;
-  setTab: (tab: TabId) => void;
-  transfers: any[];
-  orders: Order[];
-  companies: any[];
-  accounts: Account[];
-  branches: Branch[];
-  openBranchAnalysis: (branchSlug: string) => void;
-  t: Record<string, string>;
-};
+type Props = { reports: ReportSummary | null; user: UserInfo; setTab: (tab: TabId) => void; transfers: any[]; orders: Order[]; companies: any[]; accounts: Account[]; branches: Branch[]; products: Product[]; stock: StockMap; openBranchAnalysis: (branchSlug: string) => void; t: Record<string, string> };
+type Metric = { label: string; value: string; detail: string; Icon: ComponentType<{ size?: number }>; tone: "green" | "blue" | "amber" | "red" };
 
-export function DashboardTab({ reports, user, setTab, transfers, orders, companies, accounts, branches, openBranchAnalysis, t }: Props) {
-  const isSA = user.role === "superadmin";
+function MetricCard({ metric }: { metric: Metric }) {
+  return <section className="dashboard-metric"><div className={`dashboard-metric-icon tone-${metric.tone}`}><metric.Icon size={18} /></div><div className="dashboard-metric-copy"><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small></div></section>;
+}
+
+export function DashboardTab({ reports, user, setTab, transfers, orders, accounts, branches, products, stock, openBranchAnalysis }: Props) {
+  const isSuperAdmin = user.role === "superadmin";
   const currentBranch = branches.find((branch) => branch.slug === user.branchSlug);
-  const isShop =
-    user.role === "shop" ||
-    user.branchType === "shop" ||
-    currentBranch?.branch_type === "shop" ||
-    /shop|dokon|do-kon|do'kon/i.test(`${user.branchSlug || ""} ${user.branchName || ""}`);
-  const branchReport = reports?.branchStats?.find((b: any) => b.branch === (user.branchSlug || user.role));
-  const visibleTransfers = isSA
-    ? transfers
-    : transfers.filter((transfer: any) => transfer.toBranch === (user.branchSlug || user.role));
-  const visibleOrders = isSA ? orders : isShop ? [] : orders;
-  const totalDebt = visibleOrders.reduce((s: number, o: Order) => s + (o.totalPrice - o.paidAmount), 0);
-  const today = new Date().toLocaleDateString("uz-UZ", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
+  const isShop = user.role === "shop" || user.branchType === "shop" || currentBranch?.branch_type === "shop";
+  const branchKey = user.branchSlug || user.role;
+  const branchReport = reports?.branchStats?.find((report: any) => report.branch === branchKey);
+  const visibleTransfers = isSuperAdmin ? transfers : transfers.filter((transfer: any) => transfer.toBranch === branchKey);
+  const visibleOrders = isSuperAdmin ? orders : isShop ? [] : orders;
+  const pendingTransfers = visibleTransfers.filter((transfer: any) => transfer.status === "pending");
+  const totalDebt = visibleOrders.reduce((sum, order) => sum + Math.max(0, Number(order.totalPrice) - Number(order.paidAmount)), 0);
+  const unpaidOrders = visibleOrders.filter((order) => Number(order.totalPrice) > Number(order.paidAmount));
+  const lowStockProducts = products.filter((product) => Number(stock[product.id] || 0) <= Number(product.minStock || 0));
+  const activeAccounts = accounts.filter((account) => account.active !== false);
+  const today = new Date().toLocaleDateString("uz-UZ", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-  const stats = isSA
-    ? [
-        { l: "Sklad qiymati", v: fmtM(Number(reports?.mainStockValue) || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", Icon: CircleDollarSign },
-        { l: "Mahsulot turlari", v: String(reports?.totalProducts || 0), c: "#7367f0", bg: "rgba(115,103,240,.08)", Icon: Boxes },
-        { l: "Jami foydalanuvchilar", v: String(accounts.filter(account => account.active !== false).length), c: "#3b82f6", bg: "rgba(59,130,246,.08)", Icon: Users },
-        { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: totalDebt > 0 ? "rgba(248,81,73,.08)" : "rgba(63,185,80,.08)", Icon: ReceiptText },
-      ]
-    : [
-        { l: "Skladim", v: fmtM(branchReport?.stockValue || 0), c: "#3fb950", bg: "rgba(63,185,80,.08)", Icon: CircleDollarSign },
-        { l: "So'rovlarim", v: String(visibleTransfers.length), c: "#7367f0", bg: "rgba(115,103,240,.08)", Icon: ArrowLeftRight },
-        { l: "Kutilayotgan", v: String(visibleTransfers.filter((tr: any) => tr.status === "pending").length), c: "#f0a500", bg: "rgba(240,165,0,.08)", Icon: Clock3 },
-        isShop
-          ? { l: "Kam qolgan", v: String(branchReport?.lowStockCount || 0), c: "#f85149", bg: "rgba(248,81,73,.08)", Icon: AlertTriangle }
-          : { l: "Order qarzi", v: fmtM(totalDebt), c: totalDebt > 0 ? "#f85149" : "#3fb950", bg: "rgba(248,81,73,.08)", Icon: ReceiptText },
-      ];
+  const metrics: Metric[] = isSuperAdmin ? [
+    { label: "Asosiy sklad", value: fmtM(Number(reports?.mainStockValue) || 0), detail: `${reports?.totalProducts || products.length} turdagi mahsulot`, Icon: CircleDollarSign, tone: "green" },
+    { label: "Kutilayotgan transfer", value: String(pendingTransfers.length), detail: `${visibleTransfers.length} ta jami transfer`, Icon: Clock3, tone: pendingTransfers.length ? "amber" : "blue" },
+    { label: "Firma qarzi", value: fmtM(totalDebt), detail: `${unpaidOrders.length} ta yopilmagan order`, Icon: ReceiptText, tone: totalDebt ? "red" : "green" },
+    { label: "Faol foydalanuvchi", value: String(activeAccounts.length), detail: `${branches.filter((branch) => branch.is_active !== false).length} ta faol filial`, Icon: Users, tone: "blue" },
+  ] : [
+    { label: "Sklad qiymati", value: fmtM(Number(branchReport?.stockValue) || 0), detail: `${products.length} turdagi mahsulot`, Icon: CircleDollarSign, tone: "green" },
+    { label: "Transferlar", value: String(visibleTransfers.length), detail: `${pendingTransfers.length} ta kutilmoqda`, Icon: TrendingUp, tone: "blue" },
+    { label: "Kam qolgan", value: String(branchReport?.lowStockCount || lowStockProducts.length), detail: "Nazorat talab qilinadi", Icon: AlertTriangle, tone: (branchReport?.lowStockCount || lowStockProducts.length) ? "red" : "green" },
+    isShop ? { label: "Tasdiqlangan", value: String(visibleTransfers.filter((transfer: any) => transfer.status === "approved" || transfer.status === "received").length), detail: "Qabul qilingan transfer", Icon: Boxes, tone: "green" } : { label: "Firma qarzi", value: fmtM(totalDebt), detail: `${unpaidOrders.length} ta order`, Icon: ReceiptText, tone: totalDebt ? "red" : "green" },
+  ];
 
-  const accountBranches = branches
-    .filter(branch => branch.is_active !== false)
-    .map(branch => ({
-      name: branch.name,
-      icon: branch.branch_type === "shop" ? "🏪" : "🍽️",
-      role: branch.slug,
-      branchType: branch.branch_type,
-      warehouseName: branch.warehouse?.name,
-      accounts: accounts.filter(account => account.branchSlug === branch.slug),
-    }));
+  const activeBranches = branches.filter((branch) => branch.is_active !== false);
+  const attentionItems = [
+    ...(pendingTransfers.length ? [{ label: "Tasdiq kutayotgan transferlar", value: `${pendingTransfers.length} ta`, tone: "amber", action: () => setTab("transfers") }] : []),
+    ...(totalDebt > 0 ? [{ label: "Yopilmagan firma qarzi", value: fmtM(totalDebt), tone: "red", action: () => setTab("orders") }] : []),
+    ...(lowStockProducts.length ? [{ label: "Asosiy skladda kam qolgan", value: `${lowStockProducts.length} ta`, tone: "red", action: () => setTab("warehouse") }] : []),
+  ];
 
-  return (
-    <PageWrap
-      title={`${user.branchIcon} ${user.branchName}`}
-      sub={today}
-      action={
-        user.role === "shop" ? (
-          <button className="btn-primary" onClick={() => setTab("analysis")}>
-            <TrendingUp size={16} /> Savdo tahlili
-          </button>
-        ) : undefined
-      }
-    >
-      {/* Stats */}
-      <div className="stat-row" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 28 }}>
-        {stats.map((s, i) => (
-          <div
-            key={i}
-            className="stat-card fade-up"
-            style={{ animationDelay: `${i * 60}ms`, borderTop: `3px solid ${s.c}`, background: `linear-gradient(160deg,${s.bg},var(--app-panel))` }}
-          >
-            <div className="stat-icon" style={{ color: s.c, background: `${s.c}18` }}><s.Icon size={21} /></div>
-            <div style={{ color: "var(--app-muted)", fontSize: 11, fontWeight: 700, marginBottom: 6, letterSpacing: 0.3 }}>{s.l}</div>
-            <div style={{ fontWeight: 900, fontSize: s.v.length > 10 ? 16 : 20, color: s.c, letterSpacing: -0.3 }}>{s.v}</div>
-          </div>
-        ))}
-      </div>
+  return <PageWrap title="Boshqaruv paneli" sub={`${user.branchName} · ${today}`} action={isShop ? <button className="btn-primary" onClick={() => setTab("analysis")}><TrendingUp size={16} /> Savdo tahlili</button> : undefined}>
+    <div className="dashboard-metrics">{metrics.map((metric) => <MetricCard key={metric.label} metric={metric} />)}</div>
 
-      {/* Filiallar — faqat superadmin ko'radi, Django userlaridan quriladi */}
-      {isSA && (
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-            <Building2 size={18} /> Filiallar <span style={{ color: "var(--app-muted)", fontWeight: 500, fontSize: 13 }}>foydalanuvchilari</span>
-          </div>
-          <div className="branch-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-            {accountBranches.map((branch, i) => {
-              const branchStat = reports?.branchStats?.find((b: any) => b.branch === branch.role);
-              const isShop = branch.branchType === "shop";
+    {isSuperAdmin && <section className="dashboard-section"><div className="dashboard-section-head"><div><h2><Building2 size={18} /> Filiallar</h2><p>Filiallar bo‘yicha sklad va foydalanuvchilar holati</p></div><span className="dashboard-count">{activeBranches.length} ta</span></div><div className="dashboard-branch-grid">
+      {activeBranches.map((branch) => {
+        const report = reports?.branchStats?.find((item: any) => item.branch === branch.slug);
+        const branchAccounts = accounts.filter((account) => account.branchSlug === branch.slug);
+        const lowCount = Number(report?.lowStockCount || 0);
+        const clickable = branch.branch_type === "shop";
+        return <button key={branch.id} type="button" className="dashboard-branch-card" onClick={() => clickable && openBranchAnalysis(branch.slug)} disabled={!clickable}><div className="dashboard-branch-top"><div className="dashboard-branch-mark">{branch.name.slice(0, 1).toUpperCase()}</div><div><strong>{branch.name}</strong><span>{branch.branch_type === "shop" ? "Do‘kon" : "Restoran"} · {branchAccounts.length} account</span></div>{clickable && <ArrowUpRight size={17} />}</div><div className="dashboard-branch-data"><div><span>Sklad qiymati</span><strong>{fmtM(Number(report?.stockValue) || 0)}</strong></div><div><span>Kam qolgan</span><strong className={lowCount ? "is-danger" : "is-success"}>{lowCount} ta</strong></div></div><div className="dashboard-branch-foot"><span><i className={branchAccounts.some((account) => account.active !== false) ? "online" : "offline"} />{branchAccounts.filter((account) => account.active !== false).length} faol</span><span>{branch.warehouse?.name || "Filial skladi"}</span></div></button>;
+      })}
+    </div></section>}
 
-              return (
-                <div
-                  key={`${branch.role}:${branch.name}`}
-                  className="fade-up"
-                  onClick={() => isShop && openBranchAnalysis(branch.role)}
-                  style={{
-                    animationDelay: `${i * 80}ms`,
-                    background: "var(--app-panel)",
-                    border: "1px solid var(--app-border)",
-                    borderRadius: 12, padding: 18,
-                    transition: "all .2s",
-                    cursor: isShop ? "pointer" : "default",
-                  }}
-                  onMouseEnter={e => { if (isShop) { e.currentTarget.style.borderColor = "rgba(115,103,240,.4)"; e.currentTarget.style.boxShadow = "0 8px 24px var(--app-shadow)"; } }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--app-border)"; e.currentTarget.style.boxShadow = "none"; }}
-                >
-                  {/* Branch header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: "rgba(115,103,240,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-                      {branch.icon}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, fontSize: 14 }}>{branch.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--app-muted)" }}>
-                        {branch.warehouseName || `${branch.accounts.length} ta account`}
-                      </div>
-                    </div>
-                    {isShop && <span style={{ fontSize: 11, color: "var(--app-primary)", fontWeight: 700 }}>→</span>}
-                  </div>
-
-                  {/* Sklad va kam qoldi */}
-                  {branchStat && (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-                      <div style={{ background: "var(--app-panel-soft)", borderRadius: 10, padding: "9px 11px" }}>
-                        <div style={{ fontSize: 10, color: "var(--app-muted)", marginBottom: 4, fontWeight: 700 }}>SKLAD</div>
-                        <div style={{ fontWeight: 900, color: "#3fb950", fontSize: 13 }}>{fmtM(branchStat.stockValue)}</div>
-                      </div>
-                      <div style={{ background: "var(--app-panel-soft)", borderRadius: 10, padding: "9px 11px" }}>
-                        <div style={{ fontSize: 10, color: "var(--app-muted)", marginBottom: 4, fontWeight: 700 }}>KAM QOLDI</div>
-                        <div style={{ fontWeight: 900, color: branchStat.lowStockCount > 0 ? "#f85149" : "#3fb950", fontSize: 13 }}>
-                          {branchStat.lowStockCount} ta
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Django userlar ro'yxati */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {branch.accounts.map(u => (
-                      <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: "var(--app-panel-soft)", borderRadius: 8 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg,#7367f0,#9985f5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, color: "#fff", flexShrink: 0 }}>
-                          {u.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.name}</div>
-                          <div style={{ fontSize: 10, color: "var(--app-muted)", marginTop: 1 }}>{u.role}</div>
-                        </div>
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: u.active ? "#3fb950" : "#f85149", flexShrink: 0 }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Recent transfers */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><ArrowLeftRight size={18} /> Oxirgi transferlar</div>
-        <button
-          className="btn-icon"
-          onClick={() => setTab("transfers")}
-          style={{ color: "#7367f0", background: "rgba(115,103,240,.1)", borderColor: "rgba(115,103,240,.2)" }}
-        >
-          Barchasi →
-        </button>
-      </div>
-      <div className="table-wrap">
-        <table className="crm-table">
-          <thead>
-            <tr>
-              <th>ID</th><th>Filial</th><th>Qiymat</th><th>Status</th>
-              <th className="hide-mobile">Sana</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleTransfers.slice(0, 6).map((tr: any) => {
-              const st = TRANSFER_STATUS_CONFIG[tr.status as keyof typeof TRANSFER_STATUS_CONFIG];
-              return (
-                <tr key={tr.id}>
-                  <td>
-                    <span style={{ fontFamily: "monospace", fontSize: 11, color: "#7367f0", background: "rgba(115,103,240,.08)", padding: "2px 8px", borderRadius: 6 }}>
-                      {tr.id.slice(-8)}
-                    </span>
-                  </td>
-                  <td>{BRANCH_ICONS[tr.toBranch] || "🏢"} {tr.branchName || tr.toBranchName || BRANCH_NAMES[tr.toBranch] || tr.toBranch}</td>
-                  <td style={{ color: "#3fb950", fontWeight: 800 }}>{fmtM(tr.totalValue)}</td>
-                  <td><span className="badge" style={{ background: st.bg, color: st.c }}>{st.i} {st.l}</span></td>
-                  <td className="hide-mobile" style={{ fontSize: 11, color: "var(--app-muted)" }}>{fmtD(tr.createdAt)}</td>
-                </tr>
-              );
-            })}
-            {visibleTransfers.length === 0 && (
-              <tr><td colSpan={5}><div className="table-empty"><PackageSearch size={22} /> Transfer yo'q</div></td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </PageWrap>
-  );
+    <div className="dashboard-bottom-grid"><section className="dashboard-section dashboard-activity"><div className="dashboard-section-head"><div><h2><TrendingUp size={18} /> Oxirgi transferlar</h2><p>Eng so‘nggi sklad harakatlari</p></div><button className="dashboard-text-button" onClick={() => setTab("transfers")}>Barchasi <ArrowRight size={15} /></button></div><div className="dashboard-transfer-list">
+      {visibleTransfers.slice(0, 6).map((transfer: any) => { const status = TRANSFER_STATUS_CONFIG[transfer.status as keyof typeof TRANSFER_STATUS_CONFIG]; return <button key={transfer.id} type="button" className="dashboard-transfer-row" onClick={() => setTab("transfers")}><div className="dashboard-transfer-icon"><Boxes size={17} /></div><div className="dashboard-transfer-main"><strong>{transfer.branchName || transfer.toBranchName || BRANCH_NAMES[transfer.toBranch] || transfer.toBranch}</strong><span>#{String(transfer.id).slice(-8)} · {fmtD(transfer.createdAt)}</span></div><div className="dashboard-transfer-value"><strong>{fmtM(Number(transfer.totalValue) || 0)}</strong><span style={{ color: status?.c }}>{status?.l || transfer.status}</span></div></button>; })}
+      {!visibleTransfers.length && <div className="dashboard-empty"><PackageSearch size={24} /><strong>Transferlar yo‘q</strong><span>Yangi harakatlar shu yerda ko‘rinadi</span></div>}
+    </div></section><aside className="dashboard-section dashboard-attention"><div className="dashboard-section-head"><div><h2><AlertTriangle size={18} /> E’tibor talab qiladi</h2><p>Tezkor nazorat ro‘yxati</p></div></div><div className="dashboard-attention-list">
+      {attentionItems.map((item) => <button key={item.label} type="button" onClick={item.action}><i className={`tone-${item.tone}`} /><span>{item.label}</span><strong>{item.value}</strong><ArrowRight size={15} /></button>)}
+      {!attentionItems.length && <div className="dashboard-all-good"><span>✓</span><strong>Hammasi joyida</strong><small>Hozircha muhim ogohlantirish yo‘q</small></div>}
+    </div></aside></div>
+  </PageWrap>;
 }
