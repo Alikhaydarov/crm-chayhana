@@ -1560,7 +1560,7 @@ body {
   .modal-title { font-size: 17px; margin-bottom: 14px; }
   .dashboard-metric { min-height: 96px; gap: 7px; padding: 11px; }
   .dashboard-metric-icon { width: 30px; height: 30px; }
-  .dashboard-metric-copy > strong { font-size: 18px; }
+  .dashboard-metric-copy > strong { overflow: visible; font-size: 16px; line-height: 1.2; text-overflow: clip; white-space: normal; }
   .dashboard-metric:nth-child(n) { border-right: 0; }
   .dashboard-metric:nth-child(odd) { border-right: 1px solid var(--app-border); }
   .dashboard-metric:nth-last-child(-n+2) { border-bottom: 0; }
