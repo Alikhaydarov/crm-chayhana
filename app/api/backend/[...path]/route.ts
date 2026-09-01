@@ -68,18 +68,18 @@ async function readBody(request: NextRequest) {
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("multipart/form-data")) return {};
   const text = await request.text();
-  if (Buffer.byteLength(text, "utf8") > 2 * 1024 * 1024) throw new Error("So'rov hajmi juda katta");
+  if (Buffer.byteLength(text, "utf8") > 4 * 1024 * 1024) throw new Error("So'rov hajmi juda katta");
   return text ? JSON.parse(text) : {};
 }
 
-async function readReceipt(request: NextRequest) {
+async function readOrderFile(request: NextRequest, field: "receipt") {
   const form = await request.formData();
-  const file = form.get("receipt") ?? form.get("files");
+  const file = form.get(field) ?? form.get("files");
   if (!(file instanceof File)) throw new Error("Chek fayli topilmadi");
-  if (!file.type.startsWith("image/") && file.type !== "application/pdf") throw new Error("Chek faqat rasm yoki PDF bo'lishi kerak");
-  if (file.size > 2 * 1024 * 1024) throw new Error("Chek 2 MB dan kichik bo'lishi kerak");
+  if (!file.type.startsWith("image/") && file.type !== "application/pdf") throw new Error("Fayl faqat rasm yoki PDF bo'lishi kerak");
+  if (file.size > 2 * 1024 * 1024) throw new Error("Fayl 2 MB dan kichik bo'lishi kerak");
   const dataUrl = `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`;
-  return { orderId: String(form.get("orderId") || ""), receipt: { name: file.name.slice(0, 180), type: file.type, dataUrl } };
+  return { orderId: String(form.get("orderId") || ""), file: { name: file.name.slice(0, 180), type: file.type, dataUrl } };
 }
 
 function encodeToken(user: AppUser, type: "access" | "refresh") {
@@ -188,6 +188,7 @@ function mapOrder(row: any) {
     payStatus: row.pay_status,
     note: row.note || "",
     receipt: row.receipt || undefined,
+    productDocument: row.items?.find?.((item: any) => item?.orderDocument)?.orderDocument || undefined,
     orderDate: row.order_date || "",
     createdAt: row.created_at,
   };
@@ -422,19 +423,20 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         return json({ success: false, message: "Firma topilmadi yoki ruxsat yo'q" }, 404);
       }
       const payStatus = body.payStatus === "paid" ? "paid" : "unpaid";
-      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: body.items || [], total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
+      const orderItems = Array.isArray(body.items) ? body.items.map((item: any, index: number) => index === 0 && body.productDocument ? { ...item, orderDocument: body.productDocument } : item) : [];
+      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
       return json(mapOrder(created), 201);
     }
     if (route === "orders/upload-receipt" && method === "POST") {
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
-      const upload = await readReceipt(request);
+      const upload = await readOrderFile(request, "receipt");
       if (upload.orderId) {
         const [order] = await sb<any[]>("orders", {}, `?select=id,branch&id=eq.${encodeURIComponent(upload.orderId)}&limit=1`);
         if (!order) return json({ success: false, message: "Order topilmadi" }, 404);
         if (user.role !== "superadmin" && order.branch !== user.role) return json({ success: false, message: "Ruxsat yo'q" }, 403);
-        await sb("orders", { method: "PATCH", body: JSON.stringify({ receipt: upload.receipt }) }, `?id=eq.${encodeURIComponent(upload.orderId)}`);
+        await sb("orders", { method: "PATCH", body: JSON.stringify({ receipt: upload.file }) }, `?id=eq.${encodeURIComponent(upload.orderId)}`);
       }
-      return json({ receipt: upload.receipt, receipts: [upload.receipt] }, 201);
+      return json({ receipt: upload.file, receipts: [upload.file] }, 201);
     }
     const orderPayments = route.match(/^orders\/([^/]+)\/payments$/);
     if (orderPayments && method === "POST") {

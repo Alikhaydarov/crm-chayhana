@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Camera, PackagePlus, Search, ScanLine } from "lucide-react";
+import { Camera, FileText, PackagePlus, Search, ScanLine } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
 import { addProductApi, createOrderApi } from "@/lib/api";
@@ -31,6 +31,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     payStatus: "unpaid" as "paid" | "unpaid",
     orderDate: todayValue(),
     receipt: null as OrderReceipt | null,
+    productDocument: null as OrderReceipt | null,
   });
   const [form, setForm] = useState(emptyForm);
   const [items, setItems] = useState([{ pid: "", qty: 1, price: 0 }]);
@@ -125,6 +126,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       paidAmount: form.payStatus === "paid" ? total : 0,
       orderDate: form.orderDate,
       receipt: form.receipt || undefined,
+      productDocument: form.productDocument || undefined,
     });
     if (d.success) {
       showToast("Order saqlandi ✅");
@@ -146,6 +148,16 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     const reader = new FileReader();
     reader.onload = () => setForm((cur) => ({ ...cur, receipt: { name: file.name, type: file.type, dataUrl: String(reader.result) } }));
     reader.onerror = () => showToast("Faylni o'qib bo'lmadi", "error");
+    reader.readAsDataURL(file);
+  };
+
+  const selectProductDocument = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") { showToast("Mahsulot hujjati faqat rasm yoki PDF bo'lishi mumkin", "error"); return; }
+    if (file.size > 2 * 1024 * 1024) { showToast("Mahsulot hujjati 2 MB dan kichik bo'lishi kerak", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm((current) => ({ ...current, productDocument: { name: file.name, type: file.type, dataUrl: String(reader.result) } }));
+    reader.onerror = () => showToast("Mahsulot hujjatini o'qib bo'lmadi", "error");
     reader.readAsDataURL(file);
   };
 
@@ -175,6 +187,12 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
               <div className="order-scan-first">
                 <div className="form-label"><ScanLine size={14} /> 2. MAHSULOTNI QIDIRISH YOKI SKANERLASH</div>
                 <div className="order-product-search"><Search size={17} /><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); selectFromSearch(); } }} placeholder="Nomi yoki shtrix-kodi" /><button type="button" className="btn-primary" onClick={() => setCameraOpen(true)}><Camera size={17} /> Shtrix-kod skanerlash</button></div>
+                {productSearch.trim() && (
+                  <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                    {filteredProducts.slice(0, 6).map((product) => <button type="button" key={product.id} className="btn-ghost" onClick={() => { addProductToOrder(product); setProductSearch(product.name); showToast(`${product.name} orderga qo'shildi`); }} style={{ justifyContent: "space-between", textAlign: "left" }}><span>{product.name}</span><small style={{ color: "var(--app-muted)" }}>{product.qrCode || "Shtrix-kodsiz"}</small></button>)}
+                    {filteredProducts.length === 0 && <div style={{ color: "var(--app-muted)", fontSize: 12, padding: "6px 2px" }}>Mahsulot topilmadi. Pastdagi yangi mahsulot tugmasi orqali qo'shing.</div>}
+                  </div>
+                )}
                 <CameraCodeScanner open={cameraOpen} onClose={() => setCameraOpen(false)} onDetected={handleScannedCode} />
               </div>
 
@@ -258,6 +276,16 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
               )}
 
               <div className="form-group">
+                <label className="form-label"><FileText size={14} /> MAHSULOT HUJJATI <span style={{ color: "var(--app-muted)", fontWeight: 500 }}>(ixtiyoriy)</span></label>
+                <input id="order-product-document" type="file" accept="image/*,application/pdf" onChange={(event) => selectProductDocument(event.target.files?.[0])} style={{ display: "none" }} />
+                <div style={{ display: "flex", gap: 8, alignItems: "stretch", flexWrap: "wrap" }}>
+                  <label htmlFor="order-product-document" className="btn-ghost" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 40 }}><FileText size={16} /> {form.productDocument ? "Hujjatni almashtirish" : "Rasm yoki PDF biriktirish"}</label>
+                  {form.productDocument && <><a href={form.productDocument.dataUrl} download={form.productDocument.name} className="btn-ghost" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.productDocument.name}</a><button type="button" className="btn-ghost" onClick={() => setForm({ ...form, productDocument: null })}>×</button></>}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--app-muted)", marginTop: 6 }}>Firma bergan nakladnoy, mahsulot rasmi yoki boshqa hujjat. Bu to'lov cheki emas.</div>
+              </div>
+
+              <div className="form-group">
                 <label className="form-label">ESLATMA</label>
                 <textarea className="crm-input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={2} style={{ resize: "vertical" }} />
               </div>
@@ -320,6 +348,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                     {o.receipt && (
                       <a href={o.receipt.dataUrl} download={o.receipt.name} style={{ display: "block", fontSize: 11, color: "#7367f0", fontWeight: 700, marginTop: 5, textDecoration: "none" }}>📎 Chek</a>
                     )}
+                    {o.productDocument && <a href={o.productDocument.dataUrl} download={o.productDocument.name} style={{ display: "block", fontSize: 11, color: "#2563eb", fontWeight: 700, marginTop: 5, textDecoration: "none" }}>📄 Mahsulot hujjati</a>}
                   </td>
                   <td className="hide-mobile" style={{ fontSize: 11, color: "var(--app-muted)" }}>{fmtDate(o.orderDate || o.createdAt)}</td>
                 </tr>
