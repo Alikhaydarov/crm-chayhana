@@ -313,7 +313,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       )}
 
       <div className="table-wrap">
-        <table className="crm-table">
+        <table className="crm-table mobile-card-table">
           <thead>
             <tr>
               <th>Order ID</th>
@@ -330,14 +330,14 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
               const debt = o.totalPrice - o.paidAmount;
               return (
                 <tr key={o.id}>
-                  <td><span style={{ fontFamily: "monospace", fontSize: 11, color: "#7367f0", background: "rgba(115,103,240,.08)", padding: "2px 8px", borderRadius: 6 }}>{o.id.slice(-8)}</span></td>
-                  <td style={{ fontWeight: 700 }}>🏢 {o.companyName}</td>
+                  <td data-label="Order ID" className="mobile-card-primary"><span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--app-primary)", background: "var(--app-primary-soft)", padding: "2px 8px", borderRadius: 6 }}>{o.id.slice(-8)}</span></td>
+                  <td data-label="Firma" style={{ fontWeight: 700 }}>{o.companyName}</td>
                   <td className="hide-mobile" style={{ color: "var(--app-muted)", fontSize: 12 }}>{o.items.length} ta</td>
-                  <td>
+                  <td data-label="Jami">
                     <div style={{ fontWeight: 900, color: "#3fb950" }}>{fmtM(o.totalPrice)}</div>
                     {debt > 0 && <div style={{ fontSize: 11, color: "#f85149" }}>Qarz: {fmtM(debt)}</div>}
                   </td>
-                  <td>
+                  <td data-label="To'lov">
                     <span className="badge" style={{ background: pay.bg, color: pay.c }}>{pay.l}</span>
                     {o.receipt && (
                       <a href={o.receipt.dataUrl} download={o.receipt.name} style={{ display: "block", fontSize: 11, color: "#7367f0", fontWeight: 700, marginTop: 5, textDecoration: "none" }}>📎 Chek</a>

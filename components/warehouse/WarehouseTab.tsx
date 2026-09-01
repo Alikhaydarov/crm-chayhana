@@ -94,14 +94,14 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
       <div style={{ marginBottom: 16, maxWidth: 320 }}>
         <input
           className="crm-input"
-          placeholder={`🔍 ${t.searchProduct}`}
+          placeholder={t.searchProduct}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
       <div className="table-wrap">
-        <table className="crm-table">
+        <table className="crm-table mobile-card-table">
           <thead>
             <tr>
               <th>#</th>
@@ -117,17 +117,17 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
             {filtered.map((p, i) => {
               const qty = visibleStock[p.id] || 0;
               const c = qtyColor(qty, p.minStock);
-              const badge = qty <= p.minStock ? "🔴 Kam" : qty <= p.minStock * 2 ? "🟡 O'rta" : "🟢 Yaxshi";
+              const badge = qty <= p.minStock ? "Kam" : qty <= p.minStock * 2 ? "O'rta" : "Yaxshi";
               return (
                 <tr key={p.id}>
-                  <td style={{ color: "var(--app-muted)", fontSize: 11, width: 36 }}>{i + 1}</td>
-                  <td style={{ fontWeight: 700 }}>{p.name}</td>
+                  <td className="mobile-card-index" style={{ color: "var(--app-muted)", fontSize: 11, width: 36 }}>{i + 1}</td>
+                  <td data-label="Mahsulot" className="mobile-card-primary" style={{ fontWeight: 700 }}>{p.name}</td>
                   <td className="hide-mobile" style={{ fontSize: 12, color: "var(--app-muted)" }}>{p.category}</td>
-                  <td style={{ color: "var(--app-muted)", fontSize: 12 }}>{p.unit}</td>
-                  <td><span style={{ fontWeight: 900, color: c, fontSize: 15 }}>{fmt(qty)}</span></td>
-                  <td><span className="badge" style={{ background: `${c}18`, color: c }}>{badge}</span></td>
+                  <td data-label="Birlik" style={{ color: "var(--app-muted)", fontSize: 12 }}>{p.unit}</td>
+                  <td data-label="Sklad"><span style={{ fontWeight: 900, color: c, fontSize: 15 }}>{fmt(qty)}</span></td>
+                  <td data-label="Holat"><span className="badge" style={{ background: `${c}18`, color: c }}>{badge}</span></td>
                   {isSA && (
-                    <td>
+                    <td data-label="Amal" className="mobile-card-actions">
                       <button
                         className="btn-icon"
                         onClick={() => { setEditP(p); setNewQty(String(visibleStock[p.id] || 0)); }}

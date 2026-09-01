@@ -325,7 +325,7 @@ const submit = async () => {
       <CameraCodeScanner open={searchCameraOpen} onClose={() => setSearchCameraOpen(false)} onDetected={(code) => { setSearchCameraOpen(false); setSearch(code); const product = findExactProduct(code); if (product) { openProduct(product); showToast(`${product.name} topildi`); } else showToast("Bu shtrix-kod bo'yicha mahsulot topilmadi", "error"); }} />
 
       <div className="table-wrap">
-        <table className="crm-table">
+        <table className="crm-table mobile-card-table">
           <thead>
             <tr>
               <th>#</th><th>Nomi</th><th className="hide-mobile">Kategoriya</th>
@@ -338,18 +338,18 @@ const submit = async () => {
               const c = qty <= p.minStock ? "#f85149" : qty <= p.minStock * 2 ? "#f0a500" : "#3fb950";
               return (
                 <tr key={p.id} className="product-row-clickable" tabIndex={0} onClick={() => openProduct(p)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProduct(p); } }} aria-label={`${p.name} mahsulotini ochish`}>
-                  <td style={{ color: "var(--app-muted)", fontSize: 11, width: 36 }}>{i + 1}</td>
-                  <td style={{ fontWeight: 700 }}>{p.name}</td>
+                  <td className="mobile-card-index" style={{ color: "var(--app-muted)", fontSize: 11, width: 36 }}>{i + 1}</td>
+                  <td data-label="Mahsulot" className="mobile-card-primary" style={{ fontWeight: 700 }}>{p.name}</td>
                   <td className="hide-mobile"><span className="badge" style={{ background: "rgba(115,103,240,.08)", color: "#7367f0" }}>{p.category}</span></td>
-                  <td style={{ color: "var(--app-muted)" }}>
+                  <td data-label="Birlik" style={{ color: "var(--app-muted)" }}>
                     {p.unit}
                     {p.perBox > 0 && <span style={{ marginLeft: 6, fontSize: 10, background: "rgba(59,130,246,.1)", color: "#3b82f6", padding: "2px 7px", borderRadius: 8 }}>1={p.perBox}{p.boxUnit}</span>}
                   </td>
                   <td className="hide-mobile" style={{ fontFamily: "monospace", fontSize: 11, color: "var(--app-muted)" }}>
                     {p.qrCode || <span style={{ color: "var(--app-border)" }}>—</span>}
                   </td>
-                  <td style={{ color: "#7367f0", fontWeight: 800 }}>{fmtM(p.pricePerUnit)}</td>
-                  <td><span style={{ fontWeight: 900, color: c, fontSize: 14 }}>{fmt(qty)}</span> <span style={{ fontSize: 10, color: "var(--app-muted)" }}>{p.unit}</span></td>
+                  <td data-label="Narxi" style={{ color: "var(--app-primary)", fontWeight: 800 }}>{fmtM(p.pricePerUnit)}</td>
+                  <td data-label="Sklad"><span style={{ fontWeight: 900, color: c, fontSize: 14 }}>{fmt(qty)}</span> <span style={{ fontSize: 10, color: "var(--app-muted)" }}>{p.unit}</span></td>
                 </tr>
               );
             })}
