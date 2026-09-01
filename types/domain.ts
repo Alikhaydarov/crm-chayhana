@@ -21,6 +21,7 @@ export type OrderReceipt = {
   name: string;
   type: string;
   dataUrl: string;
+  storagePath?: string;
 };
 
 export type OrderItem = {

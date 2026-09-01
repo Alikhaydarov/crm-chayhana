@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Camera, FileText, PackagePlus, Search, ScanLine } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
-import { addProductApi, createOrderApi } from "@/lib/api";
+import { addProductApi, createOrderApi, uploadOrderDocumentApi } from "@/lib/api";
 import { PAY_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtDate } from "@/lib/utils";
 import type { Product } from "@/types";
@@ -41,6 +41,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
   const [createdProducts, setCreatedProducts] = useState<Product[]>([]);
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
+  const [productDocumentFile, setProductDocumentFile] = useState<File | null>(null);
   const [productDraft, setProductDraft] = useState({ name: "", category: "boshqa", unit: "dona", minStock: "0", pricePerUnit: "0", qrCode: "", supplierId: "" });
   const availableProducts = useMemo(() => [...products, ...createdProducts.filter((created) => !products.some((product) => product.id === created.id))], [products, createdProducts]);
   const filteredProducts = availableProducts.filter((product) => `${product.name} ${product.qrCode || ""}`.toLowerCase().includes(productSearch.trim().toLowerCase()));
@@ -118,6 +119,12 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     const valid = items.filter((i) => i.pid && i.qty > 0 && i.price > 0);
     if (!valid.length) { showToast("Mahsulot va narx kiriting", "error"); return; }
     setLoading(true);
+    let productDocument = form.productDocument || undefined;
+    if (productDocumentFile) {
+      const uploaded = await uploadOrderDocumentApi(productDocumentFile);
+      if (!uploaded.success) { showToast(uploaded.message || "Mahsulot hujjatini yuklab bo'lmadi", "error"); setLoading(false); return; }
+      productDocument = uploaded.document;
+    }
     const d = await createOrderApi({
       companyId: form.companyId,
       items: valid.map((i) => ({ productId: i.pid, quantity: i.qty, pricePerUnit: i.price })),
@@ -126,7 +133,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       paidAmount: form.payStatus === "paid" ? total : 0,
       orderDate: form.orderDate,
       receipt: form.receipt || undefined,
-      productDocument: form.productDocument || undefined,
+      productDocument,
     });
     if (d.success) {
       showToast("Order saqlandi ✅");
@@ -134,6 +141,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       setCameraOpen(false);
       setNewProductOpen(false);
       setProductSearch("");
+      setProductDocumentFile(null);
       setForm(emptyForm());
       setItems([{ pid: "", qty: 1, price: 0 }]);
       fetchAll();
@@ -154,11 +162,9 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
   const selectProductDocument = (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/") && file.type !== "application/pdf") { showToast("Mahsulot hujjati faqat rasm yoki PDF bo'lishi mumkin", "error"); return; }
-    if (file.size > 2 * 1024 * 1024) { showToast("Mahsulot hujjati 2 MB dan kichik bo'lishi kerak", "error"); return; }
-    const reader = new FileReader();
-    reader.onload = () => setForm((current) => ({ ...current, productDocument: { name: file.name, type: file.type, dataUrl: String(reader.result) } }));
-    reader.onerror = () => showToast("Mahsulot hujjatini o'qib bo'lmadi", "error");
-    reader.readAsDataURL(file);
+    if (file.size > 10 * 1024 * 1024) { showToast("Mahsulot hujjati 10 MB dan kichik bo'lishi kerak", "error"); return; }
+    setProductDocumentFile(file);
+    setForm((current) => ({ ...current, productDocument: { name: file.name, type: file.type, dataUrl: "" } }));
   };
 
   return (
@@ -280,9 +286,9 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                 <input id="order-product-document" type="file" accept="image/*,application/pdf" onChange={(event) => selectProductDocument(event.target.files?.[0])} style={{ display: "none" }} />
                 <div style={{ display: "flex", gap: 8, alignItems: "stretch", flexWrap: "wrap" }}>
                   <label htmlFor="order-product-document" className="btn-ghost" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 40 }}><FileText size={16} /> {form.productDocument ? "Hujjatni almashtirish" : "Rasm yoki PDF biriktirish"}</label>
-                  {form.productDocument && <><a href={form.productDocument.dataUrl} download={form.productDocument.name} className="btn-ghost" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.productDocument.name}</a><button type="button" className="btn-ghost" onClick={() => setForm({ ...form, productDocument: null })}>×</button></>}
+                  {form.productDocument && <><span className="btn-ghost" style={{ display: "inline-flex", alignItems: "center", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.productDocument.name}</span><button type="button" className="btn-ghost" onClick={() => { setProductDocumentFile(null); setForm({ ...form, productDocument: null }); }}>×</button></>}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--app-muted)", marginTop: 6 }}>Firma bergan nakladnoy, mahsulot rasmi yoki boshqa hujjat. Bu to'lov cheki emas.</div>
+                <div style={{ fontSize: 11, color: "var(--app-muted)", marginTop: 6 }}>Firma bergan nakladnoy, mahsulot rasmi yoki boshqa hujjat. Bu to'lov cheki emas. Maksimal 10 MB.</div>
               </div>
 
               <div className="form-group">

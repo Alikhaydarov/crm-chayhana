@@ -72,6 +72,18 @@ async function readBody(request: NextRequest) {
   return text ? JSON.parse(text) : {};
 }
 
+async function storageRequest(path: string, init: RequestInit = {}) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("Supabase env missing");
+  const headers = new Headers(init.headers);
+  headers.set("apikey", SUPABASE_KEY);
+  headers.set("authorization", `Bearer ${SUPABASE_KEY}`);
+  if (init.body) headers.set("content-type", "application/json");
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/storage/v1${path}`, { ...init, headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.message || data?.error || "Storage xatosi");
+  return data;
+}
+
 async function readOrderFile(request: NextRequest, field: "receipt") {
   const form = await request.formData();
   const file = form.get(field) ?? form.get("files");
@@ -426,6 +438,19 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const orderItems = Array.isArray(body.items) ? body.items.map((item: any, index: number) => index === 0 && body.productDocument ? { ...item, orderDocument: body.productDocument } : item) : [];
       const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
       return json(mapOrder(created), 201);
+    }
+    if (route === "orders/document-upload-url" && method === "POST") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const body = await readBody(request);
+      const size = Number(body.size || 0);
+      const type = String(body.type || "");
+      if (size <= 0 || size > 10 * 1024 * 1024) return json({ success: false, message: "Hujjat 10 MB dan kichik bo'lishi kerak" }, 400);
+      if (!type.startsWith("image/") && type !== "application/pdf") return json({ success: false, message: "Hujjat faqat rasm yoki PDF bo'lishi kerak" }, 400);
+      const extension = String(body.name || "file").split(".").pop()?.replace(/[^a-z0-9]/gi, "").toLowerCase() || "bin";
+      const path = `${user.role}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
+      const signed = await storageRequest(`/object/upload/sign/order-documents/${path}`, { method: "POST", body: "{}" });
+      const download = await storageRequest(`/object/sign/order-documents/${path}`, { method: "POST", body: JSON.stringify({ expiresIn: 31536000 }) });
+      return json({ path, uploadUrl: `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signed.url}`, downloadUrl: `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${download.signedURL || download.signedUrl}` });
     }
     if (route === "orders/upload-receipt" && method === "POST") {
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
