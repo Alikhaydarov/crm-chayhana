@@ -28,6 +28,8 @@ export function ProductsTab({ products, stock, companies, fetchAll, showToast, t
   const [cameraOpen, setCameraOpen] = useState(false);
   const [editCameraOpen, setEditCameraOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [packageEnabled, setPackageEnabled] = useState(false);
+  const [editPackageEnabled, setEditPackageEnabled] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -41,15 +43,17 @@ export function ProductsTab({ products, stock, companies, fetchAll, showToast, t
 
   const openProduct = (product: Product) => {
     setSelectedProduct(product);
+    setEditPackageEnabled(Number(product.perBox || 0) > 0 || Boolean(product.boxUnit));
     setEditForm({ name: product.name, category: product.category, unit: product.unit, minStock: String(product.minStock), pricePerUnit: String(product.pricePerUnit), perBox: String(product.perBox || 0), boxUnit: product.boxUnit || "", qrCode: product.qrCode || "", supplierId: product.supplierId || "" });
   };
 
   const saveProduct = async () => {
     if (!selectedProduct || !editForm.name.trim()) { showToast("Mahsulot nomini kiriting", "error"); return; }
+    if (editPackageEnabled && (Number(editForm.perBox) < 1 || !editForm.boxUnit.trim())) { showToast("Qadoq soni va ichki birlikni kiriting", "error"); return; }
     const barcode = editForm.qrCode.trim();
     if (barcode && products.some((product) => product.id !== selectedProduct.id && product.qrCode?.trim() === barcode)) { showToast("Bu shtrix-kod boshqa mahsulotda mavjud", "error"); return; }
     setSaving(true);
-    const result = await updateProductApi(selectedProduct.id, { name: editForm.name.trim(), category: editForm.category, unit: editForm.unit, minStock: Number(editForm.minStock) || 0, pricePerUnit: Number(editForm.pricePerUnit) || 0, perBox: Number(editForm.perBox) || 0, boxUnit: editForm.boxUnit.trim(), qrCode: barcode, supplierId: editForm.supplierId });
+    const result = await updateProductApi(selectedProduct.id, { name: editForm.name.trim(), category: editForm.category, unit: editForm.unit, minStock: Number(editForm.minStock) || 0, pricePerUnit: Number(editForm.pricePerUnit) || 0, perBox: editPackageEnabled ? Number(editForm.perBox) || 0 : 0, boxUnit: editPackageEnabled ? editForm.boxUnit.trim() : "", qrCode: barcode, supplierId: editForm.supplierId });
     setSaving(false);
     if (!result.success) { showToast(result.message || "Mahsulotni yangilab bo'lmadi", "error"); return; }
     showToast("Mahsulot ma'lumotlari yangilandi");
@@ -75,6 +79,10 @@ const submit = async () => {
     showToast("Nom kiriting", "error");
     return;
   }
+  if (packageEnabled && (Number(form.perBox) < 1 || !form.boxUnit.trim())) {
+    showToast("Qadoq soni va ichki birlikni kiriting", "error");
+    return;
+  }
   const barcode = form.qrCode.trim();
   if (barcode && products.some((product) => product.qrCode?.trim() === barcode)) {
     showToast("Bu shtrix-kod boshqa mahsulotga biriktirilgan", "error");
@@ -93,8 +101,8 @@ const submit = async () => {
     unit: form.unit,
     minStock: Number(form.minStock) || 0,
     pricePerUnit: Number(form.pricePerUnit) || 0,
-    perBox: Number(form.perBox) || 0,
-    boxUnit: form.boxUnit || "",
+    perBox: packageEnabled ? Number(form.perBox) || 0 : 0,
+    boxUnit: packageEnabled ? form.boxUnit.trim() : "",
     qrCode: barcode,
     supplierId: form.supplierId,
   };
@@ -108,6 +116,7 @@ const submit = async () => {
       setShowModal(false);
       setScannerReady(false);
       setCameraOpen(false);
+      setPackageEnabled(false);
 
       setForm({
         name: "",
@@ -220,14 +229,20 @@ const submit = async () => {
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">QUTIDAGI SONI</label>
-              <input className="crm-input" type="number" value={form.perBox} onChange={(e) => setForm({ ...form, perBox: e.target.value })} placeholder="24" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">QUTI BIRLIGI</label>
-              <input className="crm-input" value={form.boxUnit} onChange={(e) => setForm({ ...form, boxUnit: e.target.value })} placeholder="shisha, dona..." />
-            </div>
+            <label className="optional-field-toggle" style={{ gridColumn: "1/-1" }}>
+              <input type="checkbox" checked={packageEnabled} onChange={(event) => { setPackageEnabled(event.target.checked); if (!event.target.checked) setForm((current) => ({ ...current, perBox: "0", boxUnit: "" })); }} />
+              <span><strong>Qadoq ma'lumoti</strong><small>Mahsulot quti yoki karobka ichida kelsa yoqing</small></span>
+            </label>
+            {packageEnabled && <>
+              <div className="form-group">
+                <label className="form-label">QADOQDAGI SONI</label>
+                <input className="crm-input" type="number" min="1" value={form.perBox} onChange={(e) => setForm({ ...form, perBox: e.target.value })} placeholder="Masalan: 24" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">ICHKI BIRLIK</label>
+                <input className="crm-input" value={form.boxUnit} onChange={(e) => setForm({ ...form, boxUnit: e.target.value })} placeholder="dona, shisha..." />
+              </div>
+            </>}
             <div style={{ gridColumn: "1/-1" }} className="form-group product-code-field">
               <label className="form-label">SHTRIX KOD / QR</label>
               <div className="barcode-input-row" style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8 }}>
@@ -288,8 +303,8 @@ const submit = async () => {
             <div className="form-group"><label className="form-label">BIRLIK</label><select className="crm-input" value={editForm.unit} onChange={(event) => setEditForm({ ...editForm, unit: event.target.value })}>{["kg", "g", "l", "ml", "dona", "qop", "quti", "karobka"].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
             <div className="form-group"><label className="form-label">MINIMAL QOLDIQ</label><input className="crm-input" type="number" min="0" value={editForm.minStock} onChange={(event) => setEditForm({ ...editForm, minStock: event.target.value })} /></div>
             <div className="form-group"><label className="form-label">1 DONA NARXI (WON)</label><input className="crm-input" type="number" min="0" value={editForm.pricePerUnit} onChange={(event) => setEditForm({ ...editForm, pricePerUnit: event.target.value })} /></div>
-            <div className="form-group"><label className="form-label">QUTIDAGI SONI</label><input className="crm-input" type="number" min="0" value={editForm.perBox} onChange={(event) => setEditForm({ ...editForm, perBox: event.target.value })} /></div>
-            <div className="form-group"><label className="form-label">QUTI BIRLIGI</label><input className="crm-input" value={editForm.boxUnit} onChange={(event) => setEditForm({ ...editForm, boxUnit: event.target.value })} /></div>
+            <label className="optional-field-toggle product-edit-span"><input type="checkbox" checked={editPackageEnabled} onChange={(event) => { setEditPackageEnabled(event.target.checked); if (!event.target.checked) setEditForm((current) => ({ ...current, perBox: "0", boxUnit: "" })); }} /><span><strong>Qadoq ma'lumoti</strong><small>Quti yoki karobka tarkibini saqlash</small></span></label>
+            {editPackageEnabled && <><div className="form-group"><label className="form-label">QADOQDAGI SONI</label><input className="crm-input" type="number" min="1" value={editForm.perBox} onChange={(event) => setEditForm({ ...editForm, perBox: event.target.value })} /></div><div className="form-group"><label className="form-label">ICHKI BIRLIK</label><input className="crm-input" value={editForm.boxUnit} onChange={(event) => setEditForm({ ...editForm, boxUnit: event.target.value })} /></div></>}
             <div className="form-group product-edit-span"><label className="form-label">FIRMA</label><select className="crm-input" value={editForm.supplierId} onChange={(event) => setEditForm({ ...editForm, supplierId: event.target.value })}><option value="">— Firma tanlanmagan —</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></div>
             <div className="form-group product-edit-span"><label className="form-label">SHTRIX-KOD</label><div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}><input className="crm-input" inputMode="numeric" value={editForm.qrCode} onChange={(event) => setEditForm({ ...editForm, qrCode: event.target.value })} /><button type="button" className="btn-ghost" onClick={() => setEditCameraOpen(true)} title="Kamera bilan skanerlash"><Camera size={17} /></button></div></div>
           </div>

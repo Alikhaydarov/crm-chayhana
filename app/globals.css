@@ -1199,6 +1199,11 @@ body {
 .crm-input, .theme-shell input, .theme-shell select, .theme-shell textarea { min-height: 40px; border-width: 1px !important; font-size: 13px; font-weight: 520; box-shadow: none !important; }
 .crm-input:focus, .theme-shell input:focus, .theme-shell select:focus, .theme-shell textarea:focus { border-color: var(--app-primary) !important; outline: 3px solid var(--app-primary-soft) !important; }
 .form-label { margin-bottom: 6px; color: var(--app-muted) !important; font-size: 10px !important; font-weight: 750 !important; letter-spacing: .03em !important; }
+.optional-field-toggle { display:flex;min-height:58px;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--app-border);border-radius:8px;background:var(--app-panel-soft);color:var(--app-text);cursor:pointer }
+.optional-field-toggle:hover { border-color:color-mix(in srgb,var(--app-primary) 45%,var(--app-border)) }
+.optional-field-toggle input { width:17px;height:17px;min-height:0;flex:0 0 auto;accent-color:var(--app-primary) }
+.optional-field-toggle span,.optional-field-toggle strong,.optional-field-toggle small { display:block }
+.optional-field-toggle strong { font-size:12px;font-weight:750 }.optional-field-toggle small { margin-top:2px;color:var(--app-muted);font-size:10px;font-weight:500 }
 
 .table-wrap, .sales-panel { overflow: hidden; border: 1px solid var(--app-border); border-radius: 8px !important; background: var(--app-panel); box-shadow: none !important; }
 .crm-table { width: 100%; border-collapse: collapse; }
