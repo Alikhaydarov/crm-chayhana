@@ -53,7 +53,15 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     return () => { active = false; };
   }, [router]);
   useEffect(() => { const s = localStorage.getItem("crm-theme") as ThemeMode | null; if (s) setTheme(s); }, []);
-  useEffect(() => { localStorage.setItem("crm-theme", theme); }, [theme]);
+  useEffect(() => {
+    localStorage.setItem("crm-theme", theme);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+    return () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "";
+    };
+  }, [theme]);
   useEffect(() => { const s = localStorage.getItem("crm-lang") as Lang | null; if (s === "uz" || s === "ko") setLang(s); }, []);
   useEffect(() => { localStorage.setItem("crm-lang", lang); }, [lang]);
   useEffect(() => { setSidebarCollapsed(localStorage.getItem("crm-sidebar") !== "open"); }, []);

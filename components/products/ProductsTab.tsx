@@ -283,7 +283,7 @@ const submit = async () => {
             {selectedProduct.qrCode && <code style={{ color: "var(--app-muted)", fontSize: 11 }}>{selectedProduct.qrCode}</code>}
           </div>
           <div className="product-edit-grid">
-            <div className="form-group product-edit-span"><label className="form-label">MAHSULOT NOMI</label><input className="crm-input" value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} autoFocus /></div>
+            <div className="form-group product-edit-span"><label className="form-label">MAHSULOT NOMI</label><input className="crm-input" value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></div>
             <div className="form-group"><label className="form-label">KATEGORIYA</label><select className="crm-input" value={editForm.category} onChange={(event) => setEditForm({ ...editForm, category: event.target.value })}>{["gosht", "sabzavot", "don", "sut", "meva", "ziravorlar", "ichimlik", "boshqa"].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
             <div className="form-group"><label className="form-label">BIRLIK</label><select className="crm-input" value={editForm.unit} onChange={(event) => setEditForm({ ...editForm, unit: event.target.value })}>{["kg", "g", "l", "ml", "dona", "qop", "quti", "karobka"].map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
             <div className="form-group"><label className="form-label">MINIMAL QOLDIQ</label><input className="crm-input" type="number" min="0" value={editForm.minStock} onChange={(event) => setEditForm({ ...editForm, minStock: event.target.value })} /></div>
