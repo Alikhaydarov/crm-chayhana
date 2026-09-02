@@ -274,6 +274,7 @@ body {
 .btn-primary{background:#4169c1!important;box-shadow:none!important}.btn-primary:hover:not(:disabled){background:#3157ad!important}
 .modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(9,13,24,.62);backdrop-filter:blur(3px)}
 .modal-box,.modal-card{width:min(620px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;padding:22px;border:1px solid var(--app-border);border-radius:12px;background:var(--app-panel);color:var(--app-text);box-shadow:0 24px 70px rgba(17,26,48,.25)}
+.modal-actions{position:sticky;bottom:-22px;z-index:4;margin:18px -22px -22px;padding:14px 22px calc(14px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--app-panel) 94%,transparent);border-top:1px solid var(--app-border);box-shadow:0 -12px 28px color-mix(in srgb,var(--app-bg) 16%,transparent)}
 .modal-title{margin-bottom:18px;font-size:18px;font-weight:900}.modal-drag{display:none}
 .order-modal-wide{width:min(980px,calc(100vw - 32px))}.order-modal-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px}.order-modal-layout:not(:has(.inline-product-panel)){grid-template-columns:1fr}.order-main-form{min-width:0}
 .order-scan-first{margin-bottom:15px;padding:12px;border:1px solid var(--app-border);border-radius:10px;background:var(--app-panel-soft)}

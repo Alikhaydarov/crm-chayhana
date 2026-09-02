@@ -286,7 +286,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
             </>
           )}
 
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className="modal-actions" style={{ display: "flex", gap: 10 }}>
             <button className="btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Bekor</button>
             <button className="btn-primary" onClick={submit} disabled={loading || !form.companyId} style={{ flex: 2 }}>
               {loading ? t.sending : `💾 ${t.save} + ${t.savedToStock}`}

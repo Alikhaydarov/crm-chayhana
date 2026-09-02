@@ -86,7 +86,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
               <input className="crm-input" value={(addForm as any)[k]} onChange={(e) => setAddForm({ ...addForm, [k]: e.target.value })} placeholder={p} />
             </div>
           ))}
-          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <div className="modal-actions" style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button className="btn-ghost" onClick={() => setShowAdd(false)} style={{ flex: 1 }}>{t.cancel}</button>
             <button className="btn-primary" onClick={addCompany} style={{ flex: 2 }}>💾 Saqlash</button>
           </div>
@@ -126,7 +126,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
               )}
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <div className="modal-actions" style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button className="btn-ghost" onClick={closePayModal} style={{ flex: 1 }}>{t.cancel}</button>
             <button className="btn-primary" onClick={payOrder} style={{ flex: 2 }}>✅ To'lovni saqlash</button>
           </div>
