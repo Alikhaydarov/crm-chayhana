@@ -71,15 +71,15 @@ export async function POST(request: NextRequest) {
     );
     if (!product) throw new Error("Mahsulot topilmadi");
 
-    if (isMainStockDamage) {
-      const [stockRow] = await supabaseRest<any[]>(
-        "stock",
-        {},
-        `?select=quantity&product_id=eq.${encodeURIComponent(product.id)}&branch=eq.main&limit=1`,
-      );
-      if (Number(stockRow?.quantity || 0) < quantity) {
-        throw new Error("Skladda brak miqdori uchun yetarli mahsulot yo'q");
-      }
+    const [stockRow] = await supabaseRest<any[]>(
+      "stock",
+      {},
+      `?select=quantity&product_id=eq.${encodeURIComponent(product.id)}&branch=eq.${encodeURIComponent(branch)}&limit=1`,
+    );
+    const available = Number(stockRow?.quantity || 0);
+    if (available <= 0) throw new Error("Bu mahsulot ushbu skladda qolmagan");
+    if (available < quantity) {
+      throw new Error(`Skladda faqat ${available} ${product.unit || ""} bor`);
     }
 
     const signed = await storageRequest<any>(`/object/sign/${DAMAGE_BUCKET}/${upload.path}`, {
