@@ -35,11 +35,6 @@ export function DamagesTab({ damages, products, user, fetchAll, showToast, t }: 
   const [form, setForm] = useState<{ branch: string; productId: string; quantity: number; reason: string }>({ branch: user.role === "superadmin" ? "shop" : user.role, productId: "", quantity: 1, reason: "" });
   const [image, setImage] = useState<OrderReceipt | undefined>();
   const isSA = user.role === "superadmin";
-  const branchOptions = [
-    { value: "restaurant1", label: BRANCH_NAMES.restaurant1 },
-    { value: "restaurant2", label: BRANCH_NAMES.restaurant2 },
-    { value: "shop", label: BRANCH_NAMES.shop },
-  ];
   const productMap = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
   const filteredProducts = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -68,13 +63,13 @@ export function DamagesTab({ damages, products, user, fetchAll, showToast, t }: 
     if (form.reason.trim().length < 3) { showToast("Brak sababini yozing", "error"); return; }
     if (!image) { showToast("Brak rasmini kiriting", "error"); return; }
     setLoading(true);
-    const result = await createDamageRequestApi({ ...form, reason: form.reason.trim(), image });
+    const result = await createDamageRequestApi({ ...form, branch: user.role, reason: form.reason.trim(), image });
     setLoading(false);
     if (!result.success) { showToast((result as any).message || "Xatolik", "error"); return; }
     showToast("Brak so'rovi adminga yuborildi");
     setShowModal(false);
     setImage(undefined);
-    setForm({ branch: user.role === "superadmin" ? "shop" : user.role, productId: "", quantity: 1, reason: "" });
+    setForm({ branch: user.role, productId: "", quantity: 1, reason: "" });
     setQuery("");
     fetchAll();
   };
@@ -101,11 +96,11 @@ export function DamagesTab({ damages, products, user, fetchAll, showToast, t }: 
     </article>;
   };
 
-  return <PageWrap title={t.damageRequests || "Brak so'rovlari"} sub="Brak mahsulotlar tarixi va skladdan ayrish" action={<button className="btn-primary" onClick={() => setShowModal(true)}>{t.newDamageRequest || "+ Brak yuborish"}</button>}>
+  return <PageWrap title={t.damageRequests || "Brak so'rovlari"} sub="Brak mahsulotlar tarixi va skladdan ayrish" action={!isSA && <button className="btn-primary" onClick={() => setShowModal(true)}>{t.newDamageRequest || "+ Brak yuborish"}</button>}>
     {showModal && <Modal onClose={() => !loading && setShowModal(false)} className="damage-modal">
       <div className="modal-title">Brak so'rovi</div>
       <div className="damage-form-grid">
-        <div className="form-group"><label className="form-label">SKLAD</label>{isSA ? <select className="crm-input" value={form.branch} onChange={(event) => setForm({ ...form, branch: event.target.value })}>{branchOptions.map((branch) => <option key={branch.value} value={branch.value}>{branch.label}</option>)}</select> : <div className="crm-input">{user.branchIcon || BRANCH_ICONS[user.role]} {user.branchName}</div>}</div>
+        <div className="form-group"><label className="form-label">YUBORUVCHI SKLAD</label><div className="crm-input">{user.branchIcon || BRANCH_ICONS[user.role]} {user.branchName}</div></div>
         <div className="form-group"><label className="form-label">SONI</label><input className="crm-input" type="number" min={1} value={form.quantity} onChange={(event) => setForm({ ...form, quantity: Number(event.target.value) || 1 })} /></div>
       </div>
       <div className="form-group">

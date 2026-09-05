@@ -628,8 +628,9 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       return json({ requestId, path, uploadUrl: `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signed.url}`, uploadToken: signDamageImageUpload(upload) });
     }
     if (route === "damages" && method === "POST") {
+      if (user.role === "superadmin") return json({ success: false, message: "Brak so'rovini faqat sklad admin yuboradi" }, 403);
       const body = await readBody(request);
-      const branch = user.role === "superadmin" ? String(body.branch || "") : user.role;
+      const branch = user.role;
       if (!(requestBranches as readonly string[]).includes(branch)) return json({ success: false, message: "Sklad noto'g'ri" }, 400);
       const quantity = Number(body.quantity || 0);
       const reason = String(body.reason || "").trim();
