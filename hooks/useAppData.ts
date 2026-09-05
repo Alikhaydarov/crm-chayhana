@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSnapshotApi } from "@/lib/api";
 import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
-import type { Product, StockMap, Transfer, UserInfo } from "@/types";
+import type { DamageRequest, Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
 
 export function useAppData(user: UserInfo | null) {
@@ -11,6 +11,7 @@ export function useAppData(user: UserInfo | null) {
   const [mainStock, setMainStock] = useState<StockMap>({});
   const [shopStock, setShopStock] = useState<StockMap>({});
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [damages, setDamages] = useState<DamageRequest[]>([]);
   const [reports, setReports] = useState<ReportSummary | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -44,6 +45,7 @@ export function useAppData(user: UserInfo | null) {
       setMainStock(d.mainStock || (user.role === "superadmin" ? d.stock : {}));
       setShopStock(user.role === "shop" ? (d.stock || d.shopStock || {}) : (d.shopStock || {}));
       setTransfers(d.transfers || []);
+      setDamages(d.damages || []);
       setReports(d.reports);
       setCompanies(d.companies || []);
       setOrders(d.orders || []);
@@ -107,6 +109,7 @@ export function useAppData(user: UserInfo | null) {
     mainStock,
     shopStock,
     transfers,
+    damages,
     reports,
     companies,
     orders,

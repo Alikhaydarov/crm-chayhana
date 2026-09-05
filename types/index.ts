@@ -30,6 +30,7 @@ export type StockMap = Record<string, number>;
 
 export type Transfer = {
   id: string;
+  fromBranch: string;
   toBranch: string;
   items: TransferItem[];
   totalValue: number;
@@ -53,6 +54,27 @@ export type TransferItem = {
   pricePerUnit?: number;
 };
 
+export type DamageRequest = {
+  id: string;
+  branch: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  reason: string;
+  image?: {
+    name: string;
+    type: string;
+    dataUrl: string;
+    storagePath?: string;
+  };
+  requestedBy: string;
+  approvedBy?: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ThemeMode = "dark" | "light";
 export type Lang = "uz" | "ko";
 
@@ -72,6 +94,7 @@ export type TabId =
   | "dashboard"
   | "warehouse"
   | "transfers"
+  | "damages"
   | "orders"
   | "products"
   | "suppliers"

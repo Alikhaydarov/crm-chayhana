@@ -5,7 +5,7 @@ import type {
   Staff,
   Supplier,
 } from "@/types/domain";
-import type { PayStatus, Product, UserInfo as AppUserInfo } from "@/types";
+import type { DamageRequest, PayStatus, Product, UserInfo as AppUserInfo } from "@/types";
 import { branchForRole } from "@/lib/permissions";
 
 const API_BASE = "/api/backend";
@@ -66,8 +66,8 @@ export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
     const embeddedMainStock = snapshot.mainStock ?? snapshot.main_stock ?? snapshot.mainWarehouseStock ?? snapshot.main_warehouse_stock;
-    snapshot.products = unwrapList<Product>(snapshot.products); snapshot.stock = normalizeStock(snapshot.stock); snapshot.shopStock = normalizeStock(snapshot.shopStock); snapshot.transfers = unwrapList<any>(snapshot.transfers); snapshot.companies = unwrapList<Company>(snapshot.companies); snapshot.orders = unwrapList<any>(snapshot.orders); snapshot.companyPayments = unwrapList<any>(snapshot.companyPayments); snapshot.shopSales = unwrapList<any>(snapshot.shopSales); snapshot.staff = unwrapList<any>(snapshot.staff); snapshot.accounts = unwrapList<any>(snapshot.accounts).map(normalizeAccount); snapshot.mainStock = normalizeStock(user.role === "superadmin" ? snapshot.stock : embeddedMainStock ?? {});
-    if (user.role !== "superadmin") { snapshot.transfers = (snapshot.transfers || []).filter((transfer: any) => transfer.toBranch === (user.branchSlug || user.role)); if (user.role === "shop") { snapshot.companies = []; snapshot.orders = []; snapshot.companyPayments = []; snapshot.staff = (snapshot.staff || []).filter((member: any) => member.branch === "shop"); } else { snapshot.shopSales = []; snapshot.shopStock = {}; snapshot.staff = (snapshot.staff || []).filter((member: any) => member.branch === user.role); } }
+    snapshot.products = unwrapList<Product>(snapshot.products); snapshot.stock = normalizeStock(snapshot.stock); snapshot.shopStock = normalizeStock(snapshot.shopStock); snapshot.transfers = unwrapList<any>(snapshot.transfers); snapshot.damages = unwrapList<any>(snapshot.damages); snapshot.companies = unwrapList<Company>(snapshot.companies); snapshot.orders = unwrapList<any>(snapshot.orders); snapshot.companyPayments = unwrapList<any>(snapshot.companyPayments); snapshot.shopSales = unwrapList<any>(snapshot.shopSales); snapshot.staff = unwrapList<any>(snapshot.staff); snapshot.accounts = unwrapList<any>(snapshot.accounts).map(normalizeAccount); snapshot.mainStock = normalizeStock(user.role === "superadmin" ? snapshot.stock : embeddedMainStock ?? {});
+    if (user.role !== "superadmin") { const ownBranch = user.branchSlug || user.role; snapshot.transfers = (snapshot.transfers || []).filter((transfer: any) => transfer.toBranch === ownBranch || transfer.fromBranch === ownBranch); snapshot.damages = (snapshot.damages || []).filter((damage: any) => damage.branch === ownBranch); if (user.role === "shop") { snapshot.companies = []; snapshot.orders = []; snapshot.companyPayments = []; snapshot.staff = (snapshot.staff || []).filter((member: any) => member.branch === "shop"); } else { snapshot.shopSales = []; snapshot.shopStock = {}; snapshot.staff = (snapshot.staff || []).filter((member: any) => member.branch === user.role); } }
     return snapshot;
   } catch (snapshotError) {
     console.warn("[crm-api] Snapshot endpoint failed, loading resources separately", snapshotError);
@@ -83,21 +83,39 @@ export async function getSnapshotApi(user: AppUserInfo) {
     ]);
     const companies = unwrapList<Company>(companiesData);
     const paymentGroups = await Promise.all(companies.map(company => optionalRequest<any>(`/companies/${encodeURIComponent(company.id)}/payments/`, [])));
-    return { products: unwrapList<Product>(productsData), stock: normalizeStock(mainStockData), mainStock: normalizeStock(mainStockData), shopStock: normalizeStock(shopStockData), transfers: user.role === "superadmin" ? unwrapList<any>(transfersData) : unwrapList<any>(transfersData).filter(transfer => transfer.toBranch === (user.branchSlug || user.role)), reports: unwrap<any>(reportsData), companies, orders: unwrapList<any>(ordersData), companyPayments: paymentGroups.flatMap(group => unwrapList<any>(group)), shopSales: unwrapList<any>(shopSalesData), branches: unwrapList<any>(branchesData), accounts: unwrapList<any>(usersData).map(normalizeAccount) };
+    return { products: unwrapList<Product>(productsData), stock: normalizeStock(mainStockData), mainStock: normalizeStock(mainStockData), shopStock: normalizeStock(shopStockData), transfers: user.role === "superadmin" ? unwrapList<any>(transfersData) : unwrapList<any>(transfersData).filter(transfer => transfer.toBranch === (user.branchSlug || user.role) || transfer.fromBranch === (user.branchSlug || user.role)), damages: [], reports: unwrap<any>(reportsData), companies, orders: unwrapList<any>(ordersData), companyPayments: paymentGroups.flatMap(group => unwrapList<any>(group)), shopSales: unwrapList<any>(shopSalesData), branches: unwrapList<any>(branchesData), accounts: unwrapList<any>(usersData).map(normalizeAccount) };
   }
 }
 
 async function mutation(path: string, method: string, body?: unknown): Promise<ApiResult<any>> { try { const data = await request<any>(path, { method, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body) }); return success({ data: unwrap(data) }); } catch (error) { return failure(error); } }
 
 export const updateStockApi = (productId: string, quantity: number) => mutation(`/stock/main/${encodeURIComponent(productId)}/`, "PATCH", { quantity });
-export const createTransferApi = (toBranch: string, items: { productId: string; quantity: number }[], requestedBy: string, branchName: string, note?: string) => mutation("/transfers/", "POST", { toBranch, items, requestedBy, branchName, note });
+export const createTransferApi = (toBranch: string, items: { productId: string; quantity: number }[], requestedBy: string, branchName: string, note?: string, fromBranch?: string) => mutation("/transfers/", "POST", { fromBranch, toBranch, items, requestedBy, branchName, note });
 export const approveTransferApi = (id: string, approvedBy: string, items: { productId: string; quantity: number }[]) => mutation(`/transfers/${encodeURIComponent(id)}/approve/`, "POST", { approvedBy, items });
 export const rejectTransferApi = (id: string, approvedBy: string) => mutation(`/transfers/${encodeURIComponent(id)}/reject/`, "POST", { approvedBy });
+export async function createDamageRequestApi(data: { branch: string; productId: string; quantity: number; reason: string; image?: OrderReceipt }): Promise<ApiResult<{ data: DamageRequest }>> {
+  try {
+    let imageUploadToken: string | undefined;
+    if (data.image) {
+      const file = dataUrlToFile(data.image);
+      const signed = await request<any>("/damages/image-upload-url/", { method: "POST", body: JSON.stringify({ name: file.name, type: file.type, size: file.size }) });
+      const upload = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type, "x-upsert": "false" }, body: file });
+      if (!upload.ok) throw new Error("Brak rasmini Storage'ga yuklab bo'lmadi");
+      imageUploadToken = signed.uploadToken;
+    }
+    return mutation("/damages/", "POST", { branch: data.branch, productId: data.productId, quantity: data.quantity, reason: data.reason, imageUploadToken });
+  } catch (error) {
+    return failure(error);
+  }
+}
+export const approveDamageRequestApi = (id: string, approvedBy: string) => mutation(`/damages/${encodeURIComponent(id)}/approve/`, "POST", { approvedBy });
+export const rejectDamageRequestApi = (id: string, approvedBy: string) => mutation(`/damages/${encodeURIComponent(id)}/reject/`, "POST", { approvedBy });
 export const addProductApi = (data: Omit<Product, "id">) => mutation("/products/", "POST", { ...data, id: `p${Date.now()}`, categoryName: data.category, qrCode: data.qrCode?.trim() || null });
 export const updateProductApi = (id: string, data: Omit<Product, "id">) => mutation(`/products/${encodeURIComponent(id)}/`, "PATCH", { ...data, qrCode: data.qrCode?.trim() || null });
 export const deleteProductApi = (id: string) => mutation(`/products/${encodeURIComponent(id)}/`, "DELETE");
 export const updateWarehouseAdminApi = (role: string, data: { branchName: string; adminName: string; userId: string; password?: string }) => mutation(`/warehouses/${encodeURIComponent(role)}/`, "PATCH", data);
 export const addCompanyApi = (data: Omit<Company, "id" | "createdAt">) => mutation("/companies/", "POST", { ...data, phone_number: data.phone });
+export const updateCompanyApi = (id: string, data: Omit<Company, "id" | "createdAt">) => mutation(`/companies/${encodeURIComponent(id)}/`, "PATCH", data);
 export async function getPaymentMethodsApi(companyId?: string): Promise<ApiResult<{ methods: PaymentMethods }>> {
   try {
     const query = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";

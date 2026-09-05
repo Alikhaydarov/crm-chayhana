@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { Banknote, CalendarDays, CreditCard, FileCheck2, Settings2 } from "lucide-react";
+import { Banknote, CalendarDays, CreditCard, FileCheck2, Pencil, Save, Settings2, X } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { PaymentMethodsPanel } from "@/components/settings/PaymentMethodsPanel";
-import { addCompanyApi, getPaymentMethodsApi, payOrderApi } from "@/lib/api";
+import { addCompanyApi, getPaymentMethodsApi, payOrderApi, updateCompanyApi } from "@/lib/api";
 import { PAY_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtDate } from "@/lib/utils";
 import type { Company, Order, CompanyPayment, OrderReceipt, PaymentMethods } from "@/types/domain";
@@ -38,6 +38,9 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
   const [methodsLoading, setMethodsLoading] = useState(false);
   const [paying, setPaying] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", address: "", phone: "" });
+  const [editingCompany, setEditingCompany] = useState(false);
+  const [editCompanyForm, setEditCompanyForm] = useState({ name: "", address: "", phone: "" });
+  const [companySaving, setCompanySaving] = useState(false);
 
   const cOrders = (id: string) => orders.filter((o) => o.companyId === id);
   const cDebt = (id: string) => cOrders(id).reduce((s, o) => s + (o.totalPrice - o.paidAmount), 0);
@@ -64,6 +67,37 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
     setPayDate(currentLocalDate());
     setOurAccountId("");
     setCompanyAccountId("");
+  };
+
+  const openCompany = (company: Company) => {
+    setSelected(company);
+    setView("info");
+    setEditingCompany(false);
+    setEditCompanyForm({ name: company.name, address: company.address || "", phone: company.phone || "" });
+  };
+
+  const startCompanyEdit = () => {
+    if (!selected) return;
+    setEditCompanyForm({ name: selected.name, address: selected.address || "", phone: selected.phone || "" });
+    setEditingCompany(true);
+  };
+
+  const saveCompany = async () => {
+    if (!selected) return;
+    if (!editCompanyForm.name.trim()) { showToast(t.firmNameRequired, "error"); return; }
+    setCompanySaving(true);
+    const result = await updateCompanyApi(selected.id, {
+      name: editCompanyForm.name.trim(),
+      address: editCompanyForm.address.trim(),
+      phone: editCompanyForm.phone.trim(),
+    });
+    setCompanySaving(false);
+    if (!result.success) { showToast((result as any).message || "Firmani yangilab bo'lmadi", "error"); return; }
+    const updated = { ...selected, ...editCompanyForm, name: editCompanyForm.name.trim(), address: editCompanyForm.address.trim(), phone: editCompanyForm.phone.trim() };
+    setSelected(updated);
+    setEditingCompany(false);
+    showToast("Firma ma'lumotlari yangilandi");
+    fetchAll();
   };
 
   const openPayModal = async (order: Order) => {
@@ -240,7 +274,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
       )}
 
       {selected && !payModal && (
-        <Modal onClose={() => setSelected(null)}>
+        <Modal onClose={() => { setSelected(null); setEditingCompany(false); }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
             <div>
               <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 2 }}>🏢 {selected.name}</div>
@@ -261,13 +295,34 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
           </div>
 
           {view === "info" && (
-            <div style={{ display: "grid", gap: 10 }}>
-              {[[t.firmName, selected.name], [t.address, selected.address || "—"], [t.phone, selected.phone || "—"], [t.addedDate, fmtDate(selected.createdAt)], [t.totalOrders, `${cOrders(selected.id).length} · ${fmtM(cTotal(selected.id))}`]].map(([l, v]) => (
-                <div key={String(l)} style={{ background: "var(--app-panel-soft)", borderRadius: 11, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                  <span style={{ color: "var(--app-muted)", fontSize: 13, flexShrink: 0 }}>{l}</span>
-                  <span style={{ fontWeight: 700, textAlign: "right" }}>{v}</span>
+            <div className="firm-info-panel">
+              <div className="firm-info-actions">
+                <strong>{editingCompany ? "Firma ma'lumotlarini tahrirlash" : "Firma ma'lumotlari"}</strong>
+                {editingCompany ? (
+                  <div>
+                    <button className="btn-ghost" disabled={companySaving} onClick={() => setEditingCompany(false)}><X size={15} /> {t.cancel}</button>
+                    <button className="btn-primary" disabled={companySaving} onClick={saveCompany}><Save size={15} /> {companySaving ? "Saqlanmoqda..." : t.save}</button>
+                  </div>
+                ) : (
+                  <button className="btn-ghost" onClick={startCompanyEdit}><Pencil size={15} /> {t.edit}</button>
+                )}
+              </div>
+              {editingCompany ? (
+                <div className="company-edit-grid">
+                  <div className="form-group"><label className="form-label">{t.firmName}</label><input className="crm-input" value={editCompanyForm.name} onChange={(event) => setEditCompanyForm({ ...editCompanyForm, name: event.target.value })} /></div>
+                  <div className="form-group"><label className="form-label">{t.phone}</label><input className="crm-input" value={editCompanyForm.phone} onChange={(event) => setEditCompanyForm({ ...editCompanyForm, phone: event.target.value })} /></div>
+                  <div className="form-group company-edit-span"><label className="form-label">{t.address}</label><textarea className="crm-input" rows={3} value={editCompanyForm.address} onChange={(event) => setEditCompanyForm({ ...editCompanyForm, address: event.target.value })} /></div>
                 </div>
-              ))}
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {[[t.firmName, selected.name], [t.address, selected.address || "—"], [t.phone, selected.phone || "—"], [t.addedDate, fmtDate(selected.createdAt)], [t.totalOrders, `${cOrders(selected.id).length} · ${fmtM(cTotal(selected.id))}`]].map(([l, v]) => (
+                    <div key={String(l)} style={{ background: "var(--app-panel-soft)", borderRadius: 11, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <span style={{ color: "var(--app-muted)", fontSize: 13, flexShrink: 0 }}>{l}</span>
+                      <span style={{ fontWeight: 700, textAlign: "right" }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -348,7 +403,7 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
               key={c.id}
               className="fade-up"
               style={{ animationDelay: `${i * 50}ms`, background: "var(--app-panel)", border: `1px solid ${debt > 0 ? "rgba(248,81,73,.25)" : "var(--app-border)"}`, borderRadius: 18, padding: "20px 20px", cursor: "pointer", transition: "all .2s" }}
-              onClick={() => { setSelected(c); setView("info"); }}
+              onClick={() => openCompany(c)}
               onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,.2)"; e.currentTarget.style.borderColor = debt > 0 ? "rgba(248,81,73,.4)" : "rgba(115,103,240,.35)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.borderColor = debt > 0 ? "rgba(248,81,73,.25)" : "var(--app-border)"; }}
             >

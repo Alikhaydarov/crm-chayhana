@@ -1,4 +1,4 @@
-import type { PayStatus, Role, StockMap, Transfer } from "@/types";
+import type { DamageRequest, PayStatus, Role, StockMap, Transfer } from "@/types";
 
 export type Company = {
   id: string;
@@ -156,6 +156,7 @@ export type Snapshot = {
   mainStock?: StockMap;
   shopStock: StockMap;
   transfers: Transfer[];
+  damages: DamageRequest[];
   reports: ReportSummary | null;
   companies: Company[];
   orders: Order[];

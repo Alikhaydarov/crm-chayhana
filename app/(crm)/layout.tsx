@@ -1,7 +1,7 @@
 "use client";
 import { startTransition, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { ArrowLeftRight, BarChart3, CalendarDays, LayoutDashboard, Package, Settings2, ShoppingCart, Store, Warehouse } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, BarChart3, CalendarDays, LayoutDashboard, Package, Settings2, ShoppingCart, Store, Warehouse } from "lucide-react";
 import { logoutApi, restoreSessionApi } from "@/lib/api";
 import { I18N, BRANCH_NAMES } from "@/lib/constants";
 import { GLOBAL_CSS } from "@/lib/constants/styles";
@@ -15,8 +15,8 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 import type { AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, ThemeMode, Lang, TabId } from "@/types";
 
-const TAB_ROUTES: Record<TabId, string> = { dashboard: "/dashboard", warehouse: "/warehouse", transfers: "/transfers", orders: "/orders", products: "/products", suppliers: "/suppliers", history: "/history", settings: "/settings", analysis: "/analysis" };
-const ROUTE_TABS: Record<string, TabId> = { "/dashboard": "dashboard", "/warehouse": "warehouse", "/transfers": "transfers", "/orders": "orders", "/products": "products", "/suppliers": "suppliers", "/history": "history", "/settings": "settings", "/analysis": "analysis", "/shop-sales": "analysis" };
+const TAB_ROUTES: Record<TabId, string> = { dashboard: "/dashboard", warehouse: "/warehouse", transfers: "/transfers", damages: "/damages", orders: "/orders", products: "/products", suppliers: "/suppliers", history: "/history", settings: "/settings", analysis: "/analysis" };
+const ROUTE_TABS: Record<string, TabId> = { "/dashboard": "dashboard", "/warehouse": "warehouse", "/transfers": "transfers", "/damages": "damages", "/orders": "orders", "/products": "products", "/suppliers": "suppliers", "/history": "history", "/settings": "settings", "/analysis": "analysis", "/shop-sales": "analysis" };
 
 export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const t = I18N[lang];
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
   const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user);
-  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, isLoading } = rest as any;
+  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, damages, isLoading } = rest as any;
   const currentBranch = user ? branches.find((branch: any) =>
     (user.branchId != null && String(branch.id) === String(user.branchId)) ||
     (user.branchSlug && branch.slug === user.branchSlug) ||
@@ -40,7 +40,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const branchIdentity = `${user?.branchSlug || ""} ${user?.branchName || ""}`;
   const isShopAdmin = user?.role === "shop" || currentBranchType === "shop" || /shop|dokon|do-kon|do'kon|uzbegim/i.test(branchIdentity);
   const canUseTab = (tabId: TabId) => isShopAdmin
-    ? ["dashboard", "warehouse", "transfers", "analysis"].includes(tabId)
+    ? ["dashboard", "warehouse", "transfers", "damages", "analysis"].includes(tabId)
     : canAccessTab(user?.role as any, tabId);
 
   useEffect(() => {
@@ -108,6 +108,13 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
       id: `stock-${product.id}-${stock[product.id] || 0}`, type: "stock" as const, title: "Skladda mahsulot kam qoldi",
       description: `${product.name}: ${stock[product.id] || 0} ${product.unit}`, createdAt: "", tab: "warehouse" as const, level: "danger" as const,
     })),
+    ...(damages || []).map((damage: any) => ({
+      id: `damage-${damage.id}-${damage.status}`, type: "stock" as const,
+      title: damage.status === "pending" ? "Yangi brak so'rovi" : damage.status === "approved" ? "Brak skladdan ayrildi" : "Brak rad etildi",
+      description: `${BRANCH_NAMES[damage.branch] || damage.branch} · ${damage.productName} · ${damage.quantity} ${damage.unit}`,
+      createdAt: damage.updatedAt || damage.createdAt, tab: "damages" as const,
+      level: damage.status === "pending" ? "warning" as const : damage.status === "approved" ? "success" as const : "danger" as const,
+    })),
     ...orders.slice(0, 30).map((order: any) => ({
       id: `order-${order.id}-${order.paidAmount}`, type: "order" as const,
       title: order.totalPrice <= order.paidAmount ? "Order to'liq to'landi" : "Yangi order yoki qarz",
@@ -125,6 +132,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "dashboard" as TabId, icon: LayoutDashboard, label: t.dashboard },
     { id: "warehouse" as TabId, icon: Warehouse, label: t.warehouse },
     { id: "transfers" as TabId, icon: ArrowLeftRight, label: t.transfers, badge: pendingCount },
+    { id: "damages" as TabId, icon: AlertTriangle, label: t.damages, badge: (damages || []).filter((damage: any) => damage.status === "pending").length },
     { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
     { id: "products" as TabId, icon: Package, label: t.products },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
@@ -132,9 +140,9 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "settings" as TabId, icon: Settings2, label: t.settings },
     ...(isShopAdmin ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }] : []),
   ].filter((tab) => canUseTab(tab.id));
-  const commands = TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : tab.id === "history" ? "Kalendar, order va firma to'lovlari" : tab.id === "settings" ? "Kartalar va to'lov usullari" : "Excel savdo, foyda va statistika" }));
+  const commands = TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "damages" ? "Brak request, rasm va tarix" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : tab.id === "history" ? "Kalendar, order va firma to'lovlari" : tab.id === "settings" ? "Kartalar va to'lov usullari" : "Excel savdo, foyda va statistika" }));
 
-  return <AppContext.Provider value={{ products, stock, mainStock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId), openBranchAnalysis }}>
+  return <AppContext.Provider value={{ products, stock, mainStock, shopStock, transfers, damages, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId), openBranchAnalysis }}>
     <div className={`${theme} theme-shell`} style={{ display: "flex", height: "100vh", background: "var(--app-bg)", fontFamily: "var(--font-ui)", color: "var(--app-text)", overflow: "hidden" }}>
       <style>{GLOBAL_CSS}</style>{toast && <Toast msg={toast.msg} type={toast.type} />}
       <Sidebar user={user} tabs={TABS} activeTab={activeTab} collapsed={sidebarCollapsed} theme={theme} lang={lang} onTabChange={handleTabChange} onToggleCollapse={() => setSidebarCollapsed(v => !v)} onCollapse={() => setSidebarCollapsed(true)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} />

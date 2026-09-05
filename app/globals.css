@@ -733,6 +733,197 @@ body {
 }
 .payment-method-form label { min-width: 0; }
 .payment-method-form .btn-primary { min-height: 38px; }
+
+.firm-info-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.firm-info-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel-soft);
+}
+
+.firm-info-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.company-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.company-edit-span {
+  grid-column: 1 / -1;
+}
+
+.transfer-branch-grid,
+.damage-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.damage-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.damage-summary > div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 13px 15px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel);
+}
+
+.damage-summary span {
+  color: var(--app-muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.damage-summary strong {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.damage-list {
+  display: grid;
+  gap: 10px;
+}
+
+.damage-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel);
+}
+
+.damage-card-media {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--app-panel-soft);
+  color: var(--app-muted);
+}
+
+.damage-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.damage-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
+.damage-card-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.damage-card-meta,
+.damage-card p,
+.damage-selected {
+  color: var(--app-muted);
+  font-size: 12px;
+}
+
+.damage-card p {
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+
+.damage-actions,
+.damage-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.damage-search-row {
+  margin-bottom: 8px;
+}
+
+.damage-search-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--app-border);
+  border-radius: 7px;
+  background: var(--app-panel-soft);
+  color: var(--app-muted);
+}
+
+.damage-search-row input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--app-text);
+  font: 650 13px var(--font-ui);
+}
+
+.damage-upload {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px dashed var(--app-border);
+  border-radius: 8px;
+  background: var(--app-panel-soft);
+  color: var(--app-text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.history-days .damage-dot {
+  background: #ff9f43;
+}
+
+.history-event-icon.damage {
+  background: rgba(255,159,67,.12);
+  color: #ff9f43;
+}
+
+.history-event-amount.damage strong {
+  color: #ff9f43;
+}
 .payment-method-list { display: grid; }
 .payment-method-row {
   min-height: 58px;
@@ -1577,6 +1768,45 @@ body {
   .payment-method-secure { margin-top: 3px; }
   .payment-method-form { grid-template-columns: 1fr; }
   .payment-method-form .btn-primary { width: 100%; }
+  .firm-info-actions,
+  .firm-info-actions > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .company-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .firm-info-actions .btn-primary,
+  .firm-info-actions .btn-ghost {
+    justify-content: center;
+    width: 100%;
+  }
+  .transfer-branch-grid,
+  .damage-form-grid,
+  .damage-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .damage-card {
+    grid-template-columns: 58px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .damage-card-media {
+    width: 58px;
+    height: 58px;
+  }
+
+  .damage-actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .damage-actions > button {
+    flex: 1;
+  }
   .settings-intro { align-items: flex-start; }
   .payflow-payment-modal { width: 100%; }
   .payflow-payment-head { gap: 10px; }

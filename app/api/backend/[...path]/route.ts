@@ -11,6 +11,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const AUTH_SECRET = process.env.AUTH_SECRET;
 const MAX_LIST_ROWS = 500;
 const MAX_PAYMENT_RECEIPT_BYTES = 5 * 1024 * 1024;
+const MAX_DAMAGE_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACCESS_TOKEN_TTL = 15 * 60;
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
 
@@ -89,6 +90,10 @@ const paymentReceiptTypes: Record<string, string> = {
   "image/webp": "webp",
 };
 
+const stockBranches = ["main", "restaurant1", "restaurant2", "shop"] as const;
+const requestBranches = ["restaurant1", "restaurant2", "shop"] as const;
+const damageImageTypes = paymentReceiptTypes;
+
 type PaymentReceiptUpload = {
   paymentId: string;
   path: string;
@@ -104,6 +109,48 @@ function signPaymentReceiptUpload(payload: PaymentReceiptUpload) {
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   const signature = createHmac("sha256", AUTH_SECRET).update(`payment-receipt.${encoded}`).digest("base64url");
   return `${encoded}.${signature}`;
+}
+
+type DamageImageUpload = {
+  requestId: string;
+  path: string;
+  name: string;
+  type: string;
+  size: number;
+  userId: string;
+  exp: number;
+};
+
+function signDamageImageUpload(payload: DamageImageUpload) {
+  if (!AUTH_SECRET) throw new Error("AUTH_SECRET env missing");
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", AUTH_SECRET).update(`damage-image.${encoded}`).digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
+function verifyDamageImageUpload(value: unknown, user: AppUser): DamageImageUpload | null {
+  if (!AUTH_SECRET || typeof value !== "string") return null;
+  try {
+    const [encoded, signature] = value.split(".");
+    if (!encoded || !signature) return null;
+    const expected = createHmac("sha256", AUTH_SECRET).update(`damage-image.${encoded}`).digest();
+    const actual = Buffer.from(signature, "base64url");
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as DamageImageUpload;
+    const extension = damageImageTypes[payload.type];
+    if (
+      payload.userId !== user.id
+      || payload.exp <= Math.floor(Date.now() / 1000)
+      || payload.size <= 0
+      || payload.size > MAX_DAMAGE_IMAGE_BYTES
+      || !extension
+      || !payload.path.startsWith(`${payload.requestId}/`)
+      || !payload.path.endsWith(`.${extension}`)
+    ) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 function verifyPaymentReceiptUpload(value: unknown, user: AppUser): PaymentReceiptUpload | null {
@@ -283,7 +330,10 @@ async function snapshot(user: AppUser) {
   const branchFilter = encodeURIComponent(user.role);
   const transferQuery = user.role === "superadmin"
     ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
-    : `?select=*&to_branch=eq.${branchFilter}&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
+    : `?select=*&or=(to_branch.eq.${branchFilter},from_branch.eq.${branchFilter})&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
+  const damageQuery = user.role === "superadmin"
+    ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
+    : `?select=*&branch=eq.${branchFilter}&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
   const companyQuery = user.role === "superadmin"
     ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
     : `?select=*&branch=eq.${branchFilter}&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
@@ -298,6 +348,7 @@ async function snapshot(user: AppUser) {
     mainStock,
     shopStock,
     transfers,
+    damages,
     companies,
     orders,
     staff,
@@ -308,6 +359,7 @@ async function snapshot(user: AppUser) {
     stock(user.role === "superadmin" ? "main" : user.role),
     user.role === "superadmin" || user.role === "shop" ? stock("shop") : Promise.resolve({}),
     sb<any[]>("transfers", {}, transferQuery),
+    sb<any[]>("damaged_requests", {}, damageQuery).catch(() => []),
     user.role === "shop" ? Promise.resolve([]) : sb<any[]>("companies", {}, companyQuery),
     user.role === "shop" ? Promise.resolve([]) : sb<any[]>("orders", {}, orderQuery),
     sb<any[]>("staff", {}, staffQuery),
@@ -344,6 +396,7 @@ async function snapshot(user: AppUser) {
     shopStock,
     transfers: transfers.map((tr) => ({
       id: tr.id,
+      fromBranch: tr.from_branch || "main",
       toBranch: tr.to_branch,
       items: tr.items || [],
       totalValue: Number(tr.total_value || 0),
@@ -358,6 +411,7 @@ async function snapshot(user: AppUser) {
       createdAt: tr.created_at,
       updatedAt: tr.updated_at,
     })),
+    damages: damages.map(mapDamage),
     reports: {
       totalProducts: productList.length,
       mainStockValue: mainSummary.stockValue,
@@ -526,8 +580,9 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (route === "transfers" && method === "GET") return json((await snapshot(user)).transfers);
     if (route === "transfers" && method === "POST") {
       const body = await readBody(request);
-      const toBranch = user.role === "superadmin" ? body.toBranch : user.role;
-      if (!(["restaurant1", "restaurant2", "shop"] as string[]).includes(toBranch)) {
+      const fromBranch = user.role === "superadmin" ? String(body.fromBranch || "main") : user.role;
+      const toBranch = String(body.toBranch || "");
+      if (!(stockBranches as readonly string[]).includes(fromBranch) || !(requestBranches as readonly string[]).includes(toBranch) || fromBranch === toBranch) {
         return json({ success: false, message: "Filial noto'g'ri" }, 400);
       }
       const productList = await products();
@@ -542,7 +597,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const [created] = await sb<any[]>("transfers", {
         method: "POST",
         headers: { prefer: "return=representation" },
-        body: JSON.stringify({ to_branch: toBranch, items, total_value: total, requested_by: user.name, note: body.note || "", status: "pending" }),
+        body: JSON.stringify({ from_branch: fromBranch, to_branch: toBranch, items, total_value: total, requested_by: user.name, note: body.note || "", status: "pending" }),
       });
       return json(created, 201);
     }
@@ -558,12 +613,83 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       return json(updated);
     }
 
+    if (route === "damages" && method === "GET") return json((await snapshot(user)).damages);
+    if (route === "damages/image-upload-url" && method === "POST") {
+      const body = await readBody(request);
+      const type = String(body.type || "");
+      const size = Number(body.size || 0);
+      const extension = damageImageTypes[type];
+      if (!extension) return json({ success: false, message: "Brak rasmi faqat JPG, PNG yoki WEBP bo'lishi kerak" }, 400);
+      if (size <= 0 || size > MAX_DAMAGE_IMAGE_BYTES) return json({ success: false, message: "Brak rasmi 10 MB dan kichik bo'lishi kerak" }, 400);
+      const requestId = crypto.randomUUID();
+      const path = `${requestId}/${crypto.randomUUID()}.${extension}`;
+      const signed = await storageRequest(`/object/upload/sign/damage-images/${path}`, { method: "POST", body: "{}" });
+      const upload: DamageImageUpload = { requestId, path, name: String(body.name || "damage").slice(0, 180), type, size, userId: user.id, exp: Math.floor(Date.now() / 1000) + 15 * 60 };
+      return json({ requestId, path, uploadUrl: `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signed.url}`, uploadToken: signDamageImageUpload(upload) });
+    }
+    if (route === "damages" && method === "POST") {
+      const body = await readBody(request);
+      const branch = user.role === "superadmin" ? String(body.branch || "") : user.role;
+      if (!(requestBranches as readonly string[]).includes(branch)) return json({ success: false, message: "Sklad noto'g'ri" }, 400);
+      const quantity = Number(body.quantity || 0);
+      const reason = String(body.reason || "").trim();
+      if (quantity <= 0) return json({ success: false, message: "Miqdor noto'g'ri" }, 400);
+      if (reason.length < 3) return json({ success: false, message: "Brak sababini yozing" }, 400);
+      const productId = String(body.productId || "");
+      const [product] = await sb<any[]>("products", {}, `?select=*&id=eq.${encodeURIComponent(productId)}&limit=1`);
+      if (!product) return json({ success: false, message: "Mahsulot topilmadi" }, 404);
+
+      const upload = body.imageUploadToken ? verifyDamageImageUpload(body.imageUploadToken, user) : null;
+      if (body.imageUploadToken && !upload) throw new Error("Brak rasmi imzosi eskirgan yoki noto'g'ri");
+      let image: Record<string, unknown> | null = null;
+      if (upload) {
+        await storageRequest(`/object/info/damage-images/${upload.path}`);
+        const signed = await storageRequest(`/object/sign/damage-images/${upload.path}`, { method: "POST", body: JSON.stringify({ expiresIn: 31536000 }) });
+        const signedPath = signed.signedURL || signed.signedUrl;
+        image = { name: upload.name, type: upload.type, storagePath: upload.path, dataUrl: signedPath ? `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signedPath}` : "" };
+      }
+      const [created] = await sb<any[]>("damaged_requests", {
+        method: "POST",
+        headers: { prefer: "return=representation" },
+        body: JSON.stringify({ id: upload?.requestId || crypto.randomUUID(), branch, product_id: product.id, product_name: product.name, quantity, unit: product.unit || "", reason, image, requested_by: user.name, status: "pending" }),
+      });
+      return json(mapDamage(created), 201);
+    }
+    const damageAction = route.match(/^damages\/([^/]+)\/(approve|reject)$/);
+    if (damageAction && method === "POST") {
+      requireRole(user, ["superadmin"]);
+      const id = decodeURIComponent(damageAction[1]);
+      const action = damageAction[2];
+      const body = await readBody(request);
+      const updated = await rpc<any>("process_damaged_request", { p_request_id: id, p_action: action, p_approved_by: body.approvedBy || user.name });
+      return json(mapDamage(updated));
+    }
+
     if (route === "companies" && method === "GET") return json((await snapshot(user)).companies);
     if (route === "companies" && method === "POST") {
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
       const body = await readBody(request);
       const [created] = await sb<any[]>("companies", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ name: body.name, address: body.address || "", phone: body.phone || "", branch: user.role === "superadmin" ? null : user.role }) });
       return json(created, 201);
+    }
+    const companyDetail = route.match(/^companies\/([^/]+)$/);
+    if (companyDetail && method === "PATCH") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const id = decodeURIComponent(companyDetail[1]);
+      const body = await readBody(request);
+      const name = String(body.name || "").trim();
+      if (!name) return json({ success: false, message: "Firma nomini kiriting" }, 400);
+      const company = await companyForUser(user, id);
+      const [updated] = await sb<any[]>("companies", {
+        method: "PATCH",
+        headers: { prefer: "return=representation" },
+        body: JSON.stringify({ name, address: String(body.address || ""), phone: String(body.phone || "") }),
+      }, `?id=eq.${encodeURIComponent(id)}`);
+      if (!updated) return json({ success: false, message: "Firma topilmadi" }, 404);
+      if (company.name !== name) {
+        await sb("orders", { method: "PATCH", body: JSON.stringify({ company_name: name }) }, `?company_id=eq.${encodeURIComponent(id)}`);
+      }
+      return json({ id: updated.id, name: updated.name, address: updated.address || "", phone: updated.phone || "", createdAt: updated.created_at });
     }
 
     if (route === "payment-methods" && method === "GET") {
@@ -785,6 +911,24 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     const message = error instanceof Error ? error.message : "Server xatosi";
     return json({ success: false, message }, errorStatus(message));
   }
+}
+
+function mapDamage(row: any) {
+  return {
+    id: row.id,
+    branch: row.branch,
+    productId: row.product_id,
+    productName: row.product_name || "",
+    quantity: Number(row.quantity || 0),
+    unit: row.unit || "",
+    reason: row.reason || "",
+    image: row.image || undefined,
+    requestedBy: row.requested_by || "",
+    approvedBy: row.approved_by || "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 export const GET = handler;

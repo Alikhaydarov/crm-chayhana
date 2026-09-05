@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext } from "react";
-import type { Product, StockMap, Transfer } from "@/types";
+import type { DamageRequest, Product, StockMap, Transfer } from "@/types";
 import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 
 export type AppContextType = {
@@ -9,6 +9,7 @@ export type AppContextType = {
   mainStock: StockMap;
   shopStock: StockMap;
   transfers: Transfer[];
+  damages: DamageRequest[];
   reports: ReportSummary | null;
   companies: Company[];
   orders: Order[];
