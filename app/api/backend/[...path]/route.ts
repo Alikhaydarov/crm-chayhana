@@ -628,10 +628,10 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       return json({ requestId, path, uploadUrl: `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signed.url}`, uploadToken: signDamageImageUpload(upload) });
     }
     if (route === "damages" && method === "POST") {
-      if (user.role === "superadmin") return json({ success: false, message: "Brak so'rovini faqat sklad admin yuboradi" }, 403);
       const body = await readBody(request);
-      const branch = user.role;
-      if (!(requestBranches as readonly string[]).includes(branch)) return json({ success: false, message: "Sklad noto'g'ri" }, 400);
+      const isMainStockDamage = user.role === "superadmin";
+      const branch = isMainStockDamage ? "main" : user.role;
+      if (!isMainStockDamage && !(requestBranches as readonly string[]).includes(branch)) return json({ success: false, message: "Sklad noto'g'ri" }, 400);
       const quantity = Number(body.quantity || 0);
       const reason = String(body.reason || "").trim();
       if (quantity <= 0) return json({ success: false, message: "Miqdor noto'g'ri" }, 400);
@@ -654,6 +654,10 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         headers: { prefer: "return=representation" },
         body: JSON.stringify({ id: upload?.requestId || crypto.randomUUID(), branch, product_id: product.id, product_name: product.name, quantity, unit: product.unit || "", reason, image, requested_by: user.name, status: "pending" }),
       });
+      if (isMainStockDamage) {
+        const updated = await rpc<any>("process_damaged_request", { p_request_id: created.id, p_action: "approve", p_approved_by: user.name });
+        return json(mapDamage(updated), 201);
+      }
       return json(mapDamage(created), 201);
     }
     const damageAction = route.match(/^damages\/([^/]+)\/(approve|reject)$/);

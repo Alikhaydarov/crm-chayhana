@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
+import { AlertTriangle, ImagePlus, PackageX } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
-import { updateStockApi } from "@/lib/api";
+import { createDamageRequestApi, updateStockApi } from "@/lib/api";
 import { fmt, fmtM } from "@/lib/utils";
 import type { Product, StockMap, UserInfo } from "@/types";
+import type { OrderReceipt } from "@/types/domain";
 
 type Props = {
   products: Product[];
@@ -18,10 +20,24 @@ type Props = {
 const qtyColor = (qty: number, min: number) =>
   qty <= min ? "#f85149" : qty <= min * 2 ? "#f0a500" : "#3fb950";
 
+function fileToReceipt(file: File): Promise<OrderReceipt> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, type: file.type, dataUrl: String(reader.result || "") });
+    reader.onerror = () => reject(new Error("Rasmni o'qib bo'lmadi"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showToast, t }: Props) {
   const [search, setSearch] = useState("");
   const [editP, setEditP] = useState<Product | null>(null);
   const [newQty, setNewQty] = useState("");
+  const [damageOpen, setDamageOpen] = useState(false);
+  const [damageQty, setDamageQty] = useState("1");
+  const [damageReason, setDamageReason] = useState("");
+  const [damageImage, setDamageImage] = useState<OrderReceipt | undefined>();
+  const [damageSaving, setDamageSaving] = useState(false);
 
   const isSA = user.role === "superadmin";
   const visibleStock = stock;
@@ -46,6 +62,42 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
     else showToast("Xatolik", "error");
   };
 
+  const openStockModal = (product: Product) => {
+    setEditP(product);
+    setNewQty(String(visibleStock[product.id] || 0));
+    setDamageOpen(false);
+    setDamageQty("1");
+    setDamageReason("");
+    setDamageImage(undefined);
+  };
+
+  const closeStockModal = () => {
+    if (damageSaving) return;
+    setEditP(null);
+    setDamageOpen(false);
+    setDamageImage(undefined);
+  };
+
+  const submitDamage = async () => {
+    if (!editP) return;
+    const currentQty = visibleStock[editP.id] || 0;
+    const qty = Number(damageQty);
+    if (!Number.isFinite(qty) || qty <= 0) { showToast("Brak miqdori noto'g'ri", "error"); return; }
+    if (qty > currentQty) { showToast("Brak miqdori skladdagi miqdordan ko'p", "error"); return; }
+    if (damageReason.trim().length < 3) { showToast("Brak sababini yozing", "error"); return; }
+    if (!damageImage) { showToast("Brak rasmini kiriting", "error"); return; }
+    setDamageSaving(true);
+    const result = await createDamageRequestApi({ branch: "main", productId: editP.id, quantity: qty, reason: damageReason.trim(), image: damageImage });
+    setDamageSaving(false);
+    if (!result.success) { showToast((result as any).message || "Brakka chiqarishda xatolik", "error"); return; }
+    showToast("Mahsulot brakka chiqarildi va main skladdan ayrildi");
+    setDamageOpen(false);
+    setDamageQty("1");
+    setDamageReason("");
+    setDamageImage(undefined);
+    fetchAll();
+  };
+
   return (
     <PageWrap
       title="Sklad"
@@ -57,7 +109,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
       }
     >
       {editP && (
-        <Modal onClose={() => setEditP(null)}>
+        <Modal onClose={closeStockModal}>
           <div className="modal-title">{t.editStock}</div>
           <div
             style={{
@@ -84,8 +136,62 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
               autoFocus
             />
           </div>
+          {isSA && (
+            <div style={{ border: "1px solid var(--app-border)", borderRadius: 14, padding: 12, margin: "12px 0", background: "var(--app-panel-soft)" }}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setDamageOpen((value) => !value)}
+                style={{ width: "100%", justifyContent: "space-between", color: "#f59e0b" }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><PackageX size={16} /> Brakka chiqarish</span>
+                <span>{damageOpen ? "Yopish" : "Ochish"}</span>
+              </button>
+              {damageOpen && (
+                <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">MIQDOR ({editP.unit})</label>
+                      <input className="crm-input" type="number" min={1} max={visibleStock[editP.id] || 0} value={damageQty} onChange={(e) => setDamageQty(e.target.value)} />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label">RASMI</label>
+                      <label className="damage-upload" style={{ minHeight: 42 }}>
+                        <ImagePlus size={17} />
+                        <span>{damageImage ? damageImage.name : "JPG, PNG yoki WEBP, 10 MB gacha"}</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          capture="environment"
+                          hidden
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { showToast("Faqat JPG, PNG yoki WEBP rasm", "error"); return; }
+                            if (file.size > 10 * 1024 * 1024) { showToast("Rasm 10 MB dan kichik bo'lishi kerak", "error"); return; }
+                            try { setDamageImage(await fileToReceipt(file)); } catch { showToast("Rasmni o'qib bo'lmadi", "error"); }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">SABAB</label>
+                    <textarea className="crm-input" rows={3} value={damageReason} onChange={(e) => setDamageReason(e.target.value)} placeholder="Masalan: yaroqsiz, singan, muddati o'tgan..." />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--app-muted)", fontSize: 12 }}>
+                    <AlertTriangle size={14} />
+                    Tasdiqlanganda miqdor darhol main skladdan ayriladi va Brak tarixiga tushadi.
+                  </div>
+                  <button className="btn-primary" onClick={submitDamage} disabled={damageSaving} style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}>
+                    {damageSaving ? "Saqlanmoqda..." : "Brakka chiqarish"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-            <button className="btn-ghost" onClick={() => setEditP(null)} style={{ flex: 1 }}>{t.cancel}</button>
+            <button className="btn-ghost" onClick={closeStockModal} style={{ flex: 1 }}>{t.cancel}</button>
             <button className="btn-primary" onClick={saveStock} style={{ flex: 2 }}>💾 {t.save}</button>
           </div>
         </Modal>
@@ -130,7 +236,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
                     <td data-label="Amal" className="mobile-card-actions">
                       <button
                         className="btn-icon"
-                        onClick={() => { setEditP(p); setNewQty(String(visibleStock[p.id] || 0)); }}
+                        onClick={() => openStockModal(p)}
                         style={{ color: "#7367f0", background: "rgba(115,103,240,.1)", borderColor: "rgba(115,103,240,.2)" }}
                       >
                         {t.edit}

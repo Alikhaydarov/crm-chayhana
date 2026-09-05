@@ -154,7 +154,7 @@ create table if not exists public.shop_sales (
 
 create table if not exists public.damaged_requests (
   id uuid primary key default gen_random_uuid(),
-  branch text not null check (branch in ('restaurant1', 'restaurant2', 'shop')),
+  branch text not null check (branch in ('main', 'restaurant1', 'restaurant2', 'shop')),
   product_id text not null references public.products(id) on delete restrict,
   product_name text not null default '',
   quantity numeric not null check (quantity > 0),
