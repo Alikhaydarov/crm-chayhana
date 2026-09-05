@@ -75,4 +75,5 @@ export type TabId =
   | "orders"
   | "products"
   | "suppliers"
+  | "history"
   | "analysis";

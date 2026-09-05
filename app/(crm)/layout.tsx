@@ -1,7 +1,7 @@
 "use client";
 import { startTransition, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { ArrowLeftRight, BarChart3, LayoutDashboard, Package, ShoppingCart, Store, Warehouse } from "lucide-react";
+import { ArrowLeftRight, BarChart3, CalendarDays, LayoutDashboard, Package, ShoppingCart, Store, Warehouse } from "lucide-react";
 import { logoutApi, restoreSessionApi } from "@/lib/api";
 import { I18N, BRANCH_NAMES } from "@/lib/constants";
 import { GLOBAL_CSS } from "@/lib/constants/styles";
@@ -15,8 +15,8 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 import type { AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, ThemeMode, Lang, TabId } from "@/types";
 
-const TAB_ROUTES: Record<TabId, string> = { dashboard: "/dashboard", warehouse: "/warehouse", transfers: "/transfers", orders: "/orders", products: "/products", suppliers: "/suppliers", analysis: "/analysis" };
-const ROUTE_TABS: Record<string, TabId> = { "/dashboard": "dashboard", "/warehouse": "warehouse", "/transfers": "transfers", "/orders": "orders", "/products": "products", "/suppliers": "suppliers", "/analysis": "analysis", "/shop-sales": "analysis" };
+const TAB_ROUTES: Record<TabId, string> = { dashboard: "/dashboard", warehouse: "/warehouse", transfers: "/transfers", orders: "/orders", products: "/products", suppliers: "/suppliers", history: "/history", analysis: "/analysis" };
+const ROUTE_TABS: Record<string, TabId> = { "/dashboard": "dashboard", "/warehouse": "warehouse", "/transfers": "transfers", "/orders": "orders", "/products": "products", "/suppliers": "suppliers", "/history": "history", "/analysis": "analysis", "/shop-sales": "analysis" };
 
 export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -128,9 +128,10 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
     { id: "products" as TabId, icon: Package, label: t.products },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
+    { id: "history" as TabId, icon: CalendarDays, label: t.history },
     ...(isShopAdmin ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }] : []),
   ].filter((tab) => canUseTab(tab.id));
-  const commands = TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : "Excel savdo, foyda va statistika" }));
+  const commands = TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : tab.id === "history" ? "Kalendar, order va firma to'lovlari" : "Excel savdo, foyda va statistika" }));
 
   return <AppContext.Provider value={{ products, stock, mainStock, shopStock, transfers, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId), openBranchAnalysis }}>
     <div className={`${theme} theme-shell`} style={{ display: "flex", height: "100vh", background: "var(--app-bg)", fontFamily: "var(--font-ui)", color: "var(--app-text)", overflow: "hidden" }}>
