@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, Languages, LogOut, Moon, Search, Sun } from "lucide-react";
 import { AdminNotifications, type AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, TabId, ThemeMode, Lang } from "@/types";
@@ -85,8 +86,18 @@ type BottomNavProps = {
 };
 
 export function BottomNav({ tabs, activeTab, onTabChange }: BottomNavProps) {
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const container = navRef.current;
+    const active = container?.querySelector<HTMLElement>(".bnav-btn.active");
+    if (!container || !active) return;
+    const left = active.offsetLeft - (container.clientWidth - active.offsetWidth) / 2;
+    container.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [activeTab, tabs.length]);
+
   return (
-    <nav className="bottom-nav">
+    <nav className="bottom-nav" ref={navRef}>
       <div className="bnav-grid">
         {tabs.map((nav) => (
           <button

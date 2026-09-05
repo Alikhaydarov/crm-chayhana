@@ -1,6 +1,7 @@
 import type {
   Company,
   OrderReceipt,
+  PaymentMethods,
   Staff,
   Supplier,
 } from "@/types/domain";
@@ -97,9 +98,53 @@ export const updateProductApi = (id: string, data: Omit<Product, "id">) => mutat
 export const deleteProductApi = (id: string) => mutation(`/products/${encodeURIComponent(id)}/`, "DELETE");
 export const updateWarehouseAdminApi = (role: string, data: { branchName: string; adminName: string; userId: string; password?: string }) => mutation(`/warehouses/${encodeURIComponent(role)}/`, "PATCH", data);
 export const addCompanyApi = (data: Omit<Company, "id" | "createdAt">) => mutation("/companies/", "POST", { ...data, phone_number: data.phone });
+export async function getPaymentMethodsApi(companyId?: string): Promise<ApiResult<{ methods: PaymentMethods }>> {
+  try {
+    const query = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";
+    const value = await request<any>(`/payment-methods/${query}`);
+    return success({ methods: {
+      ourAccounts: Array.isArray(value?.ourAccounts) ? value.ourAccounts : [],
+      companyAccounts: Array.isArray(value?.companyAccounts) ? value.companyAccounts : [],
+    } });
+  } catch (error) {
+    return failure(error);
+  }
+}
+export const addPaymentMethodApi = (data: { kind: "OUR" | "COMPANY"; label: string; companyId?: string }) => mutation("/payment-methods/", "POST", data);
+export const deletePaymentMethodApi = (id: string, companyId?: string) => mutation(`/payment-methods/${encodeURIComponent(id)}/`, "DELETE", companyId ? { companyId } : {});
 export async function uploadOrderDocumentApi(file: File): Promise<ApiResult<{ document: OrderReceipt }>> { try { const signed = await request<any>("/orders/document-upload-url/", { method: "POST", body: JSON.stringify({ name: file.name, type: file.type, size: file.size }) }); const upload = await fetch(signed.uploadUrl, { method: "PUT", headers: { "content-type": file.type, "x-upsert": "false" }, body: file }); if (!upload.ok) throw new Error("Mahsulot hujjatini Storage'ga yuklab bo'lmadi"); return success({ document: { name: file.name, type: file.type, dataUrl: signed.downloadUrl, storagePath: signed.path } }); } catch (error) { return failure(error); } }
 export async function createOrderApi(data: { companyId: string; items: { productId: string; quantity: number; pricePerUnit: number }[]; note: string; payStatus: PayStatus; paidAmount: number; orderDate: string; receipt?: OrderReceipt; productDocument?: OrderReceipt }) { const { receipt, ...payload } = data; const result = await mutation("/orders/", "POST", payload); if (!result.success || !receipt) return result; const order = (result as any).data; const orderId = order?.external_id ?? order?.externalId ?? order?.id; if (!orderId) return result; const form = new FormData(); form.append("orderId", String(orderId)); form.append("receipt", dataUrlToFile(receipt)); const upload = await mutation("/orders/upload-receipt/", "POST", form); return upload.success ? result : upload; }
-export async function payOrderApi(orderId: string, amount: number, note: string, receipt?: OrderReceipt) { let uploadedReceipt: OrderReceipt | undefined; if (receipt) { const file = dataUrlToFile(receipt); const form = new FormData(); form.append("files", file); form.append("receipt", file); const upload = await mutation("/orders/upload-receipt/", "POST", form); if (!upload.success) return upload; const uploadData = (upload as any).data; uploadedReceipt = uploadData?.receipts?.[0] ?? uploadData?.receipt ?? (Array.isArray(uploadData) ? uploadData[0] : undefined); if (!uploadedReceipt) return { success: false, message: "Chek serverga yuklandi, lekin javob formati noto'g'ri" }; } return mutation(`/orders/${encodeURIComponent(orderId)}/payments/`, "POST", { amount, note, ...(uploadedReceipt ? { receipt: uploadedReceipt, receipts: [uploadedReceipt] } : {}) }); }
+export async function payOrderApi(orderId: string, data: { amount: number; note: string; paymentDate: string; paymentMethod: "cash" | "card"; ourAccountId?: string; companyAccountId?: string; receipt?: OrderReceipt }) {
+  try {
+    let receiptUploadToken: string | undefined;
+    if (data.receipt) {
+      const file = dataUrlToFile(data.receipt);
+      const signed = await request<any>("/orders/payment-receipt-upload-url/", {
+        method: "POST",
+        body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
+      });
+      const upload = await fetch(signed.uploadUrl, {
+        method: "PUT",
+        headers: { "content-type": file.type, "x-upsert": "false" },
+        body: file,
+      });
+      if (!upload.ok) throw new Error("Chekni Storage'ga yuklab bo'lmadi");
+      receiptUploadToken = signed.uploadToken;
+    }
+
+    return mutation(`/orders/${encodeURIComponent(orderId)}/payments/`, "POST", {
+      amount: data.amount,
+      note: data.note,
+      paymentDate: data.paymentDate,
+      paymentMethod: data.paymentMethod,
+      ourAccountId: data.ourAccountId,
+      companyAccountId: data.companyAccountId,
+      receiptUploadToken,
+    });
+  } catch (error) {
+    return failure(error);
+  }
+}
 export async function getBranchesApi() { return unwrapList<any>(await request<any>("/branches/?page_size=1000")); }
 export async function getAccountsApi() { return unwrapList<any>(await request<any>("/auth/users/?page_size=1000")).map(normalizeAccount); }
 export const addStaffApi = (data: Omit<Staff, "id">) => mutation("/staff/", "POST", data);

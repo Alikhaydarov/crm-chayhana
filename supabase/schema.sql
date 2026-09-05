@@ -95,6 +95,13 @@ create table if not exists public.company_payments (
   order_id uuid references public.orders(id) on delete cascade,
   amount numeric not null default 0,
   note text not null default '',
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'card')),
+  our_account_id uuid,
+  company_account_id uuid,
+  our_card_account_text text,
+  company_card_account_text text,
+  payment_date date not null default current_date,
+  receipt jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -165,6 +172,8 @@ create index if not exists orders_unpaid_created_idx on public.orders (created_a
 create index if not exists company_payments_company_created_idx
   on public.company_payments (company_id, created_at desc);
 create index if not exists company_payments_order_idx on public.company_payments (order_id);
+create index if not exists company_payments_date_created_idx
+  on public.company_payments (payment_date desc, created_at desc);
 create index if not exists staff_branch_name_idx on public.staff (branch, name);
 create unique index if not exists shop_sales_source_key_unique_idx on public.shop_sales (source_key);
 create index if not exists shop_sales_date_idx on public.shop_sales (sale_date desc, created_at desc);

@@ -180,6 +180,12 @@ export const GLOBAL_CSS = `
   @media (max-width: 768px) {
     .sidebar { display: none !important; }
     .bottom-nav { display: block !important; }
+    .bottom-nav .bnav-grid {
+      display: flex !important;
+      width: max-content;
+      min-width: max-content;
+      flex-wrap: nowrap;
+    }
     .page-pad { padding: 14px 12px 88px !important; }
     .modal-backdrop { align-items: flex-end; }
     .modal-box { border-radius: 8px 8px 0 0; max-height: 90dvh; padding: 18px 16px 22px; }

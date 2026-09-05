@@ -14,7 +14,26 @@ export type CompanyPayment = {
   orderId: string;
   amount: number;
   note: string;
+  paymentMethod: "cash" | "card";
+  ourAccountId?: string;
+  companyAccountId?: string;
+  ourCardAccountText?: string;
+  companyCardAccountText?: string;
+  paymentDate: string;
+  receipt?: OrderReceipt;
   createdAt: string;
+};
+
+export type PaymentAccount = {
+  id: string;
+  kind: "OUR" | "COMPANY";
+  label: string;
+  companyId?: string;
+};
+
+export type PaymentMethods = {
+  ourAccounts: PaymentAccount[];
+  companyAccounts: PaymentAccount[];
 };
 
 export type OrderReceipt = {

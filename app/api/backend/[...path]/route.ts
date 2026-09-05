@@ -10,6 +10,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABAS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const AUTH_SECRET = process.env.AUTH_SECRET;
 const MAX_LIST_ROWS = 500;
+const MAX_PAYMENT_RECEIPT_BYTES = 5 * 1024 * 1024;
 const ACCESS_TOKEN_TTL = 15 * 60;
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
 
@@ -71,6 +72,68 @@ async function readBody(request: NextRequest) {
   const text = await request.text();
   if (Buffer.byteLength(text, "utf8") > 4 * 1024 * 1024) throw new Error("So'rov hajmi juda katta");
   return text ? JSON.parse(text) : {};
+}
+
+async function removeStorageObject(bucket: string, path: string) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  await fetch(`${SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/${bucket}/${path}`, {
+    method: "DELETE",
+    headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` },
+    cache: "no-store",
+  }).catch(() => null);
+}
+
+const paymentReceiptTypes: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+type PaymentReceiptUpload = {
+  paymentId: string;
+  path: string;
+  name: string;
+  type: string;
+  size: number;
+  userId: string;
+  exp: number;
+};
+
+function signPaymentReceiptUpload(payload: PaymentReceiptUpload) {
+  if (!AUTH_SECRET) throw new Error("AUTH_SECRET env missing");
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", AUTH_SECRET).update(`payment-receipt.${encoded}`).digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
+function verifyPaymentReceiptUpload(value: unknown, user: AppUser): PaymentReceiptUpload | null {
+  if (!AUTH_SECRET || typeof value !== "string") return null;
+  try {
+    const [encoded, signature] = value.split(".");
+    if (!encoded || !signature) return null;
+    const expected = createHmac("sha256", AUTH_SECRET).update(`payment-receipt.${encoded}`).digest();
+    const actual = Buffer.from(signature, "base64url");
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as PaymentReceiptUpload;
+    const extension = paymentReceiptTypes[payload.type];
+    if (
+      payload.userId !== user.id
+      || payload.exp <= Math.floor(Date.now() / 1000)
+      || payload.size <= 0
+      || payload.size > MAX_PAYMENT_RECEIPT_BYTES
+      || !extension
+      || !payload.path.startsWith(`${payload.paymentId}/`)
+      || !payload.path.endsWith(`.${extension}`)
+    ) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+async function removeUnlinkedPaymentReceipt(upload: PaymentReceiptUpload) {
+  const existing = await sb<any[]>("company_payments", {}, `?select=id&id=eq.${encodeURIComponent(upload.paymentId)}&limit=1`);
+  if (!existing.length) await removeStorageObject("payflow-receipts", upload.path);
 }
 
 async function storageRequest(path: string, init: RequestInit = {}) {
@@ -190,6 +253,15 @@ async function stock(branch = "main") {
   return toStock(rows);
 }
 
+async function companyForUser(user: AppUser, companyId: string) {
+  const [company] = await sb<any[]>("companies", {}, `?select=*&id=eq.${encodeURIComponent(companyId)}&limit=1`);
+  if (!company) throw new Error("Firma topilmadi");
+  if (user.role === "shop" || (user.role !== "superadmin" && company.branch !== user.role)) {
+    throw new Error("Firma uchun ruxsat yo'q");
+  }
+  return company;
+}
+
 function mapOrder(row: any) {
   return {
     id: row.id,
@@ -304,6 +376,13 @@ async function snapshot(user: AppUser) {
       orderId: p.order_id,
       amount: Number(p.amount || 0),
       note: p.note || "",
+      paymentMethod: p.payment_method || "cash",
+      ourAccountId: p.our_account_id || undefined,
+      companyAccountId: p.company_account_id || undefined,
+      ourCardAccountText: p.our_card_account_text || "",
+      companyCardAccountText: p.company_card_account_text || "",
+      paymentDate: p.payment_date || String(p.created_at || "").slice(0, 10),
+      receipt: p.receipt || undefined,
       createdAt: p.created_at,
     })),
     shopSales: shopSales.map((s) => ({
@@ -487,6 +566,46 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       return json(created, 201);
     }
 
+    if (route === "payment-methods" && method === "GET") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const companyId = request.nextUrl.searchParams.get("companyId");
+      const company = companyId ? await companyForUser(user, companyId) : null;
+      if (!company && user.role !== "superadmin") throw new Error("Ruxsat yo'q");
+      const methods = await rpc<any>("payflow_payment_methods", { p_company_name: company?.name || null });
+      return json(methods);
+    }
+    if (route === "payment-methods" && method === "POST") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const body = await readBody(request);
+      const kind = String(body.kind || "").toUpperCase();
+      let company: any = null;
+      if (kind === "OUR") requireRole(user, ["superadmin"]);
+      else if (kind === "COMPANY") {
+        if (!body.companyId) throw new Error("Firma ID kerak");
+        company = await companyForUser(user, String(body.companyId));
+      } else throw new Error("To'lov usuli turi noto'g'ri");
+      const created = await rpc<any>("payflow_add_payment_method", {
+        p_kind: kind,
+        p_label: String(body.label || ""),
+        p_company_name: company?.name || null,
+      });
+      return json(created, 201);
+    }
+    const paymentMethodItem = route.match(/^payment-methods\/([^/]+)$/);
+    if (paymentMethodItem && method === "DELETE") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const body = await readBody(request);
+      const company = body.companyId ? await companyForUser(user, String(body.companyId)) : null;
+      if (!company && user.role !== "superadmin") throw new Error("Ruxsat yo'q");
+      const methods = await rpc<any>("payflow_payment_methods", { p_company_name: company?.name || null });
+      const allowed = company ? methods?.companyAccounts || [] : methods?.ourAccounts || [];
+      const accountId = decodeURIComponent(paymentMethodItem[1]);
+      if (!allowed.some((account: any) => account.id === accountId)) throw new Error("Karta topilmadi yoki ruxsat yo'q");
+      const removed = await rpc<boolean>("payflow_delete_payment_method", { p_account_id: accountId });
+      if (!removed) throw new Error("Karta topilmadi");
+      return json({ success: true });
+    }
+
     if (route === "orders" && method === "GET") return json((await snapshot(user)).orders);
     if (route === "orders" && method === "POST") {
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
@@ -500,6 +619,42 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const orderItems = Array.isArray(body.items) ? body.items.map((item: any, index: number) => index === 0 && body.productDocument ? { ...item, orderDocument: body.productDocument } : item) : [];
       const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
       return json(mapOrder(created), 201);
+    }
+    if (route === "orders/payment-receipt-upload-url" && method === "POST") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const body = await readBody(request);
+      const type = String(body.type || "");
+      const size = Number(body.size || 0);
+      const extension = paymentReceiptTypes[type];
+      if (!extension) return json({ success: false, message: "Chek faqat JPG, PNG yoki WEBP rasm bo'lishi kerak" }, 400);
+      if (size <= 0 || size > MAX_PAYMENT_RECEIPT_BYTES) return json({ success: false, message: "Chek 5 MB dan kichik bo'lishi kerak" }, 400);
+
+      const paymentId = crypto.randomUUID();
+      const path = `${paymentId}/${crypto.randomUUID()}.${extension}`;
+      const signed = await storageRequest(`/object/upload/sign/payflow-receipts/${path}`, { method: "POST", body: "{}" });
+      const upload: PaymentReceiptUpload = {
+        paymentId,
+        path,
+        name: String(body.name || "receipt").slice(0, 180),
+        type,
+        size,
+        userId: user.id,
+        exp: Math.floor(Date.now() / 1000) + 15 * 60,
+      };
+      return json({
+        paymentId,
+        path,
+        uploadUrl: `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signed.url}`,
+        uploadToken: signPaymentReceiptUpload(upload),
+      });
+    }
+    if (route === "orders/payment-receipt-upload" && method === "DELETE") {
+      requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
+      const body = await readBody(request);
+      const upload = verifyPaymentReceiptUpload(body.uploadToken, user);
+      if (!upload) return json({ success: false, message: "Chek yuklash imzosi eskirgan yoki noto'g'ri" }, 400);
+      await removeUnlinkedPaymentReceipt(upload);
+      return json({ success: true });
     }
     if (route === "orders/document-upload-url" && method === "POST") {
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
@@ -533,9 +688,51 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const [order] = await sb<any[]>("orders", {}, `?select=id,branch&id=eq.${encodeURIComponent(orderId)}&limit=1`);
       if (!order) return json({ success: false, message: "Order topilmadi" }, 404);
       if (user.role !== "superadmin" && order.branch !== user.role) return json({ success: false, message: "Ruxsat yo'q" }, 403);
-      if (body.receipt) await sb("orders", { method: "PATCH", body: JSON.stringify({ receipt: body.receipt }) }, `?id=eq.${encodeURIComponent(orderId)}`);
-      const payment = await rpc<any>("pay_order", { p_order_id: orderId, p_amount: Number(body.amount || 0), p_note: body.note || "" });
-      return json(payment, 201);
+      const paymentMethod = String(body.paymentMethod || "cash").toLowerCase();
+      const paymentDate = String(body.paymentDate || new Date().toISOString().slice(0, 10));
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) throw new Error("To'lov sanasi noto'g'ri");
+      if (!(["cash", "card"] as string[]).includes(paymentMethod)) throw new Error("To'lov usuli noto'g'ri");
+      if (paymentMethod === "card" && (!body.ourAccountId || !body.companyAccountId)) {
+        throw new Error("Ikkala karta ham tanlanishi kerak");
+      }
+
+      const upload = body.receiptUploadToken ? verifyPaymentReceiptUpload(body.receiptUploadToken, user) : null;
+      if (body.receiptUploadToken && !upload) throw new Error("Chek yuklash imzosi eskirgan yoki noto'g'ri");
+      let receipt: Record<string, unknown> | null = null;
+      if (upload) {
+        await storageRequest(`/object/info/payflow-receipts/${upload.path}`);
+        const signed = await storageRequest(`/object/sign/payflow-receipts/${upload.path}`, {
+          method: "POST",
+          body: JSON.stringify({ expiresIn: 31536000 }),
+        });
+        const signedPath = signed.signedURL || signed.signedUrl;
+        receipt = {
+          name: upload.name,
+          type: upload.type,
+          storagePath: upload.path,
+          dataUrl: signedPath ? `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signedPath}` : "",
+        };
+      }
+
+      const paymentId = upload?.paymentId || crypto.randomUUID();
+      try {
+        const payment = await rpc<any>("pay_order_with_payflow", {
+          p_payment_id: paymentId,
+          p_order_id: orderId,
+          p_amount: Number(body.amount || 0),
+          p_note: String(body.note || ""),
+          p_payment_date: paymentDate,
+          p_payment_method: paymentMethod,
+          p_our_account_id: paymentMethod === "card" ? String(body.ourAccountId) : null,
+          p_company_account_id: paymentMethod === "card" ? String(body.companyAccountId) : null,
+          p_receipt_paths: upload ? [upload.path] : [],
+          p_receipt: receipt,
+        });
+        return json(payment, 201);
+      } catch (error) {
+        if (upload) await removeUnlinkedPaymentReceipt(upload);
+        throw error;
+      }
     }
 
     if (route === "staff" && method === "POST") {

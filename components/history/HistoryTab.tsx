@@ -24,7 +24,7 @@ export function HistoryTab({ orders, payments, companies, lang }: { orders: Orde
   const companyMap = useMemo(() => new Map(companies.map((company) => [company.id, company.name])), [companies]);
   const events = useMemo<Event[]>(() => [
     ...orders.map((order) => ({ id: `order-${order.id}`, type: "order" as const, date: dayKey(order.orderDate || order.createdAt), company: order.companyName || companyMap.get(order.companyId) || "Firma", amount: order.totalPrice, detail: `${order.items.length} ta mahsulot`, orderId: order.id })),
-    ...payments.map((payment) => ({ id: `payment-${payment.id}`, type: "payment" as const, date: dayKey(payment.createdAt), company: companyMap.get(payment.companyId) || "Firma", amount: payment.amount, detail: payment.note || "To'lov", orderId: payment.orderId })),
+    ...payments.map((payment) => ({ id: `payment-${payment.id}`, type: "payment" as const, date: dayKey(payment.paymentDate || payment.createdAt), company: companyMap.get(payment.companyId) || "Firma", amount: payment.amount, detail: `${payment.paymentMethod === "card" ? "Karta" : "Naqd"}${payment.note ? ` · ${payment.note}` : ""}`, orderId: payment.orderId })),
   ].sort((a, b) => b.date.localeCompare(a.date)), [orders, payments, companyMap]);
 
   const counts = useMemo(() => events.reduce<Record<string, { orders: number; payments: number }>>((acc, event) => {
