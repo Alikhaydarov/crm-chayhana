@@ -5,7 +5,6 @@ import {
   authDamageUser,
   damageErrorStatus,
   damageExtension,
-  ensureDamageBucket,
   readDamageBody,
   signDamageImageUpload,
   storageApiUrl,
@@ -16,6 +15,73 @@ import {
 export const runtime = "nodejs";
 export const preferredRegion = "icn1";
 
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+async function storageAdminFetch(path: string, init: RequestInit = {}) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("Supabase env missing");
+  const headers = new Headers(init.headers);
+  headers.set("apikey", SUPABASE_KEY);
+  headers.set("authorization", `Bearer ${SUPABASE_KEY}`);
+  headers.set("accept", "application/json");
+  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  return fetch(`${SUPABASE_URL.replace(/\/$/, "")}/storage/v1${path}`, {
+    ...init,
+    headers,
+    cache: "no-store",
+  });
+}
+
+async function storagePayload(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+}
+
+function storageMessage(data: any, fallback: string) {
+  return data?.message || data?.error || data?.hint || data?.details || fallback;
+}
+
+async function ensureDamageBucketForUpload() {
+  const existing = await storageAdminFetch(`/bucket/${DAMAGE_BUCKET}`);
+  if (existing.ok) {
+    await existing.arrayBuffer().catch(() => null);
+    return;
+  }
+
+  const existingData = await storagePayload(existing);
+  const existingMessage = storageMessage(existingData, `Storage ${existing.status}`);
+  const isMissing = existing.status === 404 || /bucket not found/i.test(existingMessage);
+  if (!isMissing) throw new Error(existingMessage);
+
+  const created = await storageAdminFetch("/bucket", {
+    method: "POST",
+    body: JSON.stringify({
+      id: DAMAGE_BUCKET,
+      name: DAMAGE_BUCKET,
+      public: false,
+    }),
+  });
+
+  if (created.ok) {
+    await created.arrayBuffer().catch(() => null);
+    return;
+  }
+
+  const createData = await storagePayload(created);
+  const recheck = await storageAdminFetch(`/bucket/${DAMAGE_BUCKET}`);
+  if (recheck.ok) {
+    await recheck.arrayBuffer().catch(() => null);
+    return;
+  }
+  await recheck.arrayBuffer().catch(() => null);
+  throw new Error(storageMessage(createData, `Storage bucket yaratilmadi (${created.status})`));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = authDamageUser(request);
@@ -25,13 +91,19 @@ export async function POST(request: NextRequest) {
     const extension = damageExtension(type);
 
     if (!extension) {
-      return NextResponse.json({ success: false, message: "Brak rasmi faqat JPG, PNG yoki WEBP bo'lishi kerak" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Brak rasmi faqat JPG, PNG yoki WEBP bo'lishi kerak" },
+        { status: 400 },
+      );
     }
     if (!Number.isFinite(size) || size <= 0 || size > MAX_DAMAGE_IMAGE_BYTES) {
-      return NextResponse.json({ success: false, message: "Brak rasmi 10 MB dan kichik bo'lishi kerak" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Brak rasmi 10 MB dan kichik bo'lishi kerak" },
+        { status: 400 },
+      );
     }
 
-    await ensureDamageBucket();
+    await ensureDamageBucketForUpload();
 
     const requestId = crypto.randomUUID();
     const path = `${requestId}/${crypto.randomUUID()}.${extension}`;
