@@ -1,5 +1,5 @@
 "use client";
-import { memo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Banknote, Building2, CalendarDays, ChevronRight, CreditCard, FileCheck2, MapPin, Pencil, Phone, Save, Settings2, X } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { PaymentMethodsPanel } from "@/components/settings/PaymentMethodsPanel";
@@ -102,11 +102,43 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
   const [editCompanyForm, setEditCompanyForm] = useState({ name: "", address: "", phone: "" });
   const [companySaving, setCompanySaving] = useState(false);
 
-  const cOrders = (id: string) => orders.filter((o) => o.companyId === id);
-  const cDebt = (id: string) => cOrders(id).reduce((s, o) => s + (o.totalPrice - o.paidAmount), 0);
-  const cTotal = (id: string) => cOrders(id).reduce((s, o) => s + o.totalPrice, 0);
-  const cPaid = (id: string) => cOrders(id).reduce((s, o) => s + o.paidAmount, 0);
-  const cHistory = (id: string) => companyPayments.filter((p) => p.companyId === id);
+  // Per-company order/debt/payment totals were previously recomputed by
+  // re-filtering the full `orders`/`companyPayments` arrays on every call
+  // (cDebt/cTotal/cPaid each called cOrders again internally), and some
+  // JSX blocks called them 3-5 times each. That made every render -- e.g.
+  // clicking a tab inside the firm detail modal -- redo O(companies x
+  // orders) work. Compute each once per data change instead.
+  const companyStats = useMemo(() => {
+    const map = new Map<string, { orders: Order[]; total: number; paid: number; debt: number }>();
+    for (const order of orders) {
+      const current = map.get(order.companyId) || { orders: [] as Order[], total: 0, paid: 0, debt: 0 };
+      current.orders.push(order);
+      current.total += order.totalPrice;
+      current.paid += order.paidAmount;
+      current.debt += order.totalPrice - order.paidAmount;
+      map.set(order.companyId, current);
+    }
+    return map;
+  }, [orders]);
+  const emptyStats = useMemo(() => ({ orders: [] as Order[], total: 0, paid: 0, debt: 0 }), []);
+  const statsFor = (id: string) => companyStats.get(id) || emptyStats;
+
+  const paymentsByCompany = useMemo(() => {
+    const map = new Map<string, CompanyPayment[]>();
+    for (const payment of companyPayments) {
+      const list = map.get(payment.companyId);
+      if (list) list.push(payment);
+      else map.set(payment.companyId, [payment]);
+    }
+    return map;
+  }, [companyPayments]);
+  const historyFor = (id: string) => paymentsByCompany.get(id) || [];
+
+  const cOrders = (id: string) => statsFor(id).orders;
+  const cDebt = (id: string) => statsFor(id).debt;
+  const cTotal = (id: string) => statsFor(id).total;
+  const cPaid = (id: string) => statsFor(id).paid;
+  const cHistory = (id: string) => historyFor(id);
 
   const addCompany = async () => {
     if (!addForm.name.trim()) { showToast(t.firmNameRequired, "error"); return; }
