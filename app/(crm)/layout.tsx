@@ -1,5 +1,5 @@
 "use client";
-import { startTransition, useState, useEffect } from "react";
+import { startTransition, useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { AlertTriangle, ArrowLeftRight, BarChart3, CalendarDays, LayoutDashboard, Package, Settings2, ShoppingCart, Store, Warehouse } from "lucide-react";
 import { logoutApi, restoreSessionApi } from "@/lib/api";
@@ -92,43 +92,47 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   };
   const openBranchAnalysis = (branchSlug: string) => router.push(`/analysis?branch=${encodeURIComponent(branchSlug)}`);
 
-  if (!sessionReady) return <div className={`${theme} theme-shell`} style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--app-bg)", color: "var(--app-text)" }}><style>{GLOBAL_CSS}</style>{t.loading}</div>;
-  if (!user || !canUseTab(activeTab)) return null;
+  const pendingCount = useMemo(
+    () => transfers.filter((tr: any) => tr.status === "pending").length,
+    [transfers],
+  );
 
-  const pendingCount = transfers.filter((tr: any) => tr.status === "pending").length;
-  const notifications: AdminNotification[] = user.role === "superadmin" ? [
-    ...transfers.map((transfer: any) => ({
-      id: `transfer-${transfer.id}-${transfer.status}`, type: "transfer" as const,
-      title: transfer.status === "pending" ? "Yangi transfer so'rovi" : transfer.status === "approved" ? "Transfer jo'natildi" : transfer.status === "received" ? "Transfer qabul qilindi" : "Transfer rad etildi",
-      description: `${transfer.branchName || transfer.toBranchName || BRANCH_NAMES[transfer.toBranch] || transfer.toBranch} · ${transfer.items?.length || 0} ta mahsulot`,
-      createdAt: transfer.updatedAt || transfer.createdAt, tab: "transfers" as const,
-      level: transfer.status === "pending" ? "warning" as const : transfer.status === "approved" ? "info" as const : transfer.status === "received" ? "success" as const : "danger" as const,
-    })),
-    ...products.filter((product: any) => (stock[product.id] || 0) <= product.minStock).map((product: any) => ({
-      id: `stock-${product.id}-${stock[product.id] || 0}`, type: "stock" as const, title: "Skladda mahsulot kam qoldi",
-      description: `${product.name}: ${stock[product.id] || 0} ${product.unit}`, createdAt: "", tab: "warehouse" as const, level: "danger" as const,
-    })),
-    ...(damages || []).map((damage: any) => ({
-      id: `damage-${damage.id}-${damage.status}`, type: "stock" as const,
-      title: damage.status === "pending" ? "Yangi brak so'rovi" : damage.status === "approved" ? "Brak skladdan ayrildi" : "Brak rad etildi",
-      description: `${BRANCH_NAMES[damage.branch] || damage.branch} · ${damage.productName} · ${damage.quantity} ${damage.unit}`,
-      createdAt: damage.updatedAt || damage.createdAt, tab: "damages" as const,
-      level: damage.status === "pending" ? "warning" as const : damage.status === "approved" ? "success" as const : "danger" as const,
-    })),
-    ...orders.slice(0, 30).map((order: any) => ({
-      id: `order-${order.id}-${order.paidAmount}`, type: "order" as const,
-      title: order.totalPrice <= order.paidAmount ? "Order to'liq to'landi" : "Yangi order yoki qarz",
-      description: `${order.companyName} · ${order.items?.length || 0} ta mahsulot`, createdAt: order.createdAt, tab: "orders" as const,
-      level: order.totalPrice <= order.paidAmount ? "success" as const : "info" as const,
-    })),
-    ...companyPayments.slice(0, 30).map((payment: any) => ({
-      id: `payment-${payment.id}`, type: "payment" as const, title: "Firma to'lovi qabul qilindi",
-      description: `${payment.amount?.toLocaleString("uz-UZ") || 0} so'm · ${payment.note || "Izohsiz"}`, createdAt: payment.createdAt,
-      tab: "suppliers" as const, level: "success" as const,
-    })),
-  ].sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0)).slice(0, 80) : [];
+  const notifications: AdminNotification[] = useMemo(() => {
+    if (user?.role !== "superadmin") return [];
+    return [
+      ...transfers.map((transfer: any) => ({
+        id: `transfer-${transfer.id}-${transfer.status}`, type: "transfer" as const,
+        title: transfer.status === "pending" ? "Yangi transfer so'rovi" : transfer.status === "approved" ? "Transfer jo'natildi" : transfer.status === "received" ? "Transfer qabul qilindi" : "Transfer rad etildi",
+        description: `${transfer.branchName || transfer.toBranchName || BRANCH_NAMES[transfer.toBranch] || transfer.toBranch} · ${transfer.items?.length || 0} ta mahsulot`,
+        createdAt: transfer.updatedAt || transfer.createdAt, tab: "transfers" as const,
+        level: transfer.status === "pending" ? "warning" as const : transfer.status === "approved" ? "info" as const : transfer.status === "received" ? "success" as const : "danger" as const,
+      })),
+      ...products.filter((product: any) => (stock[product.id] || 0) <= product.minStock).map((product: any) => ({
+        id: `stock-${product.id}-${stock[product.id] || 0}`, type: "stock" as const, title: "Skladda mahsulot kam qoldi",
+        description: `${product.name}: ${stock[product.id] || 0} ${product.unit}`, createdAt: "", tab: "warehouse" as const, level: "danger" as const,
+      })),
+      ...(damages || []).map((damage: any) => ({
+        id: `damage-${damage.id}-${damage.status}`, type: "stock" as const,
+        title: damage.status === "pending" ? "Yangi brak so'rovi" : damage.status === "approved" ? "Brak skladdan ayrildi" : "Brak rad etildi",
+        description: `${BRANCH_NAMES[damage.branch] || damage.branch} · ${damage.productName} · ${damage.quantity} ${damage.unit}`,
+        createdAt: damage.updatedAt || damage.createdAt, tab: "damages" as const,
+        level: damage.status === "pending" ? "warning" as const : damage.status === "approved" ? "success" as const : "danger" as const,
+      })),
+      ...orders.slice(0, 30).map((order: any) => ({
+        id: `order-${order.id}-${order.paidAmount}`, type: "order" as const,
+        title: order.totalPrice <= order.paidAmount ? "Order to'liq to'landi" : "Yangi order yoki qarz",
+        description: `${order.companyName} · ${order.items?.length || 0} ta mahsulot`, createdAt: order.createdAt, tab: "orders" as const,
+        level: order.totalPrice <= order.paidAmount ? "success" as const : "info" as const,
+      })),
+      ...companyPayments.slice(0, 30).map((payment: any) => ({
+        id: `payment-${payment.id}`, type: "payment" as const, title: "Firma to'lovi qabul qilindi",
+        description: `${payment.amount?.toLocaleString("uz-UZ") || 0} so'm · ${payment.note || "Izohsiz"}`, createdAt: payment.createdAt,
+        tab: "suppliers" as const, level: "success" as const,
+      })),
+    ].sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0)).slice(0, 80);
+  }, [user?.role, transfers, products, stock, damages, orders, companyPayments]);
 
-  const TABS = [
+  const TABS = useMemo(() => [
     { id: "dashboard" as TabId, icon: LayoutDashboard, label: t.dashboard },
     { id: "warehouse" as TabId, icon: Warehouse, label: t.warehouse },
     { id: "transfers" as TabId, icon: ArrowLeftRight, label: t.transfers, badge: pendingCount },
@@ -139,10 +143,26 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "history" as TabId, icon: CalendarDays, label: t.history },
     { id: "settings" as TabId, icon: Settings2, label: t.settings },
     ...(isShopAdmin ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }] : []),
-  ].filter((tab) => canUseTab(tab.id));
-  const commands = TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "damages" ? "Brak request, rasm va tarix" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : tab.id === "history" ? "Kalendar, order va firma to'lovlari" : tab.id === "settings" ? "Kartalar va to'lov usullari" : "Excel savdo, foyda va statistika" }));
+  ].filter((tab) => canUseTab(tab.id)), [t, pendingCount, damages, isShopAdmin, user?.role]);
 
-  return <AppContext.Provider value={{ products, stock, mainStock, shopStock, transfers, damages, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, setTab: (tab: string) => handleTabChange(tab as TabId), openBranchAnalysis }}>
+  const commands = useMemo(
+    () => TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "damages" ? "Brak request, rasm va tarix" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : tab.id === "history" ? "Kalendar, order va firma to'lovlari" : tab.id === "settings" ? "Kartalar va to'lov usullari" : "Excel savdo, foyda va statistika" })),
+    [TABS],
+  );
+
+  const contextValue = useMemo(() => ({
+    products, stock, mainStock, shopStock, transfers, damages, reports, companies, orders, companyPayments,
+    shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user: user as UserInfo,
+    setTab: (tab: string) => handleTabChange(tab as TabId), openBranchAnalysis,
+  }), [
+    products, stock, mainStock, shopStock, transfers, damages, reports, companies, orders, companyPayments,
+    shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, pathname,
+  ]);
+
+  if (!sessionReady) return <div className={`${theme} theme-shell`} style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--app-bg)", color: "var(--app-text)" }}><style>{GLOBAL_CSS}</style>{t.loading}</div>;
+  if (!user || !canUseTab(activeTab)) return null;
+
+  return <AppContext.Provider value={contextValue}>
     <div className={`${theme} theme-shell`} style={{ display: "flex", height: "100vh", background: "var(--app-bg)", fontFamily: "var(--font-ui)", color: "var(--app-text)", overflow: "hidden" }}>
       <style>{GLOBAL_CSS}</style>{toast && <Toast msg={toast.msg} type={toast.type} />}
       <Sidebar user={user} tabs={TABS} activeTab={activeTab} collapsed={sidebarCollapsed} theme={theme} lang={lang} onTabChange={handleTabChange} onToggleCollapse={() => setSidebarCollapsed(v => !v)} onCollapse={() => setSidebarCollapsed(true)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} />
