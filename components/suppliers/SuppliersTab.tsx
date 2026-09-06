@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { Banknote, CalendarDays, CreditCard, FileCheck2, Pencil, Save, Settings2, X } from "lucide-react";
+import { memo, useState } from "react";
+import { Banknote, Building2, CalendarDays, ChevronRight, CreditCard, FileCheck2, MapPin, Pencil, Phone, Save, Settings2, X } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { PaymentMethodsPanel } from "@/components/settings/PaymentMethodsPanel";
 import { addCompanyApi, getPaymentMethodsApi, payOrderApi, updateCompanyApi } from "@/lib/api";
@@ -21,6 +21,66 @@ function currentLocalDate() {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
+
+const SupplierCard = memo(function SupplierCard({
+  company,
+  orderCount,
+  totalValue,
+  debt,
+  countSuffix,
+  debtLabel,
+  noDebtLabel,
+  onOpen,
+}: {
+  company: Company;
+  orderCount: number;
+  totalValue: number;
+  debt: number;
+  countSuffix: string;
+  debtLabel: string;
+  noDebtLabel: string;
+  onOpen: (company: Company) => void;
+}) {
+  const hasDebt = debt > 0;
+  return (
+    <article
+      className={`supplier-card${hasDebt ? " supplier-card--debt" : ""}`}
+      onClick={() => onOpen(company)}
+    >
+      <div className="supplier-card-top">
+        <div className="supplier-identity">
+          <div className="supplier-avatar">
+            <Building2 size={17} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div className="supplier-name">{company.name}</div>
+            {(company.address || company.phone) && (
+              <div className="supplier-contact">
+                {company.address && <span><MapPin size={11} /> {company.address}</span>}
+                {company.phone && <span><Phone size={11} /> {company.phone}</span>}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="supplier-arrow">
+          <ChevronRight size={15} />
+        </div>
+      </div>
+
+      <div className="supplier-stats">
+        <div className="supplier-stat">
+          <div className="supplier-stat-label">Orderlar</div>
+          <div className="supplier-stat-value">{orderCount} {countSuffix}</div>
+          <div className="supplier-stat-sub">{fmtM(totalValue)}</div>
+        </div>
+        <div className={`supplier-stat ${hasDebt ? "supplier-stat--debt" : "supplier-stat--ok"}`}>
+          <div className="supplier-stat-label">{debtLabel}</div>
+          <div className="supplier-stat-value">{hasDebt ? fmtM(debt) : `✓ ${noDebtLabel}`}</div>
+        </div>
+      </div>
+    </article>
+  );
+});
 
 export function SuppliersTab({ companies, orders, companyPayments, fetchAll, showToast, t }: Props) {
   const [showAdd, setShowAdd] = useState(false);
@@ -394,44 +454,23 @@ export function SuppliersTab({ companies, orders, companyPayments, fetchAll, sho
         </Modal>
       )}
 
-      <div className="firm-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
-        {companies.map((c, i) => {
-          const debt = cDebt(c.id);
-          const orderCnt = cOrders(c.id).length;
-          return (
-            <div
-              key={c.id}
-              className="fade-up"
-              style={{ animationDelay: `${i * 50}ms`, background: "var(--app-panel)", border: `1px solid ${debt > 0 ? "rgba(248,81,73,.25)" : "var(--app-border)"}`, borderRadius: 18, padding: "20px 20px", cursor: "pointer", transition: "all .2s" }}
-              onClick={() => openCompany(c)}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(0,0,0,.2)"; e.currentTarget.style.borderColor = debt > 0 ? "rgba(248,81,73,.4)" : "rgba(115,103,240,.35)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.borderColor = debt > 0 ? "rgba(248,81,73,.25)" : "var(--app-border)"; }}
-            >
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 4 }}>🏢 {c.name}</div>
-                  {c.address && <div style={{ fontSize: 11, color: "var(--app-muted)", marginBottom: 2 }}>📍 {c.address}</div>}
-                  {c.phone && <div style={{ fontSize: 11, color: "var(--app-muted)" }}>📞 {c.phone}</div>}
-                </div>
-                <div style={{ fontSize: 22, opacity: 0.4 }}>→</div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div style={{ background: "var(--app-panel-soft)", borderRadius: 11, padding: "11px 12px" }}>
-                  <div style={{ fontSize: 10, color: "var(--app-muted)", marginBottom: 4, fontWeight: 700 }}>{t.orders}</div>
-                  <div style={{ fontWeight: 800, color: "#3b82f6", fontSize: 14 }}>{orderCnt} {t.countSuffix}</div>
-                  <div style={{ fontSize: 11, color: "var(--app-muted)", marginTop: 1 }}>{fmtM(cTotal(c.id))}</div>
-                </div>
-                <div style={{ background: debt > 0 ? "rgba(248,81,73,.08)" : "rgba(63,185,80,.08)", border: `1px solid ${debt > 0 ? "rgba(248,81,73,.2)" : "rgba(63,185,80,.2)"}`, borderRadius: 11, padding: "11px 12px" }}>
-                  <div style={{ fontSize: 10, color: "var(--app-muted)", marginBottom: 4, fontWeight: 700 }}>{t.debt}</div>
-                  <div style={{ fontWeight: 900, color: debt > 0 ? "#f85149" : "#3fb950", fontSize: 14 }}>{debt > 0 ? fmtM(debt) : `✓ ${t.noDebt}`}</div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="supplier-grid">
+        {companies.map((c) => (
+          <SupplierCard
+            key={c.id}
+            company={c}
+            orderCount={cOrders(c.id).length}
+            totalValue={cTotal(c.id)}
+            debt={cDebt(c.id)}
+            countSuffix={t.countSuffix}
+            debtLabel={t.debt}
+            noDebtLabel={t.noDebt}
+            onOpen={openCompany}
+          />
+        ))}
         {companies.length === 0 && (
           <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "60px 20px", color: "var(--app-muted)" }}>
-            <div style={{ fontSize: 56, marginBottom: 12 }}>🏢</div>
+            <Building2 size={40} style={{ marginBottom: 12, opacity: 0.5 }} />
             <div style={{ fontWeight: 700, fontSize: 16 }}>Hali firma qo'shilmagan</div>
             <div style={{ fontSize: 13, marginTop: 6 }}>Yuqoridagi "+ Yangi firma" tugmasini bosing</div>
           </div>
