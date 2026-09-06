@@ -27,6 +27,7 @@ export function useAppData(user: UserInfo | null) {
   const pendingRefreshRef = useRef(false);
   const pendingRefreshSilentRef = useRef(true);
   const hasDataRef = useRef(false);
+  const lastSnapshotRef = useRef<string | null>(null);
 
   const fetchAll = useCallback(async (silent = false) => {
     if (!user) return;
@@ -40,6 +41,16 @@ export function useAppData(user: UserInfo | null) {
     if (!silent && !hasDataRef.current) setIsLoading(true);
     try {
       const d: any = await getSnapshotApi(user);
+
+      // Poll runs every 5s while the tab is visible. Most polls return
+      // unchanged data, so skip re-rendering the whole app when the
+      // snapshot is identical to what we already have.
+      const snapshotKey = JSON.stringify(d);
+      if (hasDataRef.current && snapshotKey === lastSnapshotRef.current) {
+        return;
+      }
+      lastSnapshotRef.current = snapshotKey;
+
       setProducts(d.products || []);
       setStock(d.stock || {});
       setMainStock(d.mainStock || (user.role === "superadmin" ? d.stock : {}));
