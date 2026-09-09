@@ -30,7 +30,7 @@ type Props = { transfers: any[]; products: Product[]; mainStock: Record<string, 
 export function TransfersTab({ transfers, products, mainStock, user, fetchAll, showToast, t }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState<any>(null);
-  const [form, setForm] = useState({ note: "", fromBranch: user.role === "superadmin" ? "main" : user.role, toBranch: user.role === "shop" ? "restaurant1" : "shop" });
+  const [form, setForm] = useState({ note: "", fromBranch: user.role === "superadmin" ? "main" : user.role, toBranch: user.role === "superadmin" ? "shop" : "main" });
   const [items, setItems] = useState([{ pid: "", qty: 1 }]);
   const [loading, setLoading] = useState(false);
   const [action, setAction] = useState<{ transfer: any; quantities: Record<string, number> } | null>(null);
@@ -43,7 +43,12 @@ export function TransfersTab({ transfers, products, mainStock, user, fetchAll, s
     { value: "shop", label: BRANCH_NAMES.shop },
   ];
   const ownBranch = user.role === "superadmin" ? form.fromBranch : user.role;
-  const targetOptions = branchOptions.filter((branch) => branch.value !== "main" && branch.value !== ownBranch);
+  // Superadmin (managing the main warehouse) can move stock between any two
+  // branches, including main. Regular branch users can only request stock
+  // from main -- not from each other.
+  const targetOptions = isSA
+    ? branchOptions.filter((branch) => branch.value !== ownBranch)
+    : branchOptions.filter((branch) => branch.value === "main");
 
   const submit = async () => {
     const valid = items.filter((i) => i.pid && i.qty > 0);
