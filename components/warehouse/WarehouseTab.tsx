@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, ImagePlus, PackageX } from "lucide-react";
+import { AlertTriangle, ImagePlus, PackageX, Send } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
-import { createDamageRequestApi, updateStockApi } from "@/lib/api";
+import { createDamageRequestApi, createTransferApi, updateStockApi } from "@/lib/api";
 import { fmt, fmtM } from "@/lib/utils";
 import type { Product, StockMap, UserInfo } from "@/types";
 import type { OrderReceipt } from "@/types/domain";
@@ -38,6 +38,10 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
   const [damageReason, setDamageReason] = useState("");
   const [damageImage, setDamageImage] = useState<OrderReceipt | undefined>();
   const [damageSaving, setDamageSaving] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendItems, setSendItems] = useState([{ pid: "", qty: 1 }]);
+  const [sendNote, setSendNote] = useState("");
+  const [sendSaving, setSendSaving] = useState(false);
 
   const isSA = user.role === "superadmin";
   const visibleStock = stock;
@@ -98,6 +102,38 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
     fetchAll();
   };
 
+  const closeSendModal = () => {
+    if (sendSaving) return;
+    setSendOpen(false);
+    setSendItems([{ pid: "", qty: 1 }]);
+    setSendNote("");
+  };
+
+  const submitSend = async () => {
+    const valid = sendItems.filter((item) => item.pid && item.qty > 0);
+    if (!valid.length) { showToast("Mahsulot tanlang", "error"); return; }
+    const overStock = valid.find((item) => item.qty > (visibleStock[item.pid] || 0));
+    if (overStock) {
+      const product = warehouseProducts.find((p) => p.id === overStock.pid);
+      showToast(`${product?.name || "Mahsulot"}: skladda faqat ${fmt(visibleStock[overStock.pid] || 0)} bor`, "error");
+      return;
+    }
+    setSendSaving(true);
+    const result = await createTransferApi(
+      "main",
+      valid.map((item) => ({ productId: item.pid, quantity: item.qty })),
+      user.name,
+      user.branchName,
+      sendNote,
+      user.role,
+    );
+    setSendSaving(false);
+    if (!result.success) { showToast((result as any).message || "Xatolik", "error"); return; }
+    showToast("So'rov bosh skladga yuborildi! ✅");
+    closeSendModal();
+    fetchAll();
+  };
+
   return (
     <PageWrap
       title="Sklad"
@@ -107,7 +143,64 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
           {lowStock > 0 && <span style={{ color: "#f85149", marginLeft: 8 }}>⚠️ {lowStock} ta kam</span>}
         </>
       }
+      action={!isSA && (
+        <button className="btn-primary" onClick={() => setSendOpen(true)}>
+          <Send size={15} /> Yuborish
+        </button>
+      )}
     >
+      {sendOpen && (
+        <Modal onClose={closeSendModal}>
+          <div className="modal-title">Bosh skladga yuborish</div>
+          <div style={{ color: "var(--app-muted)", fontSize: 12, marginBottom: 16 }}>
+            Mahsulot va miqdorni tanlang. So'rov Bosh sklad tomonidan tasdiqlangach, mahsulot sizning skladingizdan ayrilib, bosh skladga qo'shiladi.
+          </div>
+          <div className="form-group">
+            <label className="form-label">MAHSULOTLAR</label>
+            {sendItems.map((item, i) => (
+              <div key={i} className="transfer-request-row" style={{ display: "grid", gridTemplateColumns: "1fr 90px 36px", gap: 8, marginBottom: 8 }}>
+                <select
+                  className="crm-input"
+                  value={item.pid}
+                  onChange={(e) => { const n = [...sendItems]; n[i].pid = e.target.value; setSendItems(n); }}
+                >
+                  <option value="">Mahsulot tanlang</option>
+                  {warehouseProducts.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} · {fmt(visibleStock[p.id] || 0)} {p.unit}</option>
+                  ))}
+                </select>
+                <input
+                  className="crm-input"
+                  type="number"
+                  value={item.qty}
+                  min={1}
+                  max={item.pid ? (visibleStock[item.pid] || 0) : undefined}
+                  onChange={(e) => { const n = [...sendItems]; n[i].qty = parseFloat(e.target.value) || 1; setSendItems(n); }}
+                />
+                <button
+                  onClick={() => setSendItems(sendItems.filter((_, idx) => idx !== i))}
+                  style={{ background: "rgba(248,81,73,.1)", border: "1.5px solid rgba(248,81,73,.25)", color: "#f85149", borderRadius: 9, cursor: "pointer", fontWeight: 900, fontSize: 16 }}
+                >×</button>
+              </div>
+            ))}
+            <button
+              onClick={() => setSendItems([...sendItems, { pid: "", qty: 1 }])}
+              style={{ width: "100%", padding: "9px", borderRadius: 10, border: "1.5px dashed rgba(115,103,240,.4)", background: "rgba(115,103,240,.05)", color: "#7367f0", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "inherit" }}
+            >+ Mahsulot qo'shish</button>
+          </div>
+          <div className="form-group">
+            <label className="form-label">ESLATMA</label>
+            <textarea className="crm-input" value={sendNote} onChange={(e) => setSendNote(e.target.value)} rows={2} style={{ resize: "vertical" }} />
+          </div>
+          <div className="modal-actions" style={{ display: "flex", gap: 10 }}>
+            <button className="btn-ghost" disabled={sendSaving} onClick={closeSendModal} style={{ flex: 1 }}>{t.cancel}</button>
+            <button className="btn-primary" disabled={sendSaving || !warehouseProducts.length} onClick={submitSend} style={{ flex: 2 }}>
+              {sendSaving ? "Yuborilmoqda..." : "📤 Yuborish"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {editP && (
         <Modal onClose={closeStockModal}>
           <div className="modal-title">{t.editStock}</div>
