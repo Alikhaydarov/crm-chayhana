@@ -166,11 +166,12 @@ const submit = async () => {
   };
 
   const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean))).sort(), [products]);
+  const companyNameById = useMemo(() => new Map(companies.map((company) => [company.id, company.name])), [companies]);
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return products.filter((product) => {
-      const company = companies.find((item) => item.id === product.supplierId);
-      const haystack = `${product.name} ${product.qrCode || ""} ${product.category} ${product.unit} ${company?.name || ""}`.toLocaleLowerCase();
+      const companyName = companyNameById.get(product.supplierId || "") || "";
+      const haystack = `${product.name} ${product.qrCode || ""} ${product.category} ${product.unit} ${companyName}`.toLocaleLowerCase();
       const quantity = Number(stock[product.id] || 0);
       const matchesStock = stockFilter === "all" || (stockFilter === "available" && quantity > 0) || (stockFilter === "low" && quantity > 0 && quantity <= Number(product.minStock || 0)) || (stockFilter === "out" && quantity <= 0);
       return (!query || haystack.includes(query)) && (categoryFilter === "all" || product.category === categoryFilter) && matchesStock;
@@ -179,7 +180,7 @@ const submit = async () => {
       const bExact = b.qrCode?.trim().toLocaleLowerCase() === query || b.name.trim().toLocaleLowerCase() === query;
       return Number(bExact) - Number(aExact) || a.name.localeCompare(b.name);
     });
-  }, [products, companies, stock, search, categoryFilter, stockFilter]);
+  }, [products, companyNameById, stock, search, categoryFilter, stockFilter]);
   const hasFilters = Boolean(search.trim() || categoryFilter !== "all" || stockFilter !== "all");
   const findExactProduct = (value: string) => products.find((product) => product.qrCode?.trim() === value.trim()) || products.find((product) => product.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase());
   const clearFilters = () => { setSearch(""); setCategoryFilter("all"); setStockFilter("all"); };
