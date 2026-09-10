@@ -576,7 +576,15 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const id = decodeURIComponent(productDetail[1]);
       const existing = await sb<any[]>("products", {}, `?select=id&id=eq.${encodeURIComponent(id)}&limit=1`);
       if (!existing.length) return json({ success: false, message: "Mahsulot topilmadi" }, 404);
-      await sb("products", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id)}`);
+      try {
+        await sb("products", { method: "DELETE" }, `?id=eq.${encodeURIComponent(id)}`);
+      } catch (deleteError) {
+        const message = deleteError instanceof Error ? deleteError.message : "";
+        if (/foreign key|violates|still referenced/i.test(message)) {
+          return json({ success: false, message: "Bu mahsulot order, transfer yoki brak tarixida ishlatilgan, shuning uchun o'chirib bo'lmaydi" }, 409);
+        }
+        throw deleteError;
+      }
       return json({ success: true });
     }
 
@@ -772,7 +780,19 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const orderBranch = (user.role === "superadmin" ? company.branch : user.role) || "main";
       const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
       if (orderItems.length) {
-        await rpc("receive_order_batches", { p_order_id: created.id, p_branch: orderBranch, p_items: orderItems });
+        // Batch/expiry tracking is a best-effort side effect of receiving an
+        // order -- the order record above is already saved. If this RPC
+        // fails for any reason, don't turn a successful order save into an
+        // error response (that would confuse the user and risk a duplicate
+        // order being submitted). Also strip orderDocument before sending:
+        // it can carry a multi-MB base64 file that the batch RPC never
+        // reads.
+        try {
+          const batchItems = orderItems.map((item: any) => ({ productId: item.productId, quantity: item.quantity, expiryDate: item.expiryDate }));
+          await rpc("receive_order_batches", { p_order_id: created.id, p_branch: orderBranch, p_items: batchItems });
+        } catch (batchError) {
+          console.error("receive_order_batches failed for order", created.id, batchError);
+        }
       }
       return json(mapOrder(created), 201);
     }
