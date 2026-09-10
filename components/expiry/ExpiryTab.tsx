@@ -28,8 +28,14 @@ const URGENCY_CONFIG: Record<Urgency, { c: string; bg: string; l: string; i: str
 
 function daysUntil(dateStr?: string) {
   if (!dateStr) return null;
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
+  // Parse the y-m-d components directly instead of via `new Date(dateStr)`.
+  // The latter parses a date-only string as UTC midnight, which shifts to
+  // the previous calendar day once localized in any timezone behind UTC --
+  // this app is Korea-based (UTC+9) so it wouldn't show there, but parsing
+  // the components directly avoids the class of bug entirely.
+  const [year, month, day] = dateStr.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const target = new Date(year, month - 1, day);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.round((target.getTime() - today.getTime()) / 86400000);
