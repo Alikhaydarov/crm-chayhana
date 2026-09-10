@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext } from "react";
 import type { DamageRequest, Product, StockMap, Transfer } from "@/types";
-import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
+import type { Account, Branch, Company, Order, CompanyPayment, ProductBatch, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 
 export type AppContextType = {
   products: Product[];
@@ -18,6 +18,7 @@ export type AppContextType = {
   staff: Staff[];
   accounts: Account[];
   branches: Branch[];
+  productBatches: ProductBatch[];
   fetchAll: (silent?: boolean) => void;
   showToast: (msg: string, type?: "success" | "error") => void;
   t: Record<string, string>;

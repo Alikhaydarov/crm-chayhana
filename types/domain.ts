@@ -49,6 +49,7 @@ export type OrderItem = {
   quantity: number;
   unit: string;
   pricePerUnit: number;
+  expiryDate?: string;
 };
 
 export type Order = {
@@ -63,6 +64,19 @@ export type Order = {
   receipt?: OrderReceipt;
   productDocument?: OrderReceipt;
   orderDate?: string;
+  createdAt: string;
+};
+
+export type ProductBatch = {
+  id: string;
+  productId: string;
+  productName: string;
+  unit: string;
+  branch: string;
+  quantity: number;
+  expiryDate?: string;
+  receivedDate: string;
+  orderId?: string;
   createdAt: string;
 };
 
@@ -165,6 +179,7 @@ export type Snapshot = {
   staff: Staff[];
   accounts: Account[];
   branches: Branch[];
+  productBatches: ProductBatch[];
 };
 
 export type BranchReport = {

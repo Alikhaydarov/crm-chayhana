@@ -1,16 +1,14 @@
 export type Role = "superadmin" | "restaurant1" | "restaurant2" | "shop";
-export type PayStatus = "paid" | "unpaid" | "partial";
 
 export type UserInfo = {
   id: string;
   name: string;
   role: Role;
-  accountRole?: "ceo" | "super_admin" | "admin";
-  branchId?: number | string;
-  branchSlug?: string;
-  branchType?: "restaurant" | "shop";
   branchName: string;
   branchIcon: string;
+  branchId?: number | string;
+  branchSlug?: string;
+  branchType?: string;
 };
 
 export type Product = {
@@ -22,7 +20,7 @@ export type Product = {
   pricePerUnit: number;
   perBox: number;
   boxUnit: string;
-  qrCode?: string;
+  qrCode: string;
   supplierId?: string;
 };
 
@@ -32,26 +30,18 @@ export type Transfer = {
   id: string;
   fromBranch: string;
   toBranch: string;
-  items: TransferItem[];
+  items: { productId: string; productName: string; quantity: number; unit: string; pricePerUnit: number }[];
   totalValue: number;
   requestedBy: string;
   approvedBy?: string;
-  status: "pending" | "approved" | "received" | "rejected";
-  sentItems?: TransferItem[];
-  receivedItems?: TransferItem[];
+  sentItems: { productId: string; productName: string; quantity: number; unit: string; pricePerUnit: number }[];
+  receivedItems: { productId: string; productName: string; quantity: number; unit: string; pricePerUnit: number }[];
   receivedBy?: string;
   receivedAt?: string;
-  note?: string;
+  status: "pending" | "approved" | "received" | "rejected";
+  note: string;
   createdAt: string;
   updatedAt: string;
-};
-
-export type TransferItem = {
-  productId: string;
-  productName: string;
-  quantity: number;
-  unit: string;
-  pricePerUnit?: number;
 };
 
 export type DamageRequest = {
@@ -88,7 +78,11 @@ export type ParsedShopSale = {
   profitAmount: number;
   averagePrice: number;
   productId: string;
+  productName: string;
+  status: "matched" | "unmatched" | "duplicate";
 };
+
+export type PayStatus = "unpaid" | "paid";
 
 export type TabId =
   | "dashboard"
@@ -100,4 +94,5 @@ export type TabId =
   | "suppliers"
   | "history"
   | "settings"
-  | "analysis";
+  | "analysis"
+  | "expiry";

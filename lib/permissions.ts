@@ -1,10 +1,10 @@
 import type { Role, TabId } from "@/types";
 
 export const ROLE_TABS: Record<Role, readonly TabId[]> = {
-  superadmin: ["dashboard", "warehouse", "transfers", "damages", "orders", "products", "suppliers", "history", "settings", "analysis"],
-  restaurant1: ["dashboard", "warehouse", "transfers", "damages", "orders"],
-  restaurant2: ["dashboard", "warehouse", "transfers", "damages", "orders"],
-  shop: ["dashboard", "warehouse", "transfers", "damages", "analysis"],
+  superadmin: ["dashboard", "warehouse", "transfers", "damages", "orders", "products", "suppliers", "history", "settings", "analysis", "expiry"],
+  restaurant1: ["dashboard", "warehouse", "transfers", "damages", "orders", "expiry"],
+  restaurant2: ["dashboard", "warehouse", "transfers", "damages", "orders", "expiry"],
+  shop: ["dashboard", "warehouse", "transfers", "damages", "analysis", "expiry"],
 };
 
 export function canAccessTab(role: Role, tab: TabId) {
