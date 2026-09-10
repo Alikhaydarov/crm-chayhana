@@ -1,13 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Camera, CalendarClock, FileText, PackagePlus, Search, ScanLine } from "lucide-react";
+import { Banknote, Camera, CalendarClock, CreditCard, FileText, PackagePlus, Search, ScanLine } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
-import { addProductApi, createOrderApi, uploadOrderDocumentApi } from "@/lib/api";
+import { addProductApi, createOrderApi, getPaymentMethodsApi, uploadOrderDocumentApi } from "@/lib/api";
 import { PAY_STATUS_CONFIG } from "@/lib/constants";
 import { fmtM, fmtDate } from "@/lib/utils";
 import type { Product } from "@/types";
-import type { Company, Order, OrderReceipt } from "@/types/domain";
+import type { Company, Order, OrderReceipt, PaymentMethods } from "@/types/domain";
 
 type Props = {
   orders: Order[];
@@ -38,6 +38,11 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
   const [loading, setLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
+  const [ourAccountId, setOurAccountId] = useState("");
+  const [companyAccountId, setCompanyAccountId] = useState("");
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethods>({ ourAccounts: [], companyAccounts: [] });
+  const [methodsLoading, setMethodsLoading] = useState(false);
   const [createdProducts, setCreatedProducts] = useState<Product[]>([]);
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
@@ -56,6 +61,22 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     setNewProductOpen(false);
     setCameraOpen(false);
     setProductDraft((current) => ({ ...current, supplierId: companyId }));
+    setPaymentMethod("cash");
+    setOurAccountId("");
+    setCompanyAccountId("");
+    setPaymentMethods({ ourAccounts: [], companyAccounts: [] });
+  };
+
+  const loadPaymentMethods = async (companyId: string) => {
+    if (paymentMethods.ourAccounts.length || paymentMethods.companyAccounts.length || methodsLoading) return;
+    setMethodsLoading(true);
+    const result = await getPaymentMethodsApi(companyId);
+    if (result.success) {
+      setPaymentMethods(result.methods);
+      if (result.methods.ourAccounts.length === 1) setOurAccountId(result.methods.ourAccounts[0].id);
+      if (result.methods.companyAccounts.length === 1) setCompanyAccountId(result.methods.companyAccounts[0].id);
+    }
+    setMethodsLoading(false);
   };
 
   const addProductToOrder = (product: Product) => {
@@ -118,6 +139,10 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     if (!form.orderDate) { showToast("Order sanasini kiriting", "error"); return; }
     const valid = items.filter((i) => i.pid && i.qty > 0 && i.price > 0);
     if (!valid.length) { showToast("Mahsulot va narx kiriting", "error"); return; }
+    if (form.payStatus === "paid" && paymentMethod === "card" && (!ourAccountId || !companyAccountId)) {
+      showToast("To'lov kartadan bo'lsa, ikkala karta ham tanlanishi kerak", "error");
+      return;
+    }
     setLoading(true);
     let productDocument = form.productDocument || undefined;
     if (productDocumentFile) {
@@ -132,6 +157,9 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       payStatus: form.payStatus,
       paidAmount: form.payStatus === "paid" ? total : 0,
       orderDate: form.orderDate,
+      paymentMethod: form.payStatus === "paid" ? paymentMethod : undefined,
+      ourAccountId: form.payStatus === "paid" && paymentMethod === "card" ? ourAccountId : undefined,
+      companyAccountId: form.payStatus === "paid" && paymentMethod === "card" ? companyAccountId : undefined,
       receipt: form.receipt || undefined,
       productDocument,
     });
@@ -144,6 +172,10 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
       setProductDocumentFile(null);
       setForm(emptyForm());
       setItems([]);
+      setPaymentMethod("cash");
+      setOurAccountId("");
+      setCompanyAccountId("");
+      setPaymentMethods({ ourAccounts: [], companyAccounts: [] });
       fetchAll();
     } else showToast((d as any).message || "Xatolik", "error");
     setLoading(false);
@@ -255,13 +287,46 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                 <label className="form-label">TO'LOV HOLATI</label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {(["paid", "unpaid"] as const).map((m) => (
-                    <button key={m} onClick={() => setForm({ ...form, payStatus: m, receipt: m === "paid" ? form.receipt : null })}
+                    <button key={m} onClick={() => { setForm({ ...form, payStatus: m, receipt: m === "paid" ? form.receipt : null }); if (m === "paid") void loadPaymentMethods(form.companyId); }}
                       style={{ padding: "8px 16px", borderRadius: 10, border: `2px solid ${form.payStatus === m ? PAY_STATUS_CONFIG[m].c : "var(--app-border)"}`, background: form.payStatus === m ? PAY_STATUS_CONFIG[m].bg : "transparent", color: form.payStatus === m ? PAY_STATUS_CONFIG[m].c : "var(--app-muted)", cursor: "pointer", fontSize: 12, fontWeight: 800, fontFamily: "inherit", transition: "all .15s" }}>
                       {PAY_STATUS_CONFIG[m].l}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {form.payStatus === "paid" && (
+                <div className="form-group">
+                  <label className="form-label">TO'LOV USULI</label>
+                  <div className="pay-method-segment" role="group" aria-label="To'lov usuli">
+                    <button type="button" className={paymentMethod === "cash" ? "active" : ""} onClick={() => setPaymentMethod("cash")}><Banknote size={16} /> Naqd</button>
+                    <button type="button" className={paymentMethod === "card" ? "active" : ""} onClick={() => setPaymentMethod("card")}><CreditCard size={16} /> Karta</button>
+                  </div>
+                  {paymentMethod === "card" && (
+                    <div className="pay-account-box" style={{ marginTop: 10 }}>
+                      <div className="pay-account-grid">
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">BIZNING KARTA</label>
+                          <select className="crm-input" value={ourAccountId} onChange={(event) => setOurAccountId(event.target.value)} disabled={methodsLoading}>
+                            <option value="">{methodsLoading ? "Yuklanmoqda..." : "Karta tanlang"}</option>
+                            {paymentMethods.ourAccounts.map((account) => <option key={account.id} value={account.id}>{account.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">FIRMA KARTASI</label>
+                          <select className="crm-input" value={companyAccountId} onChange={(event) => setCompanyAccountId(event.target.value)} disabled={methodsLoading}>
+                            <option value="">{methodsLoading ? "Yuklanmoqda..." : "Karta tanlang"}</option>
+                            {paymentMethods.companyAccounts.map((account) => <option key={account.id} value={account.id}>{account.label}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      {!methodsLoading && (!paymentMethods.ourAccounts.length || !paymentMethods.companyAccounts.length) && (
+                        <div style={{ fontSize: 11, color: "#f0a500", marginTop: 8 }}>⚠️ Karta topilmadi. Avval Sozlamalar bo'limida karta qo'shing.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {form.payStatus === "paid" && (
                 <div className="form-group">
@@ -364,7 +429,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
             {orders.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", color: "var(--app-muted)", padding: 48 }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>🛢</div>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🔭</div>
                   <div style={{ fontWeight: 700 }}>Order yo'q</div>
                 </td>
               </tr>
