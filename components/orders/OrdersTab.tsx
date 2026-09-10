@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Camera, FileText, PackagePlus, Search, ScanLine } from "lucide-react";
+import { Camera, CalendarClock, FileText, PackagePlus, Search, ScanLine } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
 import { addProductApi, createOrderApi, uploadOrderDocumentApi } from "@/lib/api";
@@ -34,7 +34,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     productDocument: null as OrderReceipt | null,
   });
   const [form, setForm] = useState(emptyForm);
-  const [items, setItems] = useState<{ pid: string; qty: number; price: number }[]>([]);
+  const [items, setItems] = useState<{ pid: string; qty: number; price: number; expiryDate: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
@@ -62,7 +62,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     setItems((current) => {
       const existing = current.find((item) => item.pid === product.id);
       if (existing) return current.map((item) => item.pid === product.id ? { ...item, qty: item.qty + 1 } : item);
-      return [...current, { pid: product.id, qty: 1, price: product.pricePerUnit || 0 }];
+      return [...current, { pid: product.id, qty: 1, price: product.pricePerUnit || 0, expiryDate: "" }];
     });
   };
 
@@ -127,7 +127,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
     }
     const d = await createOrderApi({
       companyId: form.companyId,
-      items: valid.map((i) => ({ productId: i.pid, quantity: i.qty, pricePerUnit: i.price })),
+      items: valid.map((i) => ({ productId: i.pid, quantity: i.qty, pricePerUnit: i.price, expiryDate: i.expiryDate || undefined })),
       note: form.note,
       payStatus: form.payStatus,
       paidAmount: form.payStatus === "paid" ? total : 0,
@@ -214,11 +214,24 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                   const prod = availableProducts.find((p) => p.id === item.pid);
                   return (
                     <div key={i} style={{ background: "var(--app-panel-soft)", borderRadius: 12, padding: 12, marginBottom: 10 }}>
-                      <div className="order-item-fields" style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: prod ? 8 : 0 }}>
+                      <div className="order-item-fields" style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 36px", gap: 8, marginBottom: 8 }}>
                         <div className="crm-input" style={{ minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}><strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{prod?.name || "Mahsulot topilmadi"}</strong>{prod?.qrCode && <small style={{ color: "var(--app-muted)" }}>{prod.qrCode}</small>}</div>
                         <input className="crm-input" aria-label="Miqdor" title="Miqdor" type="number" value={item.qty} min={1} placeholder="Son" onChange={(e) => { const n = [...items]; n[i].qty = parseFloat(e.target.value) || 1; setItems(n); }} />
                         <input className="crm-input" aria-label="Birlik narxi" title="1 dona narxi" type="number" value={item.price || ""} placeholder="1 dona narxi" onChange={(e) => { const n = [...items]; n[i].price = parseFloat(e.target.value) || 0; setItems(n); }} />
                         <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} style={{ background: "rgba(248,81,73,.1)", border: "1.5px solid rgba(248,81,73,.25)", color: "#f85149", borderRadius: 9, cursor: "pointer", fontWeight: 900, fontSize: 16 }}>×</button>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: prod && item.price > 0 ? 8 : 0 }}>
+                        <CalendarClock size={14} style={{ color: "var(--app-muted)", flexShrink: 0 }} />
+                        <input
+                          className="crm-input"
+                          aria-label="Yaroqlilik muddati"
+                          title="Yaroqlilik muddati"
+                          type="date"
+                          value={item.expiryDate}
+                          onChange={(e) => { const n = [...items]; n[i].expiryDate = e.target.value; setItems(n); }}
+                          style={{ maxWidth: 190 }}
+                        />
+                        <span style={{ fontSize: 11, color: "var(--app-muted)" }}>Yaroqlilik muddati (ixtiyoriy, partiyani alohida kuzatish uchun)</span>
                       </div>
                       {prod && item.price > 0 && (
                         <div style={{ fontSize: 12, color: "var(--app-muted)" }}>
@@ -351,7 +364,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
             {orders.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", color: "var(--app-muted)", padding: 48 }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>🛒</div>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🛢</div>
                   <div style={{ fontWeight: 700 }}>Order yo'q</div>
                 </td>
               </tr>

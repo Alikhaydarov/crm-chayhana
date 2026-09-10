@@ -343,6 +343,9 @@ async function snapshot(user: AppUser) {
   const staffQuery = user.role === "superadmin"
     ? `?select=*&order=name.asc&limit=${MAX_LIST_ROWS}`
     : `?select=*&branch=eq.${branchFilter}&order=name.asc&limit=${MAX_LIST_ROWS}`;
+  const batchQuery = user.role === "superadmin"
+    ? `?select=*&quantity=gt.0&order=expiry_date.asc.nullslast,received_date.asc&limit=${MAX_LIST_ROWS}`
+    : `?select=*&branch=eq.${branchFilter}&quantity=gt.0&order=expiry_date.asc.nullslast,received_date.asc&limit=${MAX_LIST_ROWS}`;
   const [
     productList,
     mainStock,
@@ -354,6 +357,7 @@ async function snapshot(user: AppUser) {
     staff,
     suppliers,
     shopSales,
+    productBatches,
   ] = await Promise.all([
     products(),
     stock(user.role === "superadmin" ? "main" : user.role),
@@ -367,6 +371,7 @@ async function snapshot(user: AppUser) {
     user.role === "restaurant1" || user.role === "restaurant2"
       ? Promise.resolve([])
       : sb<any[]>("shop_sales", {}, `?select=*&order=sale_date.desc&limit=${MAX_LIST_ROWS}`),
+    sb<any[]>("product_batches", {}, batchQuery).catch(() => []),
   ]);
 
   const companyIds = companies.map((company) => String(company.id));
@@ -379,11 +384,12 @@ async function snapshot(user: AppUser) {
   const warehouseStocks = user.role === "superadmin"
     ? Object.fromEntries(await Promise.all((["restaurant1", "restaurant2", "shop"] as Role[]).map(async (branch) => [branch, branch === "shop" ? shopStock : await stock(branch)])))
     : { [user.role]: mainStock };
+  const productInfoById = new Map(productList.map((product) => [product.id, product]));
   const stockSummary = (stockMap: Record<string, number>) => {
     const entries = Object.entries(stockMap);
     return {
-      stockValue: entries.reduce((sum, [productId, quantity]) => sum + quantity * Number(productList.find((product) => product.id === productId)?.pricePerUnit || 0), 0),
-      lowStockCount: entries.filter(([productId, quantity]) => quantity <= Number(productList.find((product) => product.id === productId)?.minStock || 0)).length,
+      stockValue: entries.reduce((sum, [productId, quantity]) => sum + quantity * Number(productInfoById.get(productId)?.pricePerUnit || 0), 0),
+      lowStockCount: entries.filter(([productId, quantity]) => quantity <= Number(productInfoById.get(productId)?.minStock || 0)).length,
       productCount: entries.filter(([, quantity]) => quantity > 0).length,
     };
   };
@@ -458,6 +464,18 @@ async function snapshot(user: AppUser) {
       .map((s) => ({ id: s.id, name: s.name, role: s.role, branch: s.branch, phone: s.phone || "", salary: Number(s.salary || 0), joinDate: s.join_date || "", active: Boolean(s.active) })),
     accounts: adminAccounts.map((account) => ({ id: account.id, userId: account.user_id, name: account.name, role: account.role, branchName: account.branch_name || branchNames[account.role as Role], branchSlug: account.role, active: Boolean(account.active) })),
     suppliers,
+    productBatches: productBatches.map((batch) => ({
+      id: batch.id,
+      productId: batch.product_id,
+      productName: productInfoById.get(batch.product_id)?.name || "",
+      unit: productInfoById.get(batch.product_id)?.unit || "",
+      branch: batch.branch,
+      quantity: Number(batch.quantity || 0),
+      expiryDate: batch.expiry_date || undefined,
+      receivedDate: batch.received_date,
+      orderId: batch.order_id || undefined,
+      createdAt: batch.created_at,
+    })),
   };
 }
 
@@ -567,11 +585,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (stockMain && method === "PATCH") {
       requireRole(user, ["superadmin"]);
       const body = await readBody(request);
-      await sb("stock", {
-        method: "POST",
-        headers: { prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify({ product_id: decodeURIComponent(stockMain[1]), branch: "main", quantity: Number(body.quantity || 0) }),
-      }, "?on_conflict=product_id,branch");
+      await rpc("adjust_stock_manual", { p_product_id: decodeURIComponent(stockMain[1]), p_branch: "main", p_new_quantity: Number(body.quantity || 0) });
       return json({ success: true });
     }
     const stockBranch = route.match(/^stock\/branches\/([^/]+)$/);
@@ -751,7 +765,15 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       }
       const payStatus = body.payStatus === "paid" ? "paid" : "unpaid";
       const orderItems = Array.isArray(body.items) ? body.items.map((item: any, index: number) => index === 0 && body.productDocument ? { ...item, orderDocument: body.productDocument } : item) : [];
+      // Orders record a delivery from a supplier company, so the branch it
+      // targets is where the goods physically land. Superadmin-created
+      // companies aren't tied to a branch (company.branch is null) --
+      // those deliveries go to the main warehouse.
+      const orderBranch = (user.role === "superadmin" ? company.branch : user.role) || "main";
       const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
+      if (orderItems.length) {
+        await rpc("receive_order_batches", { p_order_id: created.id, p_branch: orderBranch, p_items: orderItems });
+      }
       return json(mapOrder(created), 201);
     }
     if (route === "orders/payment-receipt-upload-url" && method === "POST") {
