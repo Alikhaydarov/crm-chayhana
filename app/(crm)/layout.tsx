@@ -1,7 +1,7 @@
 "use client";
 import { startTransition, useState, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { AlertTriangle, ArrowLeftRight, BarChart3, CalendarDays, LayoutDashboard, Package, Settings2, ShoppingCart, Store, Warehouse } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, BarChart3, CalendarClock, CalendarDays, LayoutDashboard, Package, Settings2, ShoppingCart, Store, Warehouse } from "lucide-react";
 import { logoutApi, restoreSessionApi } from "@/lib/api";
 import { I18N, BRANCH_NAMES } from "@/lib/constants";
 import { GLOBAL_CSS } from "@/lib/constants/styles";
@@ -15,8 +15,8 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 import type { AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, ThemeMode, Lang, TabId } from "@/types";
 
-const TAB_ROUTES: Record<TabId, string> = { dashboard: "/dashboard", warehouse: "/warehouse", transfers: "/transfers", damages: "/damages", orders: "/orders", products: "/products", suppliers: "/suppliers", history: "/history", settings: "/settings", analysis: "/analysis" };
-const ROUTE_TABS: Record<string, TabId> = { "/dashboard": "dashboard", "/warehouse": "warehouse", "/transfers": "transfers", "/damages": "damages", "/orders": "orders", "/products": "products", "/suppliers": "suppliers", "/history": "history", "/settings": "settings", "/analysis": "analysis", "/shop-sales": "analysis" };
+const TAB_ROUTES: Record<TabId, string> = { dashboard: "/dashboard", warehouse: "/warehouse", transfers: "/transfers", damages: "/damages", orders: "/orders", products: "/products", suppliers: "/suppliers", history: "/history", settings: "/settings", analysis: "/analysis", expiry: "/expiry" };
+const ROUTE_TABS: Record<string, TabId> = { "/dashboard": "dashboard", "/warehouse": "warehouse", "/transfers": "transfers", "/damages": "damages", "/orders": "orders", "/products": "products", "/suppliers": "suppliers", "/history": "history", "/settings": "settings", "/analysis": "analysis", "/shop-sales": "analysis", "/expiry": "expiry" };
 
 export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const t = I18N[lang];
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
   const { transfers, fetchAll, showToast, toast, ...rest } = useAppData(user);
-  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, damages, isLoading } = rest as any;
+  const { products, stock, mainStock, shopStock, reports, companies, orders, companyPayments, shopSales, staff, accounts, branches, damages, productBatches, isLoading } = rest as any;
   const currentBranch = user ? branches.find((branch: any) =>
     (user.branchId != null && String(branch.id) === String(user.branchId)) ||
     (user.branchSlug && branch.slug === user.branchSlug) ||
@@ -40,7 +40,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const branchIdentity = `${user?.branchSlug || ""} ${user?.branchName || ""}`;
   const isShopAdmin = user?.role === "shop" || currentBranchType === "shop" || /shop|dokon|do-kon|do'kon|uzbegim/i.test(branchIdentity);
   const canUseTab = (tabId: TabId) => isShopAdmin
-    ? ["dashboard", "warehouse", "transfers", "damages", "analysis"].includes(tabId)
+    ? ["dashboard", "warehouse", "transfers", "damages", "analysis", "expiry"].includes(tabId)
     : canAccessTab(user?.role as any, tabId);
 
   useEffect(() => {
@@ -132,6 +132,12 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     ].sort((a, b) => (new Date(b.createdAt).getTime() || 0) - (new Date(a.createdAt).getTime() || 0)).slice(0, 80);
   }, [user?.role, transfers, products, stock, damages, orders, companyPayments]);
 
+  const expiringSoonCount = useMemo(() => {
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 7);
+    return (productBatches || []).filter((batch: any) => batch.expiryDate && new Date(batch.expiryDate) <= soon).length;
+  }, [productBatches]);
+
   const TABS = useMemo(() => [
     { id: "dashboard" as TabId, icon: LayoutDashboard, label: t.dashboard },
     { id: "warehouse" as TabId, icon: Warehouse, label: t.warehouse },
@@ -139,24 +145,25 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
     { id: "damages" as TabId, icon: AlertTriangle, label: t.damages, badge: (damages || []).filter((damage: any) => damage.status === "pending").length },
     { id: "orders" as TabId, icon: ShoppingCart, label: t.orders },
     { id: "products" as TabId, icon: Package, label: t.products },
+    { id: "expiry" as TabId, icon: CalendarClock, label: "Yaroqlilik", badge: expiringSoonCount },
     { id: "suppliers" as TabId, icon: Store, label: t.suppliers },
     { id: "history" as TabId, icon: CalendarDays, label: t.history },
     { id: "settings" as TabId, icon: Settings2, label: t.settings },
     ...(isShopAdmin ? [{ id: "analysis" as TabId, icon: BarChart3, label: t.analysis }] : []),
-  ].filter((tab) => canUseTab(tab.id)), [t, pendingCount, damages, isShopAdmin, user?.role]);
+  ].filter((tab) => canUseTab(tab.id)), [t, pendingCount, damages, expiringSoonCount, isShopAdmin, user?.role]);
 
   const commands = useMemo(
-    () => TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "damages" ? "Brak request, rasm va tarix" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : tab.id === "history" ? "Kalendar, order va firma to'lovlari" : tab.id === "settings" ? "Kartalar va to'lov usullari" : "Excel savdo, foyda va statistika" })),
+    () => TABS.map(tab => ({ ...tab, description: tab.id === "dashboard" ? "Asosiy ko'rsatkichlar va tezkor holat" : tab.id === "warehouse" ? "Mahsulot qoldiqlari va kam qolganlar" : tab.id === "transfers" ? "Sklad so'rovlari va tasdiqlash" : tab.id === "damages" ? "Brak request, rasm va tarix" : tab.id === "orders" ? "Yangi order va to'lov holati" : tab.id === "products" ? "Mahsulot va shtrix-kod bazasi" : tab.id === "expiry" ? "Partiyalar va yaroqlilik muddati" : tab.id === "suppliers" ? "Firmalar, qarz va to'lov tarixi" : tab.id === "history" ? "Kalendar, order va firma to'lovlari" : tab.id === "settings" ? "Kartalar va to'lov usullari" : "Excel savdo, foyda va statistika" })),
     [TABS],
   );
 
   const contextValue = useMemo(() => ({
     products, stock, mainStock, shopStock, transfers, damages, reports, companies, orders, companyPayments,
-    shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user: user as UserInfo,
+    shopSales, staff, accounts, branches, productBatches, fetchAll, showToast, t, lang, user: user as UserInfo,
     setTab: (tab: string) => handleTabChange(tab as TabId), openBranchAnalysis,
   }), [
     products, stock, mainStock, shopStock, transfers, damages, reports, companies, orders, companyPayments,
-    shopSales, staff, accounts, branches, fetchAll, showToast, t, lang, user, pathname,
+    shopSales, staff, accounts, branches, productBatches, fetchAll, showToast, t, lang, user, pathname,
   ]);
 
   if (!sessionReady) return <div className={`${theme} theme-shell`} style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--app-bg)", color: "var(--app-text)" }}><style>{GLOBAL_CSS}</style>{t.loading}</div>;
