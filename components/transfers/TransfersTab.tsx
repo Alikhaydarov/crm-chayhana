@@ -51,7 +51,16 @@ export function TransfersTab({ transfers, products, mainStock, user, fetchAll, s
     : branchOptions.filter((branch) => branch.value === "main");
 
   const submit = async () => {
-    const valid = items.filter((i) => i.pid && i.qty > 0);
+    // Merge duplicate product rows (same product picked in two rows) before
+    // sending. Without this, dispatch_transfer's own duplicate-productId
+    // check rejects the transfer at approval time, leaving it permanently
+    // stuck as "pending" with no way for superadmin to dispatch it.
+    const merged = new Map<string, number>();
+    for (const item of items) {
+      if (!item.pid || item.qty <= 0) continue;
+      merged.set(item.pid, (merged.get(item.pid) || 0) + item.qty);
+    }
+    const valid = Array.from(merged.entries()).map(([pid, qty]) => ({ pid, qty }));
     if (!valid.length) { showToast("Mahsulot tanlang", "error"); return; }
     const fromBranch = user.role === "superadmin" ? form.fromBranch : user.role;
     const toBranch = form.toBranch;

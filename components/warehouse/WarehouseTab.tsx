@@ -110,7 +110,15 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
   };
 
   const submitSend = async () => {
-    const valid = sendItems.filter((item) => item.pid && item.qty > 0);
+    // Merge duplicate product rows before sending -- see the identical fix
+    // in TransfersTab for why (dispatch_transfer rejects duplicate
+    // productIds, which would otherwise leave the transfer stuck pending).
+    const merged = new Map<string, number>();
+    for (const item of sendItems) {
+      if (!item.pid || item.qty <= 0) continue;
+      merged.set(item.pid, (merged.get(item.pid) || 0) + item.qty);
+    }
+    const valid = Array.from(merged.entries()).map(([pid, qty]) => ({ pid, qty }));
     if (!valid.length) { showToast("Mahsulot tanlang", "error"); return; }
     const overStock = valid.find((item) => item.qty > (visibleStock[item.pid] || 0));
     if (overStock) {
@@ -260,7 +268,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
                           onChange={async (event) => {
                             const file = event.target.files?.[0];
                             if (!file) return;
-                            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { showToast("Faqat JPG, PNG yoki WEBP rasm", "error"); return; }
+                            if (["image/jpeg", "image/png", "image/webp"].includes(file.type) === false) { showToast("Faqat JPG, PNG yoki WEBP rasm", "error"); return; }
                             if (file.size > 10 * 1024 * 1024) { showToast("Rasm 10 MB dan kichik bo'lishi kerak", "error"); return; }
                             try { setDamageImage(await fileToReceipt(file)); } catch { showToast("Rasmni o'qib bo'lmadi", "error"); }
                           }}
