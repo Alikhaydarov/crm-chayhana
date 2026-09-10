@@ -9,6 +9,7 @@ export type UserInfo = {
   branchId?: number | string;
   branchSlug?: string;
   branchType?: string;
+  accountRole?: string;
 };
 
 export type Product = {

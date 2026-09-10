@@ -45,7 +45,7 @@ async function parseShopWorkbook(file: File, products: Product[]): Promise<Parse
     const quantity = Number(row?.[6] || 0);
     if (!barcode || !sourceName || quantity <= 0) return [];
     const product = products.find((p: any) => productBarcode(p) === barcode);
-    return [{ barcode, sourceName, supplier: String(row?.[2] ?? "").trim(), quantity, salesAmount: Number(row?.[16] ?? row?.[3] ?? 0), averagePrice: Number(row?.[7] || 0), costAmount: Number(row?.[24] || 0), profitAmount: Number(row?.[25] || 0), productId: product ? productId(product) : "" }];
+    return [{ barcode, sourceName, supplier: String(row?.[2] ?? "").trim(), quantity, salesAmount: Number(row?.[16] ?? row?.[3] ?? 0), averagePrice: Number(row?.[7] || 0), costAmount: Number(row?.[24] || 0), profitAmount: Number(row?.[25] || 0), productId: product ? productId(product) : "", productName: product?.name ?? sourceName, status: product ? "matched" as const : "unmatched" as const }];
   });
 }
 
