@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSnapshotApi } from "@/lib/api";
-import type { Account, Branch, Company, Order, CompanyPayment, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
+import type { Account, Branch, Company, Order, CompanyPayment, ProductBatch, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { DamageRequest, Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
 
@@ -20,6 +20,7 @@ export function useAppData(user: UserInfo | null) {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [productBatches, setProductBatches] = useState<ProductBatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast, show: showToast } = useToast();
@@ -73,6 +74,7 @@ export function useAppData(user: UserInfo | null) {
         [];
       setAccounts(Array.isArray(accountData) ? accountData : []);
       setBranches(Array.isArray(d.branches) ? d.branches : []);
+      setProductBatches(Array.isArray(d.productBatches) ? d.productBatches : []);
       hasDataRef.current = true;
     } catch (error: any) {
       if (!silent) {
@@ -129,6 +131,7 @@ export function useAppData(user: UserInfo | null) {
     staff,
     accounts,
     branches,
+    productBatches,
     isLoading,
     isRefreshing,
     fetchAll,
