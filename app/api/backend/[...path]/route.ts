@@ -772,13 +772,28 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         return json({ success: false, message: "Firma topilmadi yoki ruxsat yo'q" }, 404);
       }
       const payStatus = body.payStatus === "paid" ? "paid" : "unpaid";
+      const willPayNow = payStatus === "paid" && total > 0;
+      const paymentMethod = String(body.paymentMethod || "cash").toLowerCase();
+      if (willPayNow) {
+        if (!(["cash", "card"] as string[]).includes(paymentMethod)) {
+          return json({ success: false, message: "To'lov usuli noto'g'ri" }, 400);
+        }
+        if (paymentMethod === "card" && (!body.ourAccountId || !body.companyAccountId)) {
+          return json({ success: false, message: "To'lov kartadan bo'lsa, ikkala karta ham tanlanishi kerak" }, 400);
+        }
+      }
       const orderItems = Array.isArray(body.items) ? body.items.map((item: any, index: number) => index === 0 && body.productDocument ? { ...item, orderDocument: body.productDocument } : item) : [];
       // Orders record a delivery from a supplier company, so the branch it
       // targets is where the goods physically land. Superadmin-created
       // companies aren't tied to a branch (company.branch is null) --
       // those deliveries go to the main warehouse.
       const orderBranch = (user.role === "superadmin" ? company.branch : user.role) || "main";
-      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: payStatus === "paid" ? total : 0, pay_status: payStatus, note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
+      // The order always starts unpaid: pay_order_with_payflow (below) is
+      // what actually records the payment. Setting paid_amount directly
+      // here previously meant an order marked "paid" at creation never
+      // created a payflow/company_payments row, so PayFlow's payment
+      // history and card balances silently missed it.
+      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: 0, pay_status: "unpaid", note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
       if (orderItems.length) {
         // Batch/expiry tracking is a best-effort side effect of receiving an
         // order -- the order record above is already saved. If this RPC
@@ -792,6 +807,27 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
           await rpc("receive_order_batches", { p_order_id: created.id, p_branch: orderBranch, p_items: batchItems });
         } catch (batchError) {
           console.error("receive_order_batches failed for order", created.id, batchError);
+        }
+      }
+      if (willPayNow) {
+        try {
+          await rpc("pay_order_with_payflow", {
+            p_payment_id: crypto.randomUUID(),
+            p_order_id: created.id,
+            p_amount: total,
+            p_note: body.note || "",
+            p_payment_date: body.orderDate || new Date().toISOString().slice(0, 10),
+            p_payment_method: paymentMethod,
+            p_our_account_id: paymentMethod === "card" ? String(body.ourAccountId) : null,
+            p_company_account_id: paymentMethod === "card" ? String(body.companyAccountId) : null,
+            p_receipt_paths: [],
+            p_receipt: body.receipt || null,
+          });
+          created.paid_amount = total;
+          created.pay_status = "paid";
+        } catch (paymentError) {
+          const message = paymentError instanceof Error ? paymentError.message : "Noma'lum xatolik";
+          return json({ success: false, message: `Order saqlandi, lekin to'lov PayFlow'ga yozilmadi: ${message}. Orderlar ro'yxatidan uni qayta to'lang.` }, 502);
         }
       }
       return json(mapOrder(created), 201);
