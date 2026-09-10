@@ -429,7 +429,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
             {orders.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ textAlign: "center", color: "var(--app-muted)", padding: 48 }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>🔭</div>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🛒</div>
                   <div style={{ fontWeight: 700 }}>Order yo'q</div>
                 </td>
               </tr>
