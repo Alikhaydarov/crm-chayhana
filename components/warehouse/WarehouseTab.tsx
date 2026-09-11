@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AlertTriangle, ImagePlus, PackageX, Send } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { createDamageRequestApi, createTransferApi, updateStockApi } from "@/lib/api";
+import { BRANCH_NAMES } from "@/lib/constants";
 import { fmt, fmtM } from "@/lib/utils";
 import type { Product, StockMap, UserInfo } from "@/types";
 import type { OrderReceipt } from "@/types/domain";
@@ -40,6 +41,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
   const [damageSaving, setDamageSaving] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [sendItems, setSendItems] = useState([{ pid: "", qty: 1 }]);
+  const [sendToBranch, setSendToBranch] = useState("main");
   const [sendNote, setSendNote] = useState("");
   const [sendSaving, setSendSaving] = useState(false);
 
@@ -48,6 +50,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
   const warehouseProducts = !isSA
     ? products.filter((p) => (visibleStock[p.id] || 0) > 0)
     : products;
+  const sendTargetOptions = Object.entries(BRANCH_NAMES).filter(([id]) => id !== user.role);
   const totalVal = warehouseProducts.reduce(
     (sum, product) => sum + (visibleStock[product.id] || 0) * product.pricePerUnit,
     0,
@@ -106,10 +109,12 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
     if (sendSaving) return;
     setSendOpen(false);
     setSendItems([{ pid: "", qty: 1 }]);
+    setSendToBranch("main");
     setSendNote("");
   };
 
   const submitSend = async () => {
+    if (!sendToBranch) { showToast("Qaysi skladga yuborishni tanlang", "error"); return; }
     // Merge duplicate product rows before sending -- see the identical fix
     // in TransfersTab for why (dispatch_transfer rejects duplicate
     // productIds, which would otherwise leave the transfer stuck pending).
@@ -128,7 +133,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
     }
     setSendSaving(true);
     const result = await createTransferApi(
-      "main",
+      sendToBranch,
       valid.map((item) => ({ productId: item.pid, quantity: item.qty })),
       user.name,
       user.branchName,
@@ -137,7 +142,7 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
     );
     setSendSaving(false);
     if (!result.success) { showToast((result as any).message || "Xatolik", "error"); return; }
-    showToast("So'rov bosh skladga yuborildi! ✅");
+    showToast(`So'rov ${BRANCH_NAMES[sendToBranch] || sendToBranch}ga yuborildi! ✅`);
     closeSendModal();
     fetchAll();
   };
@@ -159,9 +164,17 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
     >
       {sendOpen && (
         <Modal onClose={closeSendModal}>
-          <div className="modal-title">Bosh skladga yuborish</div>
+          <div className="modal-title">Boshqa skladga yuborish</div>
           <div style={{ color: "var(--app-muted)", fontSize: 12, marginBottom: 16 }}>
-            Mahsulot va miqdorni tanlang. So'rov Bosh sklad tomonidan tasdiqlangach, mahsulot sizning skladingizdan ayrilib, bosh skladga qo'shiladi.
+            Qaysi skladga, qaysi mahsulotdan qancha yuborishni tanlang. So'rov qabul qiluvchi sklad (yoki Bosh sklad admini) tomonidan tasdiqlangach, mahsulot sizning skladingizdan ayrilib, tanlangan skladga qo'shiladi.
+          </div>
+          <div className="form-group">
+            <label className="form-label">QAYERGA</label>
+            <select className="crm-input" value={sendToBranch} onChange={(e) => setSendToBranch(e.target.value)}>
+              {sendTargetOptions.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label className="form-label">MAHSULOTLAR</label>

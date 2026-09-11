@@ -607,9 +607,6 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       if (!(stockBranches as readonly string[]).includes(fromBranch) || !(requestBranches as readonly string[]).includes(toBranch) || fromBranch === toBranch) {
         return json({ success: false, message: "Filial noto'g'ri" }, 400);
       }
-      if (user.role !== "superadmin" && toBranch !== "main") {
-        return json({ success: false, message: "Faqat Bosh skladga so'rov yuborish mumkin" }, 400);
-      }
       const productList = await products();
       const items = (body.items || []).map((item: any) => {
         const p = productList.find((product) => product.id === item.productId);

@@ -43,12 +43,9 @@ export function TransfersTab({ transfers, products, mainStock, user, fetchAll, s
     { value: "shop", label: BRANCH_NAMES.shop },
   ];
   const ownBranch = user.role === "superadmin" ? form.fromBranch : user.role;
-  // Superadmin (managing the main warehouse) can move stock between any two
-  // branches, including main. Regular branch users can only request stock
-  // from main -- not from each other.
-  const targetOptions = isSA
-    ? branchOptions.filter((branch) => branch.value !== ownBranch)
-    : branchOptions.filter((branch) => branch.value === "main");
+  // Any branch -- main or a small branch -- can request/transfer stock to
+  // any other branch. The only rule is you can't target your own branch.
+  const targetOptions = branchOptions.filter((branch) => branch.value !== ownBranch);
 
   const submit = async () => {
     // Merge duplicate product rows (same product picked in two rows) before
