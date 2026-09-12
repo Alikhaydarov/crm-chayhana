@@ -317,6 +317,48 @@ body {
   font-weight: 600;
 }
 
+/*
+ * Without this, placeholder text falls back to the browser's own default
+ * color (tuned for a light/white background). It's unreadable against the
+ * dark theme's input background (--app-input is dark there), even though
+ * everything else in the input already tracks the theme correctly.
+ */
+.crm-input::placeholder,
+.theme-shell input::placeholder,
+.theme-shell textarea::placeholder {
+  color: var(--app-muted) !important;
+  opacity: 1 !important;
+}
+.crm-input:disabled,
+.theme-shell input:disabled,
+.theme-shell select:disabled,
+.theme-shell textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/*
+ * Browsers force their own autofill background (usually a pale yellow)
+ * and often a black text color, ignoring the input's own styling
+ * entirely. This is most visible on the login screen, since that's the
+ * first thing a user with saved credentials sees. The huge inset
+ * box-shadow is the standard trick to paint over the forced background;
+ * -webkit-text-fill-color overrides the forced text color the same way
+ * `color` normally would.
+ */
+.crm-input:-webkit-autofill,
+.theme-shell input:-webkit-autofill,
+.crm-input:-webkit-autofill:hover,
+.theme-shell input:-webkit-autofill:hover,
+.crm-input:-webkit-autofill:focus,
+.theme-shell input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--app-input) inset !important;
+  box-shadow: 0 0 0 1000px var(--app-input) inset !important;
+  -webkit-text-fill-color: var(--app-text) !important;
+  caret-color: var(--app-text);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 .app-sidebar {
   width: 232px !important;
   position: sticky;
@@ -1811,7 +1853,7 @@ body {
   --app-border: #303946;
   --app-text: #f0f3f7;
   --app-muted: #9aa5b3;
-  --app-input: #202731;
+  --app-input: #2b3341;
   --app-shadow: rgba(0, 0, 0, 0.24);
   --app-primary: #7ba2df;
   --app-primary-strong: #91b1e4;
