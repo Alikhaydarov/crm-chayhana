@@ -1445,6 +1445,15 @@ body {
   background: var(--app-primary-soft);
 }
 
+/* Hidden on desktop; shown (display: inline-flex) inside the mobile media query below. */
+.mobile-only {
+  display: none;
+}
+
+.mobile-drawer-close {
+  display: none;
+}
+
 /*
  * Legacy dashboard sections still carry inline dark colors. React serializes
  * those values to rgb()/rgba() in the DOM, so both source and serialized forms
@@ -1972,15 +1981,7 @@ body {
 }
 
 @media (max-width: 720px) {
-  .bottom-nav .bnav-grid {
-    display: flex !important;
-    width: max-content;
-    min-width: max-content;
-    grid-template-columns: none !important;
-    flex-wrap: nowrap;
-  }
-
-  .history-summary{grid-template-columns:1fr 1fr;gap:8px}.history-summary>div{display:flex;min-width:0;flex-direction:column;align-items:flex-start;padding:12px}.history-summary svg{width:17px}.history-summary span{font-size:10px}.history-summary strong{max-width:100%;font-size:15px;overflow-wrap:anywhere}.history-summary small{font-size:9px}.history-layout{grid-template-columns:1fr;gap:10px}.history-calendar,.history-events{padding:12px}.history-days button{border-radius:6px;font-size:11px}.history-events{min-height:360px}.history-toolbar{align-items:stretch;flex-direction:column}.history-filters{overflow-x:auto}.history-filters button{flex:1;white-space:nowrap}.history-toolbar label{min-width:0}.history-event-list article{grid-template-columns:34px minmax(0,1fr);gap:9px}.history-event-icon{width:32px;height:32px}.history-event-amount{grid-column:2;text-align:left}.history-event-amount strong,.history-event-amount span{display:inline;margin-right:6px}.bnav-grid{display:flex;min-width:max-content}.bnav-btn{width:64px;flex:0 0 64px}.bottom-nav{overflow-x:auto;scrollbar-width:none}.bottom-nav::-webkit-scrollbar{display:none}
+  .history-summary{grid-template-columns:1fr 1fr;gap:8px}.history-summary>div{display:flex;min-width:0;flex-direction:column;align-items:flex-start;padding:12px}.history-summary svg{width:17px}.history-summary span{font-size:10px}.history-summary strong{max-width:100%;font-size:15px;overflow-wrap:anywhere}.history-summary small{font-size:9px}.history-layout{grid-template-columns:1fr;gap:10px}.history-calendar,.history-events{padding:12px}.history-days button{border-radius:6px;font-size:11px}.history-events{min-height:360px}.history-toolbar{align-items:stretch;flex-direction:column}.history-filters{overflow-x:auto}.history-filters button{flex:1;white-space:nowrap}.history-toolbar label{min-width:0}.history-event-list article{grid-template-columns:34px minmax(0,1fr);gap:9px}.history-event-icon{width:32px;height:32px}.history-event-amount{grid-column:2;text-align:left}.history-event-amount strong,.history-event-amount span{display:inline;margin-right:6px}
   .sales-filter-row {
     display: grid;
     grid-template-columns: 1fr;
@@ -2120,7 +2121,7 @@ body {
   .mobile-main {
     width: 100% !important;
     min-width: 0 !important;
-    padding: 0 0 calc(76px + env(safe-area-inset-bottom)) !important;
+    padding: 0 0 env(safe-area-inset-bottom) !important;
   }
 
   .app-topbar {
@@ -2143,68 +2144,92 @@ body {
   .app-topbar .topbar-search { width: 34px; height: 34px; min-width: 34px; }
 
   .app-sidebar {
-    width: 100% !important;
+    width: min(280px, 82vw) !important;
     position: fixed;
-    top: auto !important;
+    top: 0;
     left: 0;
-    right: 0;
+    right: auto;
     bottom: 0;
-    z-index: 300;
-    min-height: auto;
-    height: auto;
-    background: var(--app-glass) !important;
-    backdrop-filter: blur(22px);
-    -webkit-backdrop-filter: blur(22px);
-    border-right: 0 !important;
-    border: 1px solid var(--app-border) !important;
-    border-radius: 12px 12px 0 0;
+    z-index: 400;
+    height: 100dvh;
+    min-height: 100dvh;
+    background: var(--app-panel) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-right: 1px solid var(--app-border) !important;
+    border-radius: 0;
     padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -16px 38px var(--app-shadow);
+    box-shadow: none;
     overflow: hidden !important;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .app-sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 16px 0 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .mobile-nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 390;
+    background: rgba(9, 13, 24, 0.55);
+    backdrop-filter: blur(2px);
+  }
+
+  .mobile-nav-backdrop.open {
+    display: block;
+    animation: fadeIn 0.18s ease;
   }
 
   .app-sidebar nav {
-    display: flex;
-    flex: 0 0 auto !important;
-    gap: 6px;
-    overflow-x: auto;
-    padding: 7px 8px 8px !important;
-    scrollbar-width: none;
-  }
-
-  .app-sidebar nav::-webkit-scrollbar {
-    display: none;
+    display: block;
+    flex: 1 1 auto !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 6px 8px !important;
   }
 
   .app-sidebar .brand-row,
   .app-sidebar .sidebar-card,
   .app-sidebar .sidebar-controls,
   .app-sidebar .sidebar-footer {
+    display: flex !important;
+  }
+
+  .app-sidebar .sidebar-collapse-action {
     display: none !important;
   }
 
+  .app-sidebar .mobile-drawer-close {
+    display: inline-flex !important;
+  }
+
   .app-sidebar nav .tab-item {
-    flex: 1 0 58px;
-    min-width: 58px;
-    min-height: 48px;
-    padding: 5px 7px !important;
-    justify-content: center;
-    border-radius: 9px !important;
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    min-height: 46px;
+    padding: 0 11px !important;
+    border-radius: 8px !important;
+    gap: 10px;
+    margin: 0 auto 3px;
   }
 
   .app-sidebar nav .tab-item .sidebar-text {
     display: block !important;
-    max-width: 66px;
+    max-width: none;
     overflow: hidden;
-    font-size: 9px;
-    line-height: 1.15;
-    text-align: center;
+    font-size: 13px;
+    line-height: 1.3;
+    text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .app-sidebar nav .tab-item { flex-direction: column; gap: 3px; }
-  .app-sidebar nav .nav-icon { width: 22px; height: 22px; }
+  .app-sidebar nav .nav-icon { width: 20px; height: 20px; }
 
   .page-pad { padding: 18px 12px !important; }
   .action-row { flex-direction: row !important; align-items: center !important; gap: 10px !important; margin-bottom: 16px !important; }
@@ -2234,6 +2259,10 @@ body {
 
   .desktop-only {
     display: none !important;
+  }
+
+  .mobile-only {
+    display: inline-flex !important;
   }
 
   .mobile-stack {
