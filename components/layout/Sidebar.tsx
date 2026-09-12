@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Boxes, Check, ChevronDown, ChevronLeft, Languages, LogOut, Moon, Sun } from "lucide-react";
+import { Boxes, Check, ChevronDown, ChevronLeft, Languages, LogOut, Moon, Sun, X } from "lucide-react";
 import type { UserInfo, TabId, ThemeMode, Lang } from "@/types";
 
 type Tab = {
@@ -15,19 +15,21 @@ type Props = {
   tabs: Tab[];
   activeTab: TabId;
   collapsed: boolean;
+  mobileOpen?: boolean;
   theme: ThemeMode;
   lang: Lang;
   onTabChange: (tab: TabId) => void;
   onToggleCollapse: () => void;
   onCollapse: () => void;
+  onMobileClose?: () => void;
   onThemeToggle: () => void;
   onLangToggle: () => void;
   onLogout: () => void;
 };
 
 export function Sidebar({
-  user, tabs, activeTab, collapsed, theme, lang,
-  onTabChange, onToggleCollapse, onCollapse, onThemeToggle, onLangToggle, onLogout,
+  user, tabs, activeTab, collapsed, mobileOpen, theme, lang,
+  onTabChange, onToggleCollapse, onCollapse, onMobileClose, onThemeToggle, onLangToggle, onLogout,
 }: Props) {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -40,8 +42,13 @@ export function Sidebar({
     return () => document.removeEventListener("mousedown", closeMenu);
   }, []);
 
+  // Mobile drawer always shows the full (uncollapsed) layout, regardless of
+  // the desktop collapse preference -- otherwise a "collapsed" desktop
+  // setting would leak into the mobile drawer's className *and* behavior.
+  const effectiveCollapsed = collapsed && !mobileOpen;
+
   return (
-    <aside className={`sidebar app-sidebar${collapsed ? " collapsed" : ""}`}>
+    <aside className={`sidebar app-sidebar${effectiveCollapsed ? " collapsed" : ""}${mobileOpen ? " mobile-open" : ""}`}>
       {/* Brand */}
       <div
         className="brand-row"
@@ -62,6 +69,9 @@ export function Sidebar({
         </div>
         <button className="sidebar-collapse-action" onClick={onCollapse}>
           <ChevronLeft size={17} />
+        </button>
+        <button className="sidebar-collapse-action mobile-drawer-close" onClick={onMobileClose} title="Yopish" aria-label="Menyuni yopish">
+          <X size={17} />
         </button>
       </div>
 
@@ -95,7 +105,7 @@ export function Sidebar({
 
       {/* Account dock */}
       <div className="sidebar-footer account-dock" ref={accountRef}>
-        {accountOpen && !collapsed && (
+        {accountOpen && !effectiveCollapsed && (
           <div className="account-menu">
             <div className="account-menu-header">
               <span className="account-avatar">{user.branchIcon || user.name.charAt(0)}</span>
@@ -117,8 +127,8 @@ export function Sidebar({
         <div className="account-dock-row">
           <button
             className={`account-trigger${accountOpen ? " active" : ""}`}
-            onClick={() => collapsed ? onToggleCollapse() : setAccountOpen(value => !value)}
-            title={collapsed ? user.name : "Profil menyusi"}
+            onClick={() => effectiveCollapsed ? onToggleCollapse() : setAccountOpen(value => !value)}
+            title={effectiveCollapsed ? user.name : "Profil menyusi"}
           >
             <span className="account-avatar">{user.branchIcon || user.name.charAt(0)}</span>
             <span className="sidebar-text account-copy">

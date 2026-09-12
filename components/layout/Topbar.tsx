@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Languages, LogOut, Moon, Search, Sun } from "lucide-react";
+import { ChevronLeft, ChevronRight, Languages, LogOut, Menu, Moon, Search, Sun } from "lucide-react";
 import { AdminNotifications, type AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, TabId, ThemeMode, Lang } from "@/types";
 
@@ -19,6 +19,7 @@ type TopbarProps = {
   theme: ThemeMode;
   lang: Lang;
   onToggleSidebar: () => void;
+  onOpenMobileMenu: () => void;
   onThemeToggle: () => void;
   onLangToggle: () => void;
   onLogout: () => void;
@@ -29,7 +30,7 @@ type TopbarProps = {
 
 export function Topbar({
   user, activeTab, tabs, sidebarCollapsed, theme, lang,
-  onToggleSidebar, onThemeToggle, onLangToggle, onLogout, onSearch, notifications, onNavigate,
+  onToggleSidebar, onOpenMobileMenu, onThemeToggle, onLangToggle, onLogout, onSearch, notifications, onNavigate,
 }: TopbarProps) {
   const currentTab = tabs.find((item) => item.id === activeTab);
 
@@ -41,6 +42,9 @@ export function Topbar({
       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
         <button className="topbar-control desktop-only" onClick={onToggleSidebar}>
           {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
+        <button className="topbar-control mobile-only" onClick={onOpenMobileMenu} title="Menyu" aria-label="Menyuni ochish">
+          <Menu size={18} />
         </button>
         <div
           style={{

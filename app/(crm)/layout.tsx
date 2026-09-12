@@ -10,7 +10,7 @@ import { AppContext } from "@/lib/AppContext";
 import { canAccessTab } from "@/lib/permissions";
 import { Toast } from "@/components/ui";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Topbar, BottomNav } from "@/components/layout/Topbar";
+import { Topbar } from "@/components/layout/Topbar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import type { AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, ThemeMode, Lang, TabId } from "@/types";
@@ -26,6 +26,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<ThemeMode>("dark");
   const [lang, setLang] = useState<Lang>("uz");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const t = I18N[lang];
   const activeTab: TabId = ROUTE_TABS[pathname] ?? "dashboard";
@@ -69,7 +70,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const openCommand = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setCommandOpen(true); }
-      if (event.key === "Escape") setCommandOpen(false);
+      if (event.key === "Escape") { setCommandOpen(false); setMobileMenuOpen(false); }
     };
     window.addEventListener("keydown", openCommand);
     return () => window.removeEventListener("keydown", openCommand);
@@ -86,6 +87,7 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => setTheme((v) => v === "dark" ? "light" : "dark");
   const toggleLang = () => setLang((v) => v === "uz" ? "ko" : "uz");
   const handleTabChange = (tabId: TabId) => {
+    setMobileMenuOpen(false);
     if (!user || !canUseTab(tabId)) { router.push("/dashboard"); return; }
     if (TAB_ROUTES[tabId] === pathname) return;
     startTransition(() => router.push(TAB_ROUTES[tabId]));
@@ -172,12 +174,12 @@ export default function CRMLayout({ children }: { children: React.ReactNode }) {
   return <AppContext.Provider value={contextValue}>
     <div className={`${theme} theme-shell`} style={{ display: "flex", height: "100vh", background: "var(--app-bg)", fontFamily: "var(--font-ui)", color: "var(--app-text)", overflow: "hidden" }}>
       <style>{GLOBAL_CSS}</style>{toast && <Toast msg={toast.msg} type={toast.type} />}
-      <Sidebar user={user} tabs={TABS} activeTab={activeTab} collapsed={sidebarCollapsed} theme={theme} lang={lang} onTabChange={handleTabChange} onToggleCollapse={() => setSidebarCollapsed(v => !v)} onCollapse={() => setSidebarCollapsed(true)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} />
+      <Sidebar user={user} tabs={TABS} activeTab={activeTab} collapsed={sidebarCollapsed} mobileOpen={mobileMenuOpen} theme={theme} lang={lang} onTabChange={handleTabChange} onToggleCollapse={() => setSidebarCollapsed(v => !v)} onCollapse={() => setSidebarCollapsed(true)} onMobileClose={() => setMobileMenuOpen(false)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} />
+      {mobileMenuOpen && <div className="mobile-nav-backdrop open" onClick={() => setMobileMenuOpen(false)} />}
       <main className="mobile-main" style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
-        <Topbar user={user} activeTab={activeTab} tabs={TABS} sidebarCollapsed={sidebarCollapsed} theme={theme} lang={lang} onToggleSidebar={() => setSidebarCollapsed(v => !v)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} onSearch={() => setCommandOpen(true)} notifications={notifications} onNavigate={handleTabChange} />
+        <Topbar user={user} activeTab={activeTab} tabs={TABS} sidebarCollapsed={sidebarCollapsed} theme={theme} lang={lang} onToggleSidebar={() => setSidebarCollapsed(v => !v)} onOpenMobileMenu={() => setMobileMenuOpen(true)} onThemeToggle={toggleTheme} onLangToggle={toggleLang} onLogout={signOut} onSearch={() => setCommandOpen(true)} notifications={notifications} onNavigate={handleTabChange} />
         {isLoading ? <AppDataSkeleton /> : children}
       </main>
-      <BottomNav tabs={TABS} activeTab={activeTab} onTabChange={handleTabChange} />
       <CommandPalette commands={commands} open={commandOpen} onClose={() => setCommandOpen(false)} onSelect={(tab) => { setCommandOpen(false); handleTabChange(tab); }} />
     </div>
   </AppContext.Provider>;

@@ -178,15 +178,8 @@ export const GLOBAL_CSS = `
   .sidebar { display: flex; flex-direction: column; flex-shrink: 0; width: 240px; background: var(--app-panel); border-right: 1px solid var(--app-border); }
 
   @media (max-width: 768px) {
-    .sidebar { display: none !important; }
-    .bottom-nav { display: block !important; }
-    .bottom-nav .bnav-grid {
-      display: flex !important;
-      width: max-content;
-      min-width: max-content;
-      flex-wrap: nowrap;
-    }
-    .page-pad { padding: 14px 12px 88px !important; }
+    .bottom-nav { display: none !important; }
+    .page-pad { padding: 14px 12px 20px !important; }
     .modal-backdrop { align-items: flex-end; }
     .modal-box { border-radius: 8px 8px 0 0; max-height: 90dvh; padding: 18px 16px 22px; }
     .hide-mobile { display: none !important; }
@@ -248,7 +241,7 @@ export const GLOBAL_CSS = `
   @keyframes skeletonShimmer { to { transform: translateX(100%); } }
 
   @media (max-width: 720px) {
-    .app-data-skeleton { padding: 18px 14px 100px; }
+    .app-data-skeleton { padding: 18px 14px 24px; }
     .skeleton-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .skeleton-kpis .skeleton-block { height: 78px; }
     .skeleton-content { grid-template-columns: 1fr; gap: 8px; }
