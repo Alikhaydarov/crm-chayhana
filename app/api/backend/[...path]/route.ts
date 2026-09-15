@@ -14,8 +14,19 @@ const MAX_PAYMENT_RECEIPT_BYTES = 5 * 1024 * 1024;
 const MAX_DAMAGE_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACCESS_TOKEN_TTL = 15 * 60;
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
+const SUPABASE_TIMEOUT_MS = 12_000;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const LOGIN_RATE_LIMIT = 8;
+const WRITE_RATE_LIMIT = 180;
+const MAX_MUTATION_ITEMS = 120;
+const MAX_IMPORT_ROWS = 2_500;
+const MAX_TEXT_LENGTH = 1_000;
+const MAX_MONEY = 10_000_000_000;
 
 type AppUser = { id: string; name: string; role: Role; branchName: string; branchIcon: string };
+type RateBucket = { count: number; resetAt: number };
+
+const rateBuckets = new Map<string, RateBucket>();
 
 const branchNames: Record<Role, string> = {
   superadmin: "Bosh Admin",
@@ -32,7 +43,13 @@ const branchIcons: Record<Role, string> = {
 };
 
 function json(data: unknown, status = 200) {
-  return NextResponse.json(data, { status });
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 function envMissing() {
@@ -56,11 +73,32 @@ async function sb<T>(table: string, init: RequestInit = {}, query = ""): Promise
   headers.set("authorization", `Bearer ${SUPABASE_KEY}`);
   headers.set("accept", "application/json");
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const response = await fetch(apiUrl(table, query), { ...init, headers, cache: "no-store" });
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!response.ok) throw new Error(data?.message || data?.hint || data?.details || `Supabase ${response.status}`);
-  return data as T;
+  const method = String(init.method || "GET").toUpperCase();
+  const attempts = method === "GET" ? 2 : 1;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(apiUrl(table, query), { ...init, headers, cache: "no-store" }, SUPABASE_TIMEOUT_MS);
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!response.ok) {
+        const message = data?.message || data?.hint || data?.details || `Supabase ${response.status}`;
+        if (attempt + 1 < attempts && isRetryableStatus(response.status)) {
+          await sleep(180);
+          continue;
+        }
+        throw new Error(message);
+      }
+      return data as T;
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 < attempts) {
+        await sleep(180);
+        continue;
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Supabase bilan aloqa xatosi");
 }
 
 async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
@@ -72,7 +110,56 @@ async function readBody(request: NextRequest) {
   if (contentType.includes("multipart/form-data")) return {};
   const text = await request.text();
   if (Buffer.byteLength(text, "utf8") > 4 * 1024 * 1024) throw new Error("So'rov hajmi juda katta");
-  return text ? JSON.parse(text) : {};
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error("JSON formati noto'g'ri");
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status: number) {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Supabase javobi kechikdi. Qayta urinib ko'ring");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function clientKey(request: NextRequest) {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || request.headers.get("x-real-ip") || "local";
+}
+
+function checkRateLimit(key: string, limit: number) {
+  const now = Date.now();
+  if (rateBuckets.size > 5_000) {
+    for (const [bucketKey, bucketValue] of Array.from(rateBuckets.entries())) {
+      if (bucketValue.resetAt <= now) rateBuckets.delete(bucketKey);
+    }
+  }
+  const bucket = rateBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return null;
+  }
+  bucket.count += 1;
+  if (bucket.count <= limit) return null;
+  return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
 }
 
 async function removeStorageObject(bucket: string, path: string) {
@@ -92,7 +179,40 @@ const paymentReceiptTypes: Record<string, string> = {
 
 const stockBranches = ["main", "restaurant1", "restaurant2", "shop"] as const;
 const requestBranches = ["main", "restaurant1", "restaurant2", "shop"] as const;
+const staffBranches = ["restaurant1", "restaurant2", "shop"] as const;
 const damageImageTypes = paymentReceiptTypes;
+
+function cleanText(value: unknown, fallback = "", max = MAX_TEXT_LENGTH) {
+  return String(value ?? fallback).trim().slice(0, max);
+}
+
+function parsePositiveNumber(value: unknown, label: string, max = MAX_MONEY) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0 || number > max) throw new Error(`${label} noto'g'ri`);
+  return number;
+}
+
+function parseNonNegativeNumber(value: unknown, label: string, max = MAX_MONEY) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number < 0 || number > max) throw new Error(`${label} noto'g'ri`);
+  return number;
+}
+
+function requireArray(value: unknown, label: string, maxItems = MAX_MUTATION_ITEMS) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error(`${label} to'liq emas`);
+  if (value.length > maxItems) throw new Error(`${label} juda ko'p: maksimum ${maxItems} ta`);
+  return value;
+}
+
+function validDate(value: unknown, label: string, fallback = new Date().toISOString().slice(0, 10)) {
+  const date = cleanText(value, fallback, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(`${label} noto'g'ri`);
+  return date;
+}
+
+function allowedBranch(value: string) {
+  return (stockBranches as readonly string[]).includes(value);
+}
 
 type PaymentReceiptUpload = {
   paymentId: string;
@@ -253,7 +373,7 @@ function errorStatus(message: string) {
   if (/fayli topilmadi/i.test(message)) return 400;
   if (/topilmadi/i.test(message)) return 404;
   if (/duplicate key|unique constraint|already exists|avval import/i.test(message)) return 409;
-  if (/noto'g'ri|kerak|kichik bo'lishi|katta|yo'q|musbat|yetarli/i.test(message)) return 400;
+  if (/noto'g'ri|kerak|kichik bo'lishi|katta|yo'q|musbat|yetarli|to'liq emas|juda ko'p|oshmasligi/i.test(message)) return 400;
   return 500;
 }
 
@@ -633,13 +753,18 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const body = await readBody(request);
       const fromBranch = user.role === "superadmin" ? String(body.fromBranch || "main") : user.role;
       const toBranch = String(body.toBranch || "");
-      if (!(stockBranches as readonly string[]).includes(fromBranch) || !(requestBranches as readonly string[]).includes(toBranch) || fromBranch === toBranch) {
+      if (!allowedBranch(fromBranch) || !allowedBranch(toBranch) || fromBranch === toBranch) {
         return json({ success: false, message: "Filial noto'g'ri" }, 400);
       }
       const productList = await products();
-      const items = (body.items || []).map((item: any) => {
+      const bodyItems = requireArray(body.items, "Transfer mahsulotlari");
+      const seenProducts = new Set<string>();
+      const items = bodyItems.map((item: any) => {
         const p = productList.find((product) => product.id === item.productId);
-        return { productId: item.productId, productName: p?.name || item.productId, quantity: Number(item.quantity || 0), unit: p?.unit || "", pricePerUnit: Number(p?.pricePerUnit || 0) };
+        if (!p) throw new Error("Transfer mahsuloti topilmadi");
+        if (seenProducts.has(p.id)) throw new Error("Transferda bir mahsulot ikki marta kiritilgan");
+        seenProducts.add(p.id);
+        return { productId: p.id, productName: p.name, quantity: parsePositiveNumber(item.quantity, "Transfer miqdori", 1_000_000), unit: p.unit || "", pricePerUnit: Number(p.pricePerUnit || 0) };
       });
       const total = items.reduce((sum: number, item: any) => {
         const p = productList.find((product) => product.id === item.productId);
@@ -683,9 +808,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const isMainStockDamage = user.role === "superadmin";
       const branch = isMainStockDamage ? "main" : user.role;
       if (!isMainStockDamage && !(requestBranches as readonly string[]).includes(branch)) return json({ success: false, message: "Sklad noto'g'ri" }, 400);
-      const quantity = Number(body.quantity || 0);
-      const reason = String(body.reason || "").trim();
-      if (quantity <= 0) return json({ success: false, message: "Miqdor noto'g'ri" }, 400);
+      const quantity = parsePositiveNumber(body.quantity, "Miqdor", 1_000_000);
+      const reason = cleanText(body.reason);
       if (reason.length < 3) return json({ success: false, message: "Brak sababini yozing" }, 400);
       const productId = String(body.productId || "");
       const [product] = await sb<any[]>("products", {}, `?select=*&id=eq.${encodeURIComponent(productId)}&limit=1`);
@@ -795,10 +919,28 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
       const body = await readBody(request);
       const company = (await sb<any[]>("companies", {}, `?select=*&id=eq.${encodeURIComponent(body.companyId)}&limit=1`))[0];
-      const total = (body.items || []).reduce((sum: number, item: any) => sum + Number(item.quantity || 0) * Number(item.pricePerUnit || 0), 0);
       if (!company || (user.role !== "superadmin" && company.branch !== user.role)) {
         return json({ success: false, message: "Firma topilmadi yoki ruxsat yo'q" }, 404);
       }
+      const productList = await products();
+      const seenProducts = new Set<string>();
+      const orderItems = requireArray(body.items, "Order mahsulotlari").map((item: any, index: number) => {
+        const productId = String(item.productId || "");
+        const product = productList.find((candidate) => candidate.id === productId);
+        if (!product) throw new Error("Order mahsuloti topilmadi");
+        if (seenProducts.has(productId)) throw new Error("Orderda bir mahsulot ikki marta kiritilgan");
+        seenProducts.add(productId);
+        return {
+          ...item,
+          productId,
+          productName: cleanText(item.productName || product.name, product.name, 180),
+          quantity: parsePositiveNumber(item.quantity, "Order miqdori", 1_000_000),
+          pricePerUnit: parseNonNegativeNumber(item.pricePerUnit ?? product.pricePerUnit, "Mahsulot narxi", MAX_MONEY),
+          expiryDate: item.expiryDate ? validDate(item.expiryDate, "Yaroqlilik sanasi") : undefined,
+          orderDocument: index === 0 && body.productDocument ? body.productDocument : item.orderDocument,
+        };
+      });
+      const total = orderItems.reduce((sum: number, item: any) => sum + item.quantity * item.pricePerUnit, 0);
       const payStatus = body.payStatus === "paid" ? "paid" : "unpaid";
       const willPayNow = payStatus === "paid" && total > 0;
       const paymentMethod = String(body.paymentMethod || "cash").toLowerCase();
@@ -810,7 +952,6 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
           return json({ success: false, message: "To'lov kartadan bo'lsa, ikkala karta ham tanlanishi kerak" }, 400);
         }
       }
-      const orderItems = Array.isArray(body.items) ? body.items.map((item: any, index: number) => index === 0 && body.productDocument ? { ...item, orderDocument: body.productDocument } : item) : [];
       // Orders record a delivery from a supplier company, so the branch it
       // targets is where the goods physically land. Superadmin-created
       // companies aren't tied to a branch (company.branch is null) --
@@ -821,7 +962,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       // here previously meant an order marked "paid" at creation never
       // created a payflow/company_payments row, so PayFlow's payment
       // history and card balances silently missed it.
-      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: 0, pay_status: "unpaid", note: body.note || "", order_date: body.orderDate || new Date().toISOString().slice(0, 10) }) });
+      const [created] = await sb<any[]>("orders", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ company_id: body.companyId, company_name: company.name || "", branch: user.role === "superadmin" ? company.branch : user.role, items: orderItems, total_price: total, paid_amount: 0, pay_status: "unpaid", note: cleanText(body.note), order_date: validDate(body.orderDate, "Order sanasi") }) });
       if (orderItems.length) {
         // Batch/expiry tracking is a best-effort side effect of receiving an
         // order -- the order record above is already saved. If this RPC
@@ -959,8 +1100,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         const payment = await rpc<any>("pay_order_with_payflow", {
           p_payment_id: paymentId,
           p_order_id: orderId,
-          p_amount: Number(body.amount || 0),
-          p_note: String(body.note || ""),
+          p_amount: parsePositiveNumber(body.amount, "To'lov summasi", MAX_MONEY),
+          p_note: cleanText(body.note),
           p_payment_date: paymentDate,
           p_payment_method: paymentMethod,
           p_our_account_id: paymentMethod === "card" ? String(body.ourAccountId) : null,
@@ -978,13 +1119,13 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (route === "staff" && method === "POST") {
       requireRole(user, ["superadmin"]);
       const body = await readBody(request);
-      const name = String(body.name || "").trim();
-      const branch = String(body.branch || "");
+      const name = cleanText(body.name, "", 120);
+      const branch = cleanText(body.branch, "", 20);
       if (!name) return json({ success: false, message: "Xodim ismini kiriting" }, 400);
-      if (!(["restaurant1", "restaurant2", "shop"] as string[]).includes(branch)) {
+      if (!(staffBranches as readonly string[]).includes(branch)) {
         return json({ success: false, message: "Filial noto'g'ri" }, 400);
       }
-      const [created] = await sb<any[]>("staff", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ name, role: body.role, branch, phone: body.phone || "", salary: Number(body.salary || 0), join_date: body.joinDate || new Date().toISOString().slice(0, 10), active: body.active ?? true }) });
+      const [created] = await sb<any[]>("staff", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ name, role: cleanText(body.role, "", 80), branch, phone: cleanText(body.phone, "", 40), salary: parseNonNegativeNumber(body.salary, "Oylik"), join_date: validDate(body.joinDate, "Ishga kirgan sana"), active: body.active ?? true }) });
       return json(created, 201);
     }
     const staffToggle = route.match(/^staff\/([^/]+)\/toggle$/);
@@ -999,14 +1140,19 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (route === "suppliers" && method === "POST") {
       requireRole(user, ["superadmin"]);
       const body = await readBody(request);
-      const [created] = await sb<any[]>("suppliers", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ firm: body.firm, doc_number: body.docNumber, delivery_date: body.deliveryDate, note: body.note || "", items: body.items || [], total_price: Number(body.totalPrice || 0), pay_status: body.payStatus || "unpaid", paid_amount: Number(body.paidAmount || 0) }) });
+      const items = Array.isArray(body.items) ? body.items.slice(0, MAX_MUTATION_ITEMS) : [];
+      if (Array.isArray(body.items) && body.items.length > MAX_MUTATION_ITEMS) throw new Error(`Firma mahsulotlari juda ko'p: maksimum ${MAX_MUTATION_ITEMS} ta`);
+      const totalPrice = parseNonNegativeNumber(body.totalPrice, "Firma yuk summasi");
+      const paidAmount = parseNonNegativeNumber(body.paidAmount, "To'langan summa");
+      if (paidAmount > totalPrice) throw new Error("To'langan summa jami summadan oshmasligi kerak");
+      const [created] = await sb<any[]>("suppliers", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ firm: cleanText(body.firm, "", 160), doc_number: cleanText(body.docNumber, "", 80), delivery_date: validDate(body.deliveryDate, "Yetkazilgan sana"), note: cleanText(body.note), items, total_price: totalPrice, pay_status: body.payStatus === "paid" ? "paid" : body.payStatus === "partial" ? "partial" : "unpaid", paid_amount: paidAmount }) });
       return json(created, 201);
     }
     const supplierPayment = route.match(/^suppliers\/([^/]+)\/payment$/);
     if (supplierPayment && method === "PATCH") {
       requireRole(user, ["superadmin"]);
       const body = await readBody(request);
-      const [updated] = await sb<any[]>("suppliers", { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify({ pay_status: body.payStatus, paid_amount: Number(body.paidAmount || 0) }) }, `?id=eq.${encodeURIComponent(supplierPayment[1])}`);
+      const [updated] = await sb<any[]>("suppliers", { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify({ pay_status: body.payStatus === "paid" ? "paid" : body.payStatus === "partial" ? "partial" : "unpaid", paid_amount: parseNonNegativeNumber(body.paidAmount, "To'langan summa") }) }, `?id=eq.${encodeURIComponent(supplierPayment[1])}`);
       return json(updated);
     }
 
@@ -1016,12 +1162,13 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       if (!body.sourceKey || !body.fileName || !body.saleDate || !Array.isArray(body.rows) || body.rows.length === 0) {
         return json({ success: false, message: "Import ma'lumotlari to'liq emas" }, 400);
       }
+      const rows = requireArray(body.rows, "Import qatorlari", MAX_IMPORT_ROWS);
       const created = await rpc<any>("import_shop_sale", {
-        p_source_key: body.sourceKey,
-        p_file_name: body.fileName,
-        p_sale_date: body.saleDate,
-        p_items: body.rows,
-        p_skipped_rows: body.skippedRows || [],
+        p_source_key: cleanText(body.sourceKey, "", 180),
+        p_file_name: cleanText(body.fileName, "", 180),
+        p_sale_date: validDate(body.saleDate, "Import sanasi"),
+        p_items: rows,
+        p_skipped_rows: Array.isArray(body.skippedRows) ? body.skippedRows.slice(0, MAX_IMPORT_ROWS) : [],
       });
       return json(created, 201);
     }
