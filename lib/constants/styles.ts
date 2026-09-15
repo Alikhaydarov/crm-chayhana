@@ -83,7 +83,7 @@ export const GLOBAL_CSS = `
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,.75);
     z-index: 300; display: flex; align-items: flex-end; justify-content: center;
-    animation: fadeIn .2s ease;
+    animation: fadeIn .08s linear;
     padding: 0;
   }
   .modal-box {
@@ -92,7 +92,7 @@ export const GLOBAL_CSS = `
     width: 100%; max-width: 620px; max-height: 92vh;
     overflow-y: auto; color: var(--app-text);
     padding: 22px 20px 24px;
-    animation: slideUp .28s cubic-bezier(.22,.68,0,1.1);
+    animation: slideUp .1s ease-out;
     box-shadow: 0 -16px 60px rgba(0,0,0,.4);
   }
   .modal-drag { width: 44px; height: 4px; background: var(--app-border); border-radius: 2px; margin: 0 auto 22px; }

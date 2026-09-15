@@ -2,6 +2,9 @@ alter table public.transfers add column if not exists from_branch text not null 
 alter table public.transfers drop constraint if exists transfers_from_branch_check;
 alter table public.transfers add constraint transfers_from_branch_check
   check (from_branch in ('main', 'restaurant1', 'restaurant2', 'shop'));
+alter table public.transfers drop constraint if exists transfers_to_branch_check;
+alter table public.transfers add constraint transfers_to_branch_check
+  check (to_branch in ('main', 'restaurant1', 'restaurant2', 'shop'));
 alter table public.transfers drop constraint if exists transfers_not_same_branch_check;
 alter table public.transfers add constraint transfers_not_same_branch_check check (from_branch <> to_branch);
 

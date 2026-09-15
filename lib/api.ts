@@ -11,6 +11,8 @@ import { branchForRole } from "@/lib/permissions";
 const API_BASE = "/api/backend";
 const ACCESS_TOKEN_KEY = "crm-access-token";
 const REFRESH_TOKEN_KEY = "crm-refresh-token";
+const CLIENT_TIMEOUT_MS = 18_000;
+const RETRY_DELAY_MS = 220;
 let sessionUserCache: AppUserInfo | null = null;
 let restoreSessionPromise: Promise<ApiResult<{ user: AppUserInfo }>> | null = null;
 
@@ -26,10 +28,60 @@ function saveTokens(access?: string, refresh?: string) { if (!isBrowser()) retur
 export function clearSession() { sessionUserCache = null; restoreSessionPromise = null; if (!isBrowser()) return; localStorage.removeItem(ACCESS_TOKEN_KEY); localStorage.removeItem(REFRESH_TOKEN_KEY); }
 export function hasSession() { return Boolean(getToken(ACCESS_TOKEN_KEY) || getToken(REFRESH_TOKEN_KEY)); }
 
-async function parseResponse(response: Response) { const contentType = response.headers.get("content-type") || ""; if (contentType.includes("application/json")) return response.json(); const text = await response.text(); return text ? { message: text } : {}; }
+async function parseResponse(response: Response) { const contentType = response.headers.get("content-type") || ""; if (contentType.includes("application/json")) return response.json().catch(() => ({ message: "Server JSON javobi noto'g'ri" })); const text = await response.text(); return text ? { message: text } : {}; }
 function errorMessage(data: any, fallback = "Server bilan aloqa xatosi") { if (typeof data?.message === "string") return data.message; if (typeof data?.detail === "string") return data.detail; if (typeof data?.errors?.detail === "string") return data.errors.detail; const firstError = data?.errors && Object.values(data.errors).flat()[0]; return typeof firstError === "string" ? firstError : fallback; }
 async function refreshAccessToken() { const refresh = getToken(REFRESH_TOKEN_KEY); if (!refresh) return false; const response = await fetch(`${API_BASE}/auth/token/refresh/`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ refresh }), cache: "no-store" }); const data = await parseResponse(response); if (!response.ok || !data?.access) { clearSession(); return false; } saveTokens(data.access, data.refresh); return true; }
-async function request<T = any>(path: string, options: RequestOptions = {}): Promise<T> { const { retryAuth = true, ...fetchOptions } = options; const headers = new Headers(fetchOptions.headers); const access = getToken(ACCESS_TOKEN_KEY); if (access) headers.set("authorization", `Bearer ${access}`); if (fetchOptions.body && !(fetchOptions.body instanceof FormData) && !headers.has("content-type")) headers.set("content-type", "application/json"); const response = await fetch(`${API_BASE}${path}`, { ...fetchOptions, headers, cache: "no-store" }); if (response.status === 401 && retryAuth && await refreshAccessToken()) return request<T>(path, { ...options, retryAuth: false }); const data = await parseResponse(response); if (!response.ok || data?.success === false) { if (response.status === 401) clearSession(); throw new Error(errorMessage(data, `Server xatosi (${response.status})`)); } return data as T; }
+function sleep(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+function requestId() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+function isRetryableStatus(status: number) { return status === 408 || status === 429 || status >= 500; }
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("Server javobi kechikdi. Qayta urinib ko'ring");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function request<T = any>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { retryAuth = true, ...fetchOptions } = options;
+  const method = String(fetchOptions.method || "GET").toUpperCase();
+  const canRetry = method === "GET";
+  const attempts = canRetry ? 2 : 1;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const headers = new Headers(fetchOptions.headers);
+    const access = getToken(ACCESS_TOKEN_KEY);
+    if (access) headers.set("authorization", `Bearer ${access}`);
+    if (method !== "GET" && !headers.has("x-crm-request-id")) headers.set("x-crm-request-id", requestId());
+    if (fetchOptions.body && !(fetchOptions.body instanceof FormData) && !headers.has("content-type")) headers.set("content-type", "application/json");
+    try {
+      const response = await fetchWithTimeout(`${API_BASE}${path}`, { ...fetchOptions, headers, cache: "no-store" });
+      if (response.status === 401 && retryAuth && await refreshAccessToken()) return request<T>(path, { ...options, retryAuth: false });
+      const data = await parseResponse(response);
+      if (!response.ok || data?.success === false) {
+        if (response.status === 401) clearSession();
+        if (canRetry && attempt + 1 < attempts && isRetryableStatus(response.status)) {
+          await sleep(RETRY_DELAY_MS);
+          continue;
+        }
+        throw new Error(errorMessage(data, `Server xatosi (${response.status})`));
+      }
+      return data as T;
+    } catch (error) {
+      lastError = error;
+      if (canRetry && attempt + 1 < attempts) {
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Server bilan aloqa xatosi");
+}
 function success<T extends object>(value?: T): ApiResult<T> { return { success: true, ...(value || {}) } as ApiResult<T>; }
 function failure(error: unknown): ApiResult<any> { return { success: false, message: error instanceof Error ? error.message : "Noma'lum xatolik" }; }
 function unwrap<T>(data: any): T { return (data?.data ?? data?.results ?? data) as T; }

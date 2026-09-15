@@ -25,7 +25,7 @@
   inset: 0;
   z-index: 1200;
   background: rgb(5 8 18 / 68%);
-  animation: fadeIn 90ms linear;
+  animation: fadeIn 60ms linear;
 }
 
 .radix-dialog-content,
@@ -73,7 +73,7 @@
     transform: none;
     border-radius: 14px 14px 0 0;
     padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
-    animation: sheetIn 190ms cubic-bezier(.2,.8,.2,1);
+    animation: sheetIn 90ms ease-out;
   }
   .product-edit-grid { grid-template-columns: 1fr; }
   .product-edit-span { grid-column: auto; }

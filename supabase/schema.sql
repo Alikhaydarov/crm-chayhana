@@ -37,7 +37,7 @@ create table if not exists public.stock (
 create table if not exists public.transfers (
   id uuid primary key default gen_random_uuid(),
   from_branch text not null default 'main' check (from_branch in ('main', 'restaurant1', 'restaurant2', 'shop')),
-  to_branch text not null check (to_branch in ('restaurant1', 'restaurant2', 'shop')),
+  to_branch text not null check (to_branch in ('main', 'restaurant1', 'restaurant2', 'shop')),
   items jsonb not null default '[]'::jsonb,
   total_value numeric not null default 0,
   requested_by text not null,
@@ -56,6 +56,9 @@ alter table public.transfers add column if not exists from_branch text not null 
 alter table public.transfers drop constraint if exists transfers_from_branch_check;
 alter table public.transfers add constraint transfers_from_branch_check
   check (from_branch in ('main', 'restaurant1', 'restaurant2', 'shop'));
+alter table public.transfers drop constraint if exists transfers_to_branch_check;
+alter table public.transfers add constraint transfers_to_branch_check
+  check (to_branch in ('main', 'restaurant1', 'restaurant2', 'shop'));
 alter table public.transfers drop constraint if exists transfers_not_same_branch_check;
 alter table public.transfers add constraint transfers_not_same_branch_check check (from_branch <> to_branch);
 
@@ -183,12 +186,16 @@ alter table public.damaged_requests enable row level security;
 -- Frequent filters and newest-first lists must stay index-backed as data grows.
 create unique index if not exists products_qr_code_unique_idx
   on public.products (qr_code) where qr_code is not null;
+create index if not exists products_name_idx on public.products (name);
+create index if not exists products_category_name_idx on public.products (category, name);
 create index if not exists stock_branch_idx on public.stock (branch, product_id);
 create index if not exists transfers_branch_created_idx on public.transfers (to_branch, created_at desc);
 create index if not exists transfers_from_branch_created_idx on public.transfers (from_branch, created_at desc);
+create index if not exists transfers_status_created_idx on public.transfers (status, created_at desc);
 create index if not exists transfers_pending_created_idx on public.transfers (created_at desc)
   where status = 'pending';
 create index if not exists damaged_requests_branch_created_idx on public.damaged_requests (branch, created_at desc);
+create index if not exists damaged_requests_product_created_idx on public.damaged_requests (product_id, created_at desc);
 create index if not exists damaged_requests_pending_created_idx on public.damaged_requests (created_at desc)
   where status = 'pending';
 create index if not exists companies_branch_created_idx on public.companies (branch, created_at desc);
@@ -202,9 +209,12 @@ create index if not exists company_payments_company_created_idx
 create index if not exists company_payments_order_idx on public.company_payments (order_id);
 create index if not exists company_payments_date_created_idx
   on public.company_payments (payment_date desc, created_at desc);
+create index if not exists company_payments_kind_date_idx
+  on public.company_payments (kind, payment_date desc, created_at desc);
 create index if not exists staff_branch_name_idx on public.staff (branch, name);
 create unique index if not exists shop_sales_source_key_unique_idx on public.shop_sales (source_key);
 create index if not exists shop_sales_date_idx on public.shop_sales (sale_date desc, created_at desc);
+create index if not exists suppliers_delivery_created_idx on public.suppliers (delivery_date desc, created_at desc);
 
 -- The browser never receives table privileges. All access goes through the server route.
 revoke all on all tables in schema public from anon, authenticated;
