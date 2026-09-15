@@ -14,15 +14,8 @@ const MAX_PAYMENT_RECEIPT_BYTES = 5 * 1024 * 1024;
 const MAX_DAMAGE_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACCESS_TOKEN_TTL = 15 * 60;
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
-const SUPABASE_TIMEOUT_MS = 12_000;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const LOGIN_RATE_LIMIT = 8;
-const WRITE_RATE_LIMIT = 180;
 
 type AppUser = { id: string; name: string; role: Role; branchName: string; branchIcon: string };
-type RateBucket = { count: number; resetAt: number };
-
-const rateBuckets = new Map<string, RateBucket>();
 
 const branchNames: Record<Role, string> = {
   superadmin: "Bosh Admin",
@@ -39,13 +32,7 @@ const branchIcons: Record<Role, string> = {
 };
 
 function json(data: unknown, status = 200) {
-  return NextResponse.json(data, {
-    status,
-    headers: {
-      "Cache-Control": "no-store, max-age=0",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return NextResponse.json(data, { status });
 }
 
 function envMissing() {
@@ -69,32 +56,11 @@ async function sb<T>(table: string, init: RequestInit = {}, query = ""): Promise
   headers.set("authorization", `Bearer ${SUPABASE_KEY}`);
   headers.set("accept", "application/json");
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
-  const method = String(init.method || "GET").toUpperCase();
-  const attempts = method === "GET" ? 2 : 1;
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetchWithTimeout(apiUrl(table, query), { ...init, headers, cache: "no-store" }, SUPABASE_TIMEOUT_MS);
-      const text = await response.text();
-      const data = text ? JSON.parse(text) : null;
-      if (!response.ok) {
-        const message = data?.message || data?.hint || data?.details || `Supabase ${response.status}`;
-        if (attempt + 1 < attempts && isRetryableStatus(response.status)) {
-          await sleep(180);
-          continue;
-        }
-        throw new Error(message);
-      }
-      return data as T;
-    } catch (error) {
-      lastError = error;
-      if (attempt + 1 < attempts) {
-        await sleep(180);
-        continue;
-      }
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("Supabase bilan aloqa xatosi");
+  const response = await fetch(apiUrl(table, query), { ...init, headers, cache: "no-store" });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(data?.message || data?.hint || data?.details || `Supabase ${response.status}`);
+  return data as T;
 }
 
 async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
@@ -106,51 +72,7 @@ async function readBody(request: NextRequest) {
   if (contentType.includes("multipart/form-data")) return {};
   const text = await request.text();
   if (Buffer.byteLength(text, "utf8") > 4 * 1024 * 1024) throw new Error("So'rov hajmi juda katta");
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error("JSON formati noto'g'ri");
-  }
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isRetryableStatus(status: number) {
-  return status === 408 || status === 429 || status >= 500;
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Supabase javobi kechikdi. Qayta urinib ko'ring");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function clientKey(request: NextRequest) {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || request.headers.get("x-real-ip") || "local";
-}
-
-function checkRateLimit(key: string, limit: number) {
-  const now = Date.now();
-  const bucket = rateBuckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    rateBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return null;
-  }
-  bucket.count += 1;
-  if (bucket.count <= limit) return null;
-  return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+  return text ? JSON.parse(text) : {};
 }
 
 async function removeStorageObject(bucket: string, path: string) {
@@ -273,26 +195,6 @@ async function storageRequest(path: string, init: RequestInit = {}) {
   return data;
 }
 
-async function ensureDamageImageBucket() {
-  const bucket = await fetch(`${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1/bucket/damage-images`, {
-    headers: { apikey: SUPABASE_KEY!, authorization: `Bearer ${SUPABASE_KEY}` },
-    cache: "no-store",
-  });
-  if (bucket.ok) return;
-  await storageRequest("/bucket", {
-    method: "POST",
-    body: JSON.stringify({
-      id: "damage-images",
-      name: "damage-images",
-      public: false,
-      file_size_limit: MAX_DAMAGE_IMAGE_BYTES,
-      allowed_mime_types: Object.keys(damageImageTypes),
-    }),
-  }).catch((error) => {
-    if (!String(error?.message || "").toLowerCase().includes("already")) throw error;
-  });
-}
-
 async function readOrderFile(request: NextRequest, field: "receipt") {
   const form = await request.formData();
   const file = form.get(field) ?? form.get("files");
@@ -382,6 +284,7 @@ function productRow(data: any) {
     box_unit: data.boxUnit || "",
     qr_code: data.qrCode || null,
     supplier_id: data.supplierId || null,
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -586,11 +489,6 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   const { path } = await context.params;
   const route = path.join("/");
   const method = request.method;
-  const ipKey = clientKey(request);
-  const loginRetryAfter = route === "auth/login" && method === "POST" ? checkRateLimit(`login:${ipKey}`, LOGIN_RATE_LIMIT) : null;
-  if (loginRetryAfter) return json({ success: false, message: `Juda ko'p login urinish. ${loginRetryAfter}s dan keyin qayta urinib ko'ring.` }, 429);
-  const writeRetryAfter = method !== "GET" && !route.startsWith("auth/") ? checkRateLimit(`write:${ipKey}`, WRITE_RATE_LIMIT) : null;
-  if (writeRetryAfter) return json({ success: false, message: `Juda ko'p so'rov. ${writeRetryAfter}s dan keyin qayta urinib ko'ring.` }, 429);
 
   try {
     if (route === "auth/login" && method === "POST") {
@@ -623,6 +521,13 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
 
     const user = authUser(request);
     if (route === "snapshot" && method === "GET") return json(await snapshot(user));
+    if (route === "snapshot/version" && method === "GET") {
+      // Cheap poll target: a single aggregate timestamp instead of the full
+      // multi-table snapshot. The client polls this every few seconds and
+      // only fetches the full snapshot when this value actually changes.
+      const watermark = await rpc<string>("change_watermark", {});
+      return json({ watermark });
+    }
     if (route === "products" && method === "GET") return json(await products());
     const warehouseAdmin = route.match(/^warehouses\/(restaurant1|restaurant2|shop)$/);
     if (warehouseAdmin && method === "PATCH") {
@@ -707,7 +612,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const body = await readBody(request);
       const fromBranch = user.role === "superadmin" ? String(body.fromBranch || "main") : user.role;
       const toBranch = String(body.toBranch || "");
-      if (!(stockBranches as readonly string[]).includes(fromBranch) || !(stockBranches as readonly string[]).includes(toBranch) || fromBranch === toBranch) {
+      if (!(stockBranches as readonly string[]).includes(fromBranch) || !(requestBranches as readonly string[]).includes(toBranch) || fromBranch === toBranch) {
         return json({ success: false, message: "Filial noto'g'ri" }, 400);
       }
       const productList = await products();
@@ -746,7 +651,6 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const extension = damageImageTypes[type];
       if (!extension) return json({ success: false, message: "Brak rasmi faqat JPG, PNG yoki WEBP bo'lishi kerak" }, 400);
       if (size <= 0 || size > MAX_DAMAGE_IMAGE_BYTES) return json({ success: false, message: "Brak rasmi 10 MB dan kichik bo'lishi kerak" }, 400);
-      await ensureDamageImageBucket();
       const requestId = crypto.randomUUID();
       const path = `${requestId}/${crypto.randomUUID()}.${extension}`;
       const signed = await storageRequest(`/object/upload/sign/damage-images/${path}`, { method: "POST", body: "{}" });
@@ -768,9 +672,6 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
 
       const upload = body.imageUploadToken ? verifyDamageImageUpload(body.imageUploadToken, user) : null;
       if (body.imageUploadToken && !upload) throw new Error("Brak rasmi imzosi eskirgan yoki noto'g'ri");
-      if (!upload) return json({ success: false, message: "Brak rasmini kiriting" }, 400);
-      const [stockRow] = await sb<any[]>("stock", {}, `?select=quantity&product_id=eq.${encodeURIComponent(productId)}&branch=eq.${encodeURIComponent(branch)}&limit=1`);
-      if (Number(stockRow?.quantity || 0) < quantity) return json({ success: false, message: "Skladda brak miqdori uchun yetarli mahsulot yo'q" }, 400);
       let image: Record<string, unknown> | null = null;
       if (upload) {
         await storageRequest(`/object/info/damage-images/${upload.path}`);
@@ -817,11 +718,11 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const [updated] = await sb<any[]>("companies", {
         method: "PATCH",
         headers: { prefer: "return=representation" },
-        body: JSON.stringify({ name, address: String(body.address || ""), phone: String(body.phone || "") }),
+        body: JSON.stringify({ name, address: String(body.address || ""), phone: String(body.phone || ""), updated_at: new Date().toISOString() }),
       }, `?id=eq.${encodeURIComponent(id)}`);
       if (!updated) return json({ success: false, message: "Firma topilmadi" }, 404);
       if (company.name !== name) {
-        await sb("orders", { method: "PATCH", body: JSON.stringify({ company_name: name }) }, `?company_id=eq.${encodeURIComponent(id)}`);
+        await sb("orders", { method: "PATCH", body: JSON.stringify({ company_name: name, updated_at: new Date().toISOString() }) }, `?company_id=eq.${encodeURIComponent(id)}`);
       }
       return json({ id: updated.id, name: updated.name, address: updated.address || "", phone: updated.phone || "", createdAt: updated.created_at });
     }
@@ -992,7 +893,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         const [order] = await sb<any[]>("orders", {}, `?select=id,branch&id=eq.${encodeURIComponent(upload.orderId)}&limit=1`);
         if (!order) return json({ success: false, message: "Order topilmadi" }, 404);
         if (user.role !== "superadmin" && order.branch !== user.role) return json({ success: false, message: "Ruxsat yo'q" }, 403);
-        await sb("orders", { method: "PATCH", body: JSON.stringify({ receipt: upload.file }) }, `?id=eq.${encodeURIComponent(upload.orderId)}`);
+        await sb("orders", { method: "PATCH", body: JSON.stringify({ receipt: upload.file, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(upload.orderId)}`);
       }
       return json({ receipt: upload.file, receipts: [upload.file] }, 201);
     }
@@ -1062,7 +963,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       requireRole(user, ["superadmin"]);
       const id = decodeURIComponent(staffToggle[1]);
       const [member] = await sb<any[]>("staff", {}, `?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
-      const [updated] = await sb<any[]>("staff", { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify({ active: !member?.active }) }, `?id=eq.${encodeURIComponent(id)}`);
+      const [updated] = await sb<any[]>("staff", { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify({ active: !member?.active, updated_at: new Date().toISOString() }) }, `?id=eq.${encodeURIComponent(id)}`);
       return json(updated);
     }
 
