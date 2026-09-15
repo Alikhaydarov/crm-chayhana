@@ -257,6 +257,20 @@ function errorStatus(message: string) {
   return 500;
 }
 
+// Messages that already match one of errorStatus's known patterns (auth,
+// "topilmadi", duplicate-key, validation wording) pass through unchanged --
+// some callers depend on the exact wording (e.g. the frontend's
+// duplicate-Excel-import detection looks for "duplicate" in the message).
+// Only a genuinely unrecognized, raw-looking Postgres/PostgREST error
+// (would otherwise fall through to a bare 500 with English SQL jargon
+// naming internal tables/columns/constraints) gets replaced with a
+// generic Uzbek message instead of leaking that verbatim to the user.
+function friendlyMessage(message: string) {
+  if (errorStatus(message) !== 500) return message;
+  const looksRaw = /violates|constraint|relation "|column "|syntax error|null value in|invalid input syntax|PGRST\d/i.test(message);
+  return looksRaw ? "Amalni bajarib bo'lmadi. Ma'lumotlarni tekshirib, qayta urinib ko'ring." : message;
+}
+
 function toProduct(row: any) {
   return {
     id: row.id,
@@ -551,10 +565,17 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     }
     if (route === "products" && method === "POST") {
       requireRole(user, ["superadmin"]);
+      const body = await readBody(request);
+      if (!String(body.name || "").trim()) return json({ success: false, message: "Mahsulot nomini kiriting" }, 400);
+      const newBarcode = String(body.qrCode || "").trim();
+      if (newBarcode) {
+        const duplicates = await sb<any[]>("products", {}, `?select=id,name&qr_code=eq.${encodeURIComponent(newBarcode)}&limit=1`);
+        if (duplicates.length) return json({ success: false, message: `Bu shtrix-kod ${duplicates[0].name} mahsulotida mavjud` }, 409);
+      }
       const [created] = await sb<any[]>("products", {
         method: "POST",
         headers: { prefer: "return=representation" },
-        body: JSON.stringify(productRow(await readBody(request))),
+        body: JSON.stringify(productRow(body)),
       });
       await sb("stock", {
         method: "POST",
@@ -704,7 +725,9 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (route === "companies" && method === "POST") {
       requireRole(user, ["superadmin", "restaurant1", "restaurant2"]);
       const body = await readBody(request);
-      const [created] = await sb<any[]>("companies", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ name: body.name, address: body.address || "", phone: body.phone || "", branch: user.role === "superadmin" ? null : user.role }) });
+      const name = String(body.name || "").trim();
+      if (!name) return json({ success: false, message: "Firma nomini kiriting" }, 400);
+      const [created] = await sb<any[]>("companies", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ name, address: body.address || "", phone: body.phone || "", branch: user.role === "superadmin" ? null : user.role }) });
       return json(created, 201);
     }
     const companyDetail = route.match(/^companies\/([^/]+)$/);
@@ -955,7 +978,13 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (route === "staff" && method === "POST") {
       requireRole(user, ["superadmin"]);
       const body = await readBody(request);
-      const [created] = await sb<any[]>("staff", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ name: body.name, role: body.role, branch: body.branch, phone: body.phone || "", salary: Number(body.salary || 0), join_date: body.joinDate || new Date().toISOString().slice(0, 10), active: body.active ?? true }) });
+      const name = String(body.name || "").trim();
+      const branch = String(body.branch || "");
+      if (!name) return json({ success: false, message: "Xodim ismini kiriting" }, 400);
+      if (!(["restaurant1", "restaurant2", "shop"] as string[]).includes(branch)) {
+        return json({ success: false, message: "Filial noto'g'ri" }, 400);
+      }
+      const [created] = await sb<any[]>("staff", { method: "POST", headers: { prefer: "return=representation" }, body: JSON.stringify({ name, role: body.role, branch, phone: body.phone || "", salary: Number(body.salary || 0), join_date: body.joinDate || new Date().toISOString().slice(0, 10), active: body.active ?? true }) });
       return json(created, 201);
     }
     const staffToggle = route.match(/^staff\/([^/]+)\/toggle$/);
@@ -1000,7 +1029,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     return json({ success: false, message: `Endpoint topilmadi: ${method} /${route}` }, 404);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Server xatosi";
-    return json({ success: false, message }, errorStatus(message));
+    return json({ success: false, message: friendlyMessage(message) }, errorStatus(message));
   }
 }
 

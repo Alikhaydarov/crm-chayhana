@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, Languages, LogOut, Menu, Moon, Search, Sun } from "lucide-react";
 import { AdminNotifications, type AdminNotification } from "@/components/layout/AdminNotifications";
 import type { UserInfo, TabId, ThemeMode, Lang } from "@/types";
@@ -80,53 +79,5 @@ export function Topbar({
         <button className="topbar-control danger-control" title="Chiqish" onClick={onLogout}><LogOut size={17} /></button>
       </div>
     </header>
-  );
-}
-
-type BottomNavProps = {
-  tabs: Tab[];
-  activeTab: TabId;
-  onTabChange: (tab: TabId) => void;
-};
-
-export function BottomNav({ tabs, activeTab, onTabChange }: BottomNavProps) {
-  const navRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const container = navRef.current;
-    const active = container?.querySelector<HTMLElement>(".bnav-btn.active");
-    if (!container || !active) return;
-    const left = active.offsetLeft - (container.clientWidth - active.offsetWidth) / 2;
-    container.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
-  }, [activeTab, tabs.length]);
-
-  return (
-    <nav className="bottom-nav" ref={navRef}>
-      <div className="bnav-grid">
-        {tabs.map((nav) => (
-          <button
-            key={nav.id}
-            className={`bnav-btn${activeTab === nav.id ? " active" : ""}`}
-            onClick={() => onTabChange(nav.id)}
-          >
-            <span className="bnav-icon" style={{ position: "relative" }}>
-              <nav.icon size={21} strokeWidth={1.9} />
-              {(nav.badge || 0) > 0 && (
-                <span
-                  style={{
-                    position: "absolute", top: -4, right: -6,
-                    background: "#f85149", color: "#fff",
-                    borderRadius: 20, padding: "0 4px", fontSize: 8, fontWeight: 900, lineHeight: "14px",
-                  }}
-                >
-                  {nav.badge}
-                </span>
-              )}
-            </span>
-            <span className="bnav-label">{nav.label.split(" ")[0]}</span>
-          </button>
-        ))}
-      </div>
-    </nav>
   );
 }
