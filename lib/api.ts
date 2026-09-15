@@ -62,6 +62,20 @@ export function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo }>> {
 }
 export async function logoutApi() { try { const refresh = getToken(REFRESH_TOKEN_KEY); if (refresh) await request("/auth/logout/", { method: "POST", body: JSON.stringify({ refresh }), retryAuth: false }); } catch {} finally { clearSession(); } }
 
+// Cheap poll target used by useAppData's background refresh: a single
+// timestamp instead of the full snapshot payload. Returns null on any
+// failure so the caller falls back to a normal full refresh rather than
+// silently never refreshing again.
+export async function getSnapshotVersionApi(): Promise<string | null> {
+  try {
+    const data = await request<any>("/snapshot/version/");
+    const watermark = unwrap<any>(data)?.watermark ?? data?.watermark;
+    return typeof watermark === "string" ? watermark : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));

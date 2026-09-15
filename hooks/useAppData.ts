@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getSnapshotApi } from "@/lib/api";
+import { getSnapshotApi, getSnapshotVersionApi } from "@/lib/api";
 import type { Account, Branch, Company, Order, CompanyPayment, ProductBatch, ShopSaleImport, Staff, ReportSummary } from "@/types/domain";
 import type { DamageRequest, Product, StockMap, Transfer, UserInfo } from "@/types";
 import { useToast } from "./useToast";
@@ -29,6 +29,7 @@ export function useAppData(user: UserInfo | null) {
   const pendingRefreshSilentRef = useRef(true);
   const hasDataRef = useRef(false);
   const lastSnapshotRef = useRef<string | null>(null);
+  const lastWatermarkRef = useRef<string | null>(null);
 
   const fetchAll = useCallback(async (silent = false) => {
     if (!user) return;
@@ -103,10 +104,29 @@ export function useAppData(user: UserInfo | null) {
     const refreshIfVisible = () => {
       if (document.visibilityState === "visible") fetchAll(true);
     };
+
+    // The 5s tick no longer re-fetches everything -- it asks one cheap
+    // "did anything change anywhere" question (a single aggregate
+    // timestamp) and only pulls the full snapshot when the answer
+    // actually differs from what we last saw. If the lightweight check
+    // itself fails, fall back to a normal refresh rather than silently
+    // going stale forever.
+    const pollIfChanged = async () => {
+      if (document.visibilityState !== "visible") return;
+      const watermark = await getSnapshotVersionApi();
+      if (watermark === null) {
+        fetchAll(true);
+        return;
+      }
+      if (watermark === lastWatermarkRef.current) return;
+      lastWatermarkRef.current = watermark;
+      fetchAll(true);
+    };
+
     window.addEventListener("focus", refreshIfVisible);
     window.addEventListener("online", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
-    const interval = window.setInterval(refreshIfVisible, 5000);
+    const interval = window.setInterval(pollIfChanged, 5000);
 
     return () => {
       window.removeEventListener("focus", refreshIfVisible);
