@@ -46,6 +46,7 @@ export function Topbar({
           <Menu size={18} />
         </button>
         <div
+          className="topbar-logo-badge"
           style={{
             width: 34, height: 34, borderRadius: 8,
             background: "var(--app-primary)", color: "#fff",
