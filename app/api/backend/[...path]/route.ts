@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { hash } from "bcryptjs";
 import type { Role } from "@/types";
 
 export const runtime = "nodejs";
@@ -684,7 +683,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       const duplicates = await sb<any[]>("admin_users", {}, `?select=id&user_id=eq.${encodeURIComponent(userId)}&role=neq.${role}&limit=1`);
       if (duplicates.length) return json({ success: false, message: "Bu login boshqa adminda mavjud" }, 409);
       const update: Record<string, unknown> = { branch_name: branchName, name: adminName, user_id: userId };
-      if (password) update.password = (await hash(password, 12)).replace(/^\$2b\$/, "$2a$");
+      if (password) { const { hash } = await import("bcryptjs"); update.password = (await hash(password, 12)).replace(/^\$2b\$/, "$2a$"); }
       const [updated] = await sb<any[]>("admin_users", { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(update) }, `?role=eq.${role}`);
       if (!updated) return json({ success: false, message: "Sklad admini topilmadi" }, 404);
       return json({ id: updated.id, userId: updated.user_id, name: updated.name, role: updated.role, branchName: updated.branch_name, branchSlug: updated.role, active: updated.active });

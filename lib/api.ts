@@ -31,6 +31,42 @@ export function hasSession() { return Boolean(getToken(ACCESS_TOKEN_KEY) || getT
 async function parseResponse(response: Response) { const contentType = response.headers.get("content-type") || ""; if (contentType.includes("application/json")) return response.json().catch(() => ({ message: "Server JSON javobi noto'g'ri" })); const text = await response.text(); return text ? { message: text } : {}; }
 function errorMessage(data: any, fallback = "Server bilan aloqa xatosi") { if (typeof data?.message === "string") return data.message; if (typeof data?.detail === "string") return data.detail; if (typeof data?.errors?.detail === "string") return data.errors.detail; const firstError = data?.errors && Object.values(data.errors).flat()[0]; return typeof firstError === "string" ? firstError : fallback; }
 async function refreshAccessToken() { const refresh = getToken(REFRESH_TOKEN_KEY); if (!refresh) return false; const response = await fetch(`${API_BASE}/auth/token/refresh/`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ refresh }), cache: "no-store" }); const data = await parseResponse(response); if (!response.ok || !data?.access) { clearSession(); return false; } saveTokens(data.access, data.refresh); return true; }
+
+function base64UrlToBase64(input: string) {
+  let base64 = input.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) base64 += "=";
+  return base64;
+}
+// The access token's payload is plain base64 (not encrypted) -- the server
+// only relies on the HMAC signature for real verification, which every
+// subsequent API call already goes through. Reading the payload locally on
+// page load lets us restore the signed-in user instantly, with zero network
+// calls, instead of always hitting /auth/me (and often a token refresh
+// before that) first. That was the single biggest source of "slow to open"
+// complaints: every page load/refresh paid for one or two sequential,
+// cold-start-prone requests before the real data fetch could even start.
+// Falls back to the old network path (below) whenever the token is
+// missing, unparseable, or expired.
+function decodeAccessTokenUser(): AppUserInfo | null {
+  const token = getToken(ACCESS_TOKEN_KEY);
+  if (!token) return null;
+  try {
+    const [payload] = token.split(".");
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(base64UrlToBase64(payload)));
+    if (decoded?.type !== "access" || typeof decoded.exp !== "number" || decoded.exp <= Math.floor(Date.now() / 1000) + 5) return null;
+    if (!decoded.id || !decoded.role) return null;
+    return {
+      id: String(decoded.id),
+      name: String(decoded.name || ""),
+      role: decoded.role,
+      branchName: String(decoded.branchName || ""),
+      branchIcon: String(decoded.branchIcon || ""),
+    } as AppUserInfo;
+  } catch {
+    return null;
+  }
+}
 function sleep(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function requestId() { return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 function isRetryableStatus(status: number) { return status === 408 || status === 429 || status >= 500; }
@@ -109,6 +145,11 @@ export function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo }>> {
   restoreSessionPromise = (async () => {
     try {
       if (!hasSession()) throw new Error("Sessiya topilmadi");
+      const decoded = decodeAccessTokenUser();
+      if (decoded) {
+        sessionUserCache = await enrichUserBranch(decoded);
+        return success({ user: sessionUserCache });
+      }
       const data = await request<any>("/auth/me/");
       sessionUserCache = await enrichUserBranch(normalizeUser(data.user ?? data));
       return success({ user: sessionUserCache });
