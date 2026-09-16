@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import { AlertTriangle, ArrowRight, Boxes, CircleDollarSign, Clock3, KeyRound, PackageSearch, ReceiptText, Save, TrendingUp, UserRound, Users, Warehouse } from "lucide-react";
 import { PageWrap } from "@/components/ui";
 import { ProductDialog } from "@/components/ui/product-dialog";
@@ -8,16 +8,29 @@ import { BRANCH_NAMES, TRANSFER_STATUS_CONFIG } from "@/lib/constants";
 import { updateWarehouseAdminApi } from "@/lib/api";
 import { fmtD, fmtM } from "@/lib/utils";
 import type { Product, StockMap, TabId, UserInfo } from "@/types";
-import type { Account, Branch, Order, ReportSummary } from "@/types/domain";
+import type { Account, Branch, Order, ProductBatch, ReportSummary } from "@/types/domain";
 
-type Props = { reports: ReportSummary | null; user: UserInfo; setTab: (tab: TabId) => void; transfers: any[]; orders: Order[]; companies: any[]; accounts: Account[]; branches: Branch[]; products: Product[]; stock: StockMap; openBranchAnalysis: (branchSlug: string) => void; fetchAll: () => void; showToast: (message: string, type?: "success" | "error") => void; t: Record<string, string> };
+type Props = { reports: ReportSummary | null; user: UserInfo; setTab: (tab: TabId) => void; transfers: any[]; orders: Order[]; companies: any[]; accounts: Account[]; branches: Branch[]; products: Product[]; stock: StockMap; productBatches: ProductBatch[]; damages: any[]; openBranchAnalysis: (branchSlug: string) => void; fetchAll: () => void; showToast: (message: string, type?: "success" | "error") => void; t: Record<string, string> };
 type Metric = { label: string; value: string; detail: string; Icon: ComponentType<{ size?: number }>; tone: "green" | "blue" | "amber" | "red" };
+
+// Parse the y-m-d components directly instead of `new Date(dateStr)`, which
+// parses a date-only string as UTC midnight and can shift to the previous
+// calendar day in timezones behind UTC. Mirrors ExpiryTab's daysUntil.
+function daysUntil(dateStr?: string) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const target = new Date(year, month - 1, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
 
 function MetricCard({ metric }: { metric: Metric }) {
   return <section className="dashboard-metric"><div className={`dashboard-metric-icon tone-${metric.tone}`}><metric.Icon size={18} /></div><div className="dashboard-metric-copy"><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small></div></section>;
 }
 
-export function DashboardTab({ reports, user, setTab, transfers, orders, accounts, branches, products, stock, fetchAll, showToast }: Props) {
+export function DashboardTab({ reports, user, setTab, transfers, orders, accounts, branches, products, stock, productBatches, damages, fetchAll, showToast }: Props) {
   const [selectedWarehouseKey, setSelectedWarehouseKey] = useState("");
   const [warehouseForm, setWarehouseForm] = useState({ branchName: "", adminName: "", userId: "", password: "" });
   const [warehouseSaving, setWarehouseSaving] = useState(false);
@@ -33,7 +46,17 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, account
   const unpaidOrders = visibleOrders.filter((order) => Number(order.totalPrice) > Number(order.paidAmount));
   const lowStockProducts = products.filter((product) => Number(stock[product.id] || 0) <= Number(product.minStock || 0));
   const activeAccounts = accounts.filter((account) => account.active !== false);
+  const pendingDamages = (damages || []).filter((damage: any) => damage.status === "pending");
   const today = new Date().toLocaleDateString("uz-UZ", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  // productBatches is already scoped to what this user's role can see
+  // (own branch, or every branch for superadmin) by the snapshot endpoint,
+  // so no extra branch filtering is needed here.
+  const priceById = useMemo(() => new Map(products.map((product) => [product.id, product.pricePerUnit || 0])), [products]);
+  const expiredBatches = useMemo(() => productBatches.filter((batch) => { const days = daysUntil(batch.expiryDate); return days !== null && days < 0; }), [productBatches]);
+  const expiringSoonBatches = useMemo(() => productBatches.filter((batch) => { const days = daysUntil(batch.expiryDate); return days !== null && days >= 0 && days <= 7; }), [productBatches]);
+  const expiredValue = useMemo(() => expiredBatches.reduce((sum, batch) => sum + batch.quantity * (priceById.get(batch.productId) || 0), 0), [expiredBatches, priceById]);
+  const expiringSoonValue = useMemo(() => expiringSoonBatches.reduce((sum, batch) => sum + batch.quantity * (priceById.get(batch.productId) || 0), 0), [expiringSoonBatches, priceById]);
 
   const metrics: Metric[] = isSuperAdmin ? [
     { label: "Asosiy sklad", value: fmtM(Number(reports?.mainStockValue) || 0), detail: `${reports?.totalProducts || products.length} turdagi mahsulot`, Icon: CircleDollarSign, tone: "green" },
@@ -68,8 +91,11 @@ export function DashboardTab({ reports, user, setTab, transfers, orders, account
   };
   const attentionItems = [
     ...(pendingTransfers.length ? [{ label: "Tasdiq kutayotgan transferlar", value: `${pendingTransfers.length} ta`, tone: "amber", action: () => setTab("transfers") }] : []),
+    ...(pendingDamages.length ? [{ label: "Tasdiq kutayotgan brak so'rovlari", value: `${pendingDamages.length} ta`, tone: "amber", action: () => setTab("damages") }] : []),
     ...(totalDebt > 0 ? [{ label: "Yopilmagan firma qarzi", value: fmtM(totalDebt), tone: "red", action: () => setTab("orders") }] : []),
     ...(lowStockProducts.length ? [{ label: "Asosiy skladda kam qolgan", value: `${lowStockProducts.length} ta`, tone: "red", action: () => setTab("warehouse") }] : []),
+    ...(expiredBatches.length ? [{ label: "Muddati o'tgan partiyalar", value: `${fmtM(expiredValue)}`, tone: "red", action: () => setTab("expiry") }] : []),
+    ...(expiringSoonBatches.length ? [{ label: "7 kun ichida muddati tugaydi", value: `${fmtM(expiringSoonValue)}`, tone: "amber", action: () => setTab("expiry") }] : []),
   ];
 
   return <PageWrap title="Boshqaruv paneli" sub={`${user.branchName} · ${today}`} action={isShop ? <button className="btn-primary" onClick={() => setTab("analysis")}><TrendingUp size={16} /> Savdo tahlili</button> : undefined}>
