@@ -626,6 +626,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
 
   try {
     if (route === "auth/login" && method === "POST") {
+      const retryAfter = checkRateLimit(`login:${clientKey(request)}`, LOGIN_RATE_LIMIT);
+      if (retryAfter) return json({ success: false, message: `Juda ko'p urinish. ${retryAfter} soniyadan keyin qayta urinib ko'ring` }, 429);
       const body = await readBody(request);
       if (typeof body.userId !== "string" || typeof body.password !== "string" || body.userId.length > 100 || body.password.length > 200) {
         return json({ success: false, message: "Login ma'lumotlari noto'g'ri" }, 400);
@@ -654,6 +656,10 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     }
 
     const user = authUser(request);
+    if (method !== "GET") {
+      const retryAfter = checkRateLimit(`write:${user.id}`, WRITE_RATE_LIMIT);
+      if (retryAfter) return json({ success: false, message: `Juda ko'p so'rov yuborildi. ${retryAfter} soniyadan keyin qayta urinib ko'ring` }, 429);
+    }
     if (route === "snapshot" && method === "GET") return json(await snapshot(user));
     if (route === "snapshot/version" && method === "GET") {
       // Cheap poll target: a single aggregate timestamp instead of the full
