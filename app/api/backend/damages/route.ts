@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   DAMAGE_BUCKET,
   authDamageUser,
+  damageRateLimit,
   damageErrorStatus,
   damageRpc,
   mapDamage,
@@ -9,6 +10,7 @@ import {
   removeDamageImage,
   storageApiUrl,
   storageRequest,
+  validateStoredImage,
   supabaseRest,
   verifyDamageImageUpload,
   type DamageImageUpload,
@@ -21,11 +23,13 @@ const REQUEST_BRANCHES = new Set(["restaurant1", "restaurant2", "shop"]);
 const MAX_LIST_ROWS = 500;
 
 function json(data: unknown, status = 200) {
-  return NextResponse.json(data, { status });
+  return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 }
 
 export async function GET(request: NextRequest) {
   try {
+    const retryAfter = damageRateLimit(request, "damages:read", 240);
+    if (retryAfter) return json({ success: false, message: "Juda ko'p so'rov yuborildi" }, 429);
     const user = authDamageUser(request);
     const query = user.role === "superadmin"
       ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
@@ -44,6 +48,8 @@ export async function POST(request: NextRequest) {
   let rowCreated = false;
 
   try {
+    const retryAfter = damageRateLimit(request, "damages:write", 60);
+    if (retryAfter) return json({ success: false, message: "Juda ko'p so'rov yuborildi" }, 429);
     const user = authDamageUser(request);
     const body = await readDamageBody(request);
     const isMainStockDamage = user.role === "superadmin";
@@ -62,7 +68,8 @@ export async function POST(request: NextRequest) {
     if (!upload) throw new Error("Brak rasmi imzosi eskirgan yoki noto'g'ri");
     uploadForCleanup = upload;
 
-    await storageRequest(`/object/info/${DAMAGE_BUCKET}/${upload.path}`);
+    const storedImage = await storageRequest(`/object/info/${DAMAGE_BUCKET}/${upload.path}`);
+    validateStoredImage(storedImage, upload.type, upload.size);
 
     const [product] = await supabaseRest<any[]>(
       "products",

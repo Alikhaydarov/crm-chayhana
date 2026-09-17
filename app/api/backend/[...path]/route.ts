@@ -16,6 +16,8 @@ const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
 const SUPABASE_TIMEOUT_MS = 12_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const LOGIN_RATE_LIMIT = 8;
+const REFRESH_RATE_LIMIT = 30;
+const READ_RATE_LIMIT = 300;
 const WRITE_RATE_LIMIT = 180;
 const MAX_MUTATION_ITEMS = 120;
 const MAX_IMPORT_ROWS = 2_500;
@@ -159,6 +161,20 @@ function checkRateLimit(key: string, limit: number) {
   bucket.count += 1;
   if (bucket.count <= limit) return null;
   return Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+}
+
+function rateLimitResponse(retryAfter: number) {
+  return NextResponse.json(
+    { success: false, message: "Juda ko'p so'rov yuborildi. Birozdan keyin qayta urinib ko'ring" },
+    {
+      status: 429,
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+        "Retry-After": String(retryAfter),
+        "X-Content-Type-Options": "nosniff",
+      },
+    },
+  );
 }
 
 async function removeStorageObject(bucket: string, path: string) {
@@ -312,6 +328,18 @@ async function storageRequest(path: string, init: RequestInit = {}) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.message || data?.error || "Storage xatosi");
   return data;
+}
+
+function validateStoredImage(info: any, expectedType: string, expectedSize: number, maxBytes: number) {
+  const metadata = info?.metadata || {};
+  const actualSize = Number(metadata.size ?? info?.size ?? 0);
+  const actualType = String(metadata.mimetype ?? metadata.mimeType ?? metadata.contentType ?? info?.mimetype ?? "").toLowerCase();
+  if (!Number.isFinite(actualSize) || actualSize <= 0 || actualSize > maxBytes || actualSize !== expectedSize) {
+    throw new Error("Yuklangan rasm hajmi noto'g'ri");
+  }
+  if (!actualType || actualType !== expectedType.toLowerCase()) {
+    throw new Error("Yuklangan rasm turi noto'g'ri");
+  }
 }
 
 async function readOrderFile(request: NextRequest, field: "receipt") {
@@ -648,7 +676,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   try {
     if (route === "auth/login" && method === "POST") {
       const retryAfter = checkRateLimit(`login:${clientKey(request)}`, LOGIN_RATE_LIMIT);
-      if (retryAfter) return json({ success: false, message: `Juda ko'p urinish. ${retryAfter} soniyadan keyin qayta urinib ko'ring` }, 429);
+      if (retryAfter) return rateLimitResponse(retryAfter);
       const body = await readBody(request);
       if (typeof body.userId !== "string" || typeof body.password !== "string" || body.userId.length > 100 || body.password.length > 200) {
         return json({ success: false, message: "Login ma'lumotlari noto'g'ri" }, 400);
@@ -670,6 +698,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (route === "auth/me" && method === "GET") return json({ user: authUser(request) });
     if (route === "auth/logout") return json({ success: true });
     if (route === "auth/token/refresh" && method === "POST") {
+      const retryAfter = checkRateLimit(`refresh:${clientKey(request)}`, REFRESH_RATE_LIMIT);
+      if (retryAfter) return rateLimitResponse(retryAfter);
       const body = await readBody(request);
       const user = decodeToken(body.refresh, "refresh");
       if (!user) return json({ success: false, message: "Sessiya tugagan" }, 401);
@@ -677,10 +707,11 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     }
 
     const user = authUser(request);
-    if (method !== "GET") {
-      const retryAfter = checkRateLimit(`write:${user.id}`, WRITE_RATE_LIMIT);
-      if (retryAfter) return json({ success: false, message: `Juda ko'p so'rov yuborildi. ${retryAfter} soniyadan keyin qayta urinib ko'ring` }, 429);
-    }
+    const retryAfter = checkRateLimit(
+      `${method === "GET" ? "read" : "write"}:${user.id}:${clientKey(request)}`,
+      method === "GET" ? READ_RATE_LIMIT : WRITE_RATE_LIMIT,
+    );
+    if (retryAfter) return rateLimitResponse(retryAfter);
     if (route === "snapshot" && method === "GET") return json(await snapshot(user));
     if (route === "snapshot/version" && method === "GET") {
       // Cheap poll target: a single aggregate timestamp instead of the full
@@ -846,7 +877,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       if (body.imageUploadToken && !upload) throw new Error("Brak rasmi imzosi eskirgan yoki noto'g'ri");
       let image: Record<string, unknown> | null = null;
       if (upload) {
-        await storageRequest(`/object/info/damage-images/${upload.path}`);
+        const storedImage = await storageRequest(`/object/info/damage-images/${upload.path}`);
+        validateStoredImage(storedImage, upload.type, upload.size, MAX_DAMAGE_IMAGE_BYTES);
         const signed = await storageRequest(`/object/sign/damage-images/${upload.path}`, { method: "POST", body: JSON.stringify({ expiresIn: 31536000 }) });
         const signedPath = signed.signedURL || signed.signedUrl;
         image = { name: upload.name, type: upload.type, storagePath: upload.path, dataUrl: signedPath ? `${SUPABASE_URL!.replace(/\/$/, "")}/storage/v1${signedPath}` : "" };
@@ -1108,7 +1140,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       if (body.receiptUploadToken && !upload) throw new Error("Chek yuklash imzosi eskirgan yoki noto'g'ri");
       let receipt: Record<string, unknown> | null = null;
       if (upload) {
-        await storageRequest(`/object/info/payflow-receipts/${upload.path}`);
+        const storedReceipt = await storageRequest(`/object/info/payflow-receipts/${upload.path}`);
+        validateStoredImage(storedReceipt, upload.type, upload.size, MAX_PAYMENT_RECEIPT_BYTES);
         const signed = await storageRequest(`/object/sign/payflow-receipts/${upload.path}`, {
           method: "POST",
           body: JSON.stringify({ expiresIn: 31536000 }),

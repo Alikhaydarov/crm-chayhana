@@ -8,6 +8,8 @@ import type { ParsedShopSale, Product, StockMap, TabId, UserInfo } from "@/types
 import type { Branch, ShopSaleImport } from "@/types/domain";
 
 const API_BASE = "/api/backend";
+const MAX_EXCEL_BYTES = 5 * 1024 * 1024;
+const MAX_EXCEL_ROWS = 5_000;
 
 function unwrapList(data: any): any[] {
   const value = data?.data?.results ?? data?.data?.items ?? data?.data?.shopSales ?? data?.data?.shop_sales ?? data?.results ?? data?.items ?? data?.shopSales ?? data?.shop_sales ?? data?.data ?? data;
@@ -35,6 +37,9 @@ async function parseShopWorkbook(file: File, products: Product[]): Promise<Parse
   await workbook.xlsx.load(await file.arrayBuffer());
   const ws = workbook.worksheets[0];
   if (!ws) throw new Error("Excel varag'i topilmadi");
+  if (ws.actualRowCount > MAX_EXCEL_ROWS || ws.rowCount > MAX_EXCEL_ROWS) {
+    throw new Error(`Excel faylda maksimum ${MAX_EXCEL_ROWS} ta qator bo'lishi mumkin`);
+  }
   const rows: any[][] = [];
   ws.eachRow({ includeEmpty: true }, (row) => rows.push(Array.from({ length: ws.columnCount }, (_, i) => { const cell = row.getCell(i + 1); return i === 0 ? cell.text.trim() : cell.value; })));
   const headerIndex = rows.findIndex((row, i) => { const next = rows[i + 1]; return i < 10 && Boolean(row?.[0]) && Boolean(next?.[0]) && Number(next?.[6]) > 0 && !Number(row?.[6]); });
@@ -107,6 +112,7 @@ export function ShopSalesTab({ products, shopStock, shopSales, user, branches, s
     if (!importDate) { showToast("Avval import sanasini tanlang", "error"); return; }
     if (!effectiveBranchSlug) { showToast("Do'kon branch aniqlanmadi. Import to'xtatildi", "error"); return; }
     if (!/\.xlsx$/i.test(file.name)) { showToast("Faqat Excel .xlsx fayl tanlang", "error"); return; }
+    if (file.size <= 0 || file.size > MAX_EXCEL_BYTES) { showToast("Excel fayl 5 MB dan kichik bo'lishi kerak", "error"); return; }
     setReading(true);
     try {
       const uploadResult = await uploadShopSalesExcelApi(file, importDate, effectiveBranchSlug);

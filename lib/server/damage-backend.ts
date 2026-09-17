@@ -13,6 +13,8 @@ const DAMAGE_MIME_TYPES: Record<string, string> = {
   "image/webp": "webp",
 };
 const DAMAGE_ROLES = new Set(["superadmin", "restaurant1", "restaurant2", "shop"]);
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 
 export type DamageUser = {
   id: string;
@@ -68,6 +70,25 @@ export async function readDamageBody(request: NextRequest) {
   }
 }
 
+export function damageRateLimit(request: NextRequest, scope: string, limit: number) {
+  const now = Date.now();
+  if (rateBuckets.size > 2_000) {
+    for (const [key, bucket] of Array.from(rateBuckets.entries())) {
+      if (bucket.resetAt <= now) rateBuckets.delete(key);
+    }
+  }
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const client = forwarded || request.headers.get("x-real-ip") || "local";
+  const key = `${scope}:${client}`;
+  const bucket = rateBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return null;
+  }
+  bucket.count += 1;
+  return bucket.count > limit ? Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) : null;
+}
+
 export function authDamageUser(request: NextRequest): DamageUser {
   requireAuthSecret();
   const raw = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -120,6 +141,23 @@ export async function storageRequest<T = any>(path: string, init: RequestInit = 
   const data = await responsePayload(response);
   if (!response.ok) throw new Error(responseMessage(data, `Storage ${response.status}`));
   return data as T;
+}
+
+export function validateStoredImage(
+  info: any,
+  expectedType: string,
+  expectedSize: number,
+  maxBytes = MAX_DAMAGE_IMAGE_BYTES,
+) {
+  const metadata = info?.metadata || {};
+  const actualSize = Number(metadata.size ?? info?.size ?? 0);
+  const actualType = String(metadata.mimetype ?? metadata.mimeType ?? metadata.contentType ?? info?.mimetype ?? "").toLowerCase();
+  if (!Number.isFinite(actualSize) || actualSize <= 0 || actualSize > maxBytes || actualSize !== expectedSize) {
+    throw new Error("Yuklangan rasm hajmi noto'g'ri");
+  }
+  if (!actualType || actualType !== expectedType.toLowerCase()) {
+    throw new Error("Yuklangan rasm turi noto'g'ri");
+  }
 }
 
 let damageBucketReady: Promise<void> | null = null;

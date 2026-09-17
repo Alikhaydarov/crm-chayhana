@@ -3,6 +3,7 @@ import {
   DAMAGE_BUCKET,
   MAX_DAMAGE_IMAGE_BYTES,
   authDamageUser,
+  damageRateLimit,
   damageErrorStatus,
   damageExtension,
   readDamageBody,
@@ -84,6 +85,13 @@ async function ensureDamageBucketForUpload() {
 
 export async function POST(request: NextRequest) {
   try {
+    const retryAfter = damageRateLimit(request, "damages:upload", 30);
+    if (retryAfter) {
+      return NextResponse.json(
+        { success: false, message: "Juda ko'p fayl yuklash so'rovi yuborildi" },
+        { status: 429, headers: { "Retry-After": String(retryAfter), "Cache-Control": "no-store" } },
+      );
+    }
     const user = authDamageUser(request);
     const body = await readDamageBody(request);
     const type = String(body.type || "");
