@@ -461,29 +461,43 @@ function mapOrder(row: any) {
 }
 
 async function snapshot(user: AppUser) {
+  const isSuperAdmin = user.role === "superadmin";
   const branchFilter = encodeURIComponent(user.role);
-  const transferQuery = user.role === "superadmin"
+  const transferQuery = isSuperAdmin
     ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
     : `?select=*&or=(to_branch.eq.${branchFilter},from_branch.eq.${branchFilter})&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
-  const damageQuery = user.role === "superadmin"
+  const damageQuery = isSuperAdmin
     ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
     : `?select=*&branch=eq.${branchFilter}&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
-  const companyQuery = user.role === "superadmin"
+  const companyQuery = isSuperAdmin
     ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
     : `?select=*&branch=eq.${branchFilter}&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
-  const orderQuery = user.role === "superadmin"
+  const orderQuery = isSuperAdmin
     ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
     : `?select=*&branch=eq.${branchFilter}&order=created_at.desc&limit=${MAX_LIST_ROWS}`;
-  const staffQuery = user.role === "superadmin"
+  const staffQuery = isSuperAdmin
     ? `?select=*&order=name.asc&limit=${MAX_LIST_ROWS}`
     : `?select=*&branch=eq.${branchFilter}&order=name.asc&limit=${MAX_LIST_ROWS}`;
-  const batchQuery = user.role === "superadmin"
+  const batchQuery = isSuperAdmin
     ? `?select=*&quantity=gt.0&order=expiry_date.asc.nullslast,received_date.asc&limit=${MAX_LIST_ROWS}`
     : `?select=*&branch=eq.${branchFilter}&quantity=gt.0&order=expiry_date.asc.nullslast,received_date.asc&limit=${MAX_LIST_ROWS}`;
+  // Everything below is fetched in ONE parallel batch. Two of these used to
+  // run as separate, sequential awaits *after* this Promise.all resolved --
+  // company_payments and admin_users -- even though neither actually
+  // depends on anything else here for the superadmin case (payments only
+  // needs the company list when scoped to a single branch's companies;
+  // admin_users never depends on it at all). Same for restaurant1/
+  // restaurant2 stock, which used to be fetched in a second Promise.all
+  // after this one. For superadmin -- the role every one of these extra
+  // round trips applied to -- that meant paying for up to 4 sequential
+  // network hops before the dashboard could render instead of 1. Folding
+  // them all in here turns that into a single parallel batch.
   const [
     productList,
     mainStock,
     shopStock,
+    restaurant1Stock,
+    restaurant2Stock,
     transfers,
     damages,
     companies,
@@ -492,10 +506,14 @@ async function snapshot(user: AppUser) {
     suppliers,
     shopSales,
     productBatches,
+    superAdminPayments,
+    adminAccounts,
   ] = await Promise.all([
     products(),
-    stock(user.role === "superadmin" ? "main" : user.role),
-    user.role === "superadmin" || user.role === "shop" ? stock("shop") : Promise.resolve({}),
+    stock(isSuperAdmin ? "main" : user.role),
+    isSuperAdmin || user.role === "shop" ? stock("shop") : Promise.resolve({}),
+    isSuperAdmin ? stock("restaurant1") : Promise.resolve({}),
+    isSuperAdmin ? stock("restaurant2") : Promise.resolve({}),
     sb<any[]>("transfers", {}, transferQuery),
     sb<any[]>("damaged_requests", {}, damageQuery).catch(() => []),
     user.role === "shop" ? Promise.resolve([]) : sb<any[]>("companies", {}, companyQuery),
@@ -506,17 +524,22 @@ async function snapshot(user: AppUser) {
       ? Promise.resolve([])
       : sb<any[]>("shop_sales", {}, `?select=*&order=sale_date.desc&limit=${MAX_LIST_ROWS}`),
     sb<any[]>("product_batches", {}, batchQuery).catch(() => []),
+    isSuperAdmin ? sb<any[]>("company_payments", {}, `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`) : Promise.resolve([]),
+    isSuperAdmin ? sb<any[]>("admin_users", {}, "?select=id,user_id,name,role,branch_name,branch_icon,active&role=neq.superadmin&order=role.asc") : Promise.resolve([]),
   ]);
 
+  // Non-superadmin still needs a genuinely sequential second query here:
+  // which companies' payments to pull depends on this user's own company
+  // list, which only exists once the batch above has resolved.
   const companyIds = companies.map((company) => String(company.id));
-  const payments = user.role === "shop" || (user.role !== "superadmin" && companyIds.length === 0)
-    ? []
-    : await sb<any[]>("company_payments", {}, user.role === "superadmin"
-      ? `?select=*&order=created_at.desc&limit=${MAX_LIST_ROWS}`
-      : `?select=*&company_id=in.(${companyIds.join(",")})&order=created_at.desc&limit=${MAX_LIST_ROWS}`);
+  const payments = isSuperAdmin
+    ? superAdminPayments
+    : user.role === "shop" || companyIds.length === 0
+      ? []
+      : await sb<any[]>("company_payments", {}, `?select=*&company_id=in.(${companyIds.join(",")})&order=created_at.desc&limit=${MAX_LIST_ROWS}`);
 
-  const warehouseStocks = user.role === "superadmin"
-    ? Object.fromEntries(await Promise.all((["restaurant1", "restaurant2", "shop"] as Role[]).map(async (branch) => [branch, branch === "shop" ? shopStock : await stock(branch)])))
+  const warehouseStocks: Record<string, Record<string, number>> = isSuperAdmin
+    ? { restaurant1: restaurant1Stock, restaurant2: restaurant2Stock, shop: shopStock }
     : { [user.role]: mainStock };
   const productInfoById = new Map(productList.map((product) => [product.id, product]));
   const stockSummary = (stockMap: Record<string, number>) => {
@@ -528,7 +551,6 @@ async function snapshot(user: AppUser) {
     };
   };
   const mainSummary = stockSummary(mainStock);
-  const adminAccounts = user.role === "superadmin" ? await sb<any[]>("admin_users", {}, "?select=id,user_id,name,role,branch_name,branch_icon,active&role=neq.superadmin&order=role.asc") : [];
 
   return {
     products: productList,
