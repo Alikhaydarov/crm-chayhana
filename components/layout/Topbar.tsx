@@ -39,7 +39,7 @@ export function Topbar({
       style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <button className="topbar-control desktop-only" onClick={onToggleSidebar}>
+        <button type="button" className="topbar-control desktop-only" onClick={onToggleSidebar} title={sidebarCollapsed ? "Yon panelni ochish" : "Yon panelni yig'ish"} aria-label={sidebarCollapsed ? "Yon panelni ochish" : "Yon panelni yig'ish"}>
           {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
         <button className="topbar-control mobile-only" onClick={onOpenMobileMenu} title="Menyu" aria-label="Menyuni ochish">
@@ -65,19 +65,19 @@ export function Topbar({
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <button className="topbar-search" onClick={onSearch} title="Tezkor qidiruv">
+        <button type="button" className="topbar-search" onClick={onSearch} title="Tezkor qidiruv" aria-label="Tezkor qidiruvni ochish">
           <Search size={17} />
           <span>Qidiruv</span>
           <kbd>Ctrl K</kbd>
         </button>
         {user.role === "superadmin" && <AdminNotifications notifications={notifications} onNavigate={onNavigate} />}
-        <button className="topbar-control" title={lang === "uz" ? "Koreys tili" : "O'zbek tili"} onClick={onLangToggle}>
+        <button type="button" className="topbar-control" title={lang === "uz" ? "Koreys tili" : "O'zbek tili"} aria-label={lang === "uz" ? "Koreys tiliga o'tish" : "O'zbek tiliga o'tish"} onClick={onLangToggle}>
           <Languages size={17} />
         </button>
-        <button className="topbar-control" title={theme === "dark" ? "Kunduzgi rejim" : "Tungi rejim"} onClick={onThemeToggle}>
+        <button type="button" className="topbar-control" title={theme === "dark" ? "Kunduzgi rejim" : "Tungi rejim"} aria-label={theme === "dark" ? "Kunduzgi rejimni yoqish" : "Tungi rejimni yoqish"} onClick={onThemeToggle}>
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>
-        <button className="topbar-control danger-control" title="Chiqish" onClick={onLogout}><LogOut size={17} /></button>
+        <button type="button" className="topbar-control danger-control" title="Chiqish" aria-label="Hisobdan chiqish" onClick={onLogout}><LogOut size={17} /></button>
       </div>
     </header>
   );

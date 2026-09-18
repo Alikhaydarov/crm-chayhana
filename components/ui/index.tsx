@@ -1,3 +1,5 @@
+import { CircleCheck, CircleX } from "lucide-react";
+
 export function Modal({ onClose, children, className = "" }: { onClose: () => void; children: React.ReactNode; className?: string }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -53,7 +55,9 @@ export function PageWrap({
 export function Toast({ msg, type }: { msg: string; type: "success" | "error" }) {
   return (
     <div
-      className="app-toast"
+      className={`app-toast ${type}`}
+      role={type === "error" ? "alert" : "status"}
+      aria-live={type === "error" ? "assertive" : "polite"}
       style={{
         position: "fixed",
         top: 20,
@@ -69,11 +73,11 @@ export function Toast({ msg, type }: { msg: string; type: "success" | "error" })
         alignItems: "center",
         gap: 8,
         maxWidth: 340,
-        background: type === "success" ? "#3fb950" : "#f85149",
-        color: "#fff",
+        background: "var(--app-panel)",
+        color: "var(--app-text)",
       }}
     >
-      {type === "success" ? "✅" : "❌"} {msg}
+      {type === "success" ? <CircleCheck size={18} /> : <CircleX size={18} />}<span>{msg}</span>
     </div>
   );
 }
