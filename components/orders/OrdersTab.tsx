@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Banknote, Camera, CalendarClock, CreditCard, FileText, PackagePlus, Search, ScanLine } from "lucide-react";
+import { Banknote, Camera, CalendarClock, CreditCard, FileText, PackagePlus, Search, ScanLine, X } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
 import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
 import { addProductApi, createOrderApi, getPaymentMethodsApi, uploadOrderDocumentApi } from "@/lib/api";
@@ -13,6 +13,7 @@ type Props = {
   orders: Order[];
   products: Product[];
   companies: Company[];
+  companyPayments?: import("@/types/domain").CompanyPayment[];
   fetchAll: () => void;
   showToast: (msg: string, type?: "success" | "error") => void;
   t: Record<string, string>;
@@ -23,7 +24,7 @@ const todayValue = () => {
   return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 };
 
-export function OrdersTab({ orders, products, companies, fetchAll, showToast, t }: Props) {
+export function OrdersTab({ orders, products, companies, companyPayments = [], fetchAll, showToast, t }: Props) {
   const [showModal, setShowModal] = useState(false);
   const emptyForm = () => ({
     companyId: "",
@@ -47,6 +48,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
   const [newProductOpen, setNewProductOpen] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
   const [productDocumentFile, setProductDocumentFile] = useState<File | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [productDraft, setProductDraft] = useState({ name: "", category: "boshqa", unit: "dona", minStock: "0", pricePerUnit: "0", qrCode: "", supplierId: "" });
   const availableProducts = useMemo(() => [...products, ...createdProducts.filter((created) => !products.some((product) => product.id === created.id))], [products, createdProducts]);
   const filteredProducts = availableProducts.filter((product) => `${product.name} ${product.qrCode || ""}`.toLowerCase().includes(productSearch.trim().toLowerCase()));
@@ -390,6 +392,21 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
         </Modal>
       )}
 
+      {selectedOrder && (() => {
+        const orderPayments = companyPayments.filter((payment) => payment.orderId === selectedOrder.id);
+        const debt = Math.max(0, selectedOrder.totalPrice - selectedOrder.paidAmount);
+        const pay = PAY_STATUS_CONFIG[selectedOrder.payStatus];
+        return (
+          <Modal onClose={() => setSelectedOrder(null)} className="order-detail-modal">
+            <div className="modal-title-row"><div><div className="modal-kicker">ORDER DETAIL</div><div className="modal-title">{selectedOrder.companyName}</div><div className="modal-subtitle">#{selectedOrder.id.slice(-8)} · {fmtDate(selectedOrder.orderDate || selectedOrder.createdAt)}</div></div><button type="button" className="icon-button" onClick={() => setSelectedOrder(null)} aria-label="Yopish"><X size={18} /></button></div>
+            <div className="order-detail-summary"><div><span>Jami</span><strong>{fmtM(selectedOrder.totalPrice)}</strong></div><div><span>To'langan</span><strong className="positive">{fmtM(selectedOrder.paidAmount)}</strong></div><div><span>Qarz</span><strong className={debt ? "negative" : "positive"}>{fmtM(debt)}</strong></div><div><span>Holat</span><strong className="order-detail-status" style={{ background: pay.bg, color: pay.c }}>{pay.l}</strong></div></div>
+            <section className="order-detail-section"><div className="order-detail-section-title">Kelgan mahsulotlar <span>{selectedOrder.items.length} ta</span></div><div className="order-detail-items">{selectedOrder.items.map((item, index) => <div className="order-detail-item" key={`${item.productId}-${index}`}><div className="order-detail-item-main"><strong>{item.productName}</strong><small>{item.productId}</small></div><div className="order-detail-item-meta"><span>{item.quantity} {item.unit}</span><strong>{fmtM(item.quantity * item.pricePerUnit)}</strong></div>{item.expiryDate && <small className="order-detail-expiry">Yaroqlilik: {fmtDate(item.expiryDate)}</small>}</div>)}</div></section>
+            {(selectedOrder.note || selectedOrder.receipt || selectedOrder.productDocument) && <section className="order-detail-section"><div className="order-detail-section-title">Qo'shimcha ma'lumot</div>{selectedOrder.note && <p className="order-detail-note">{selectedOrder.note}</p>}<div className="order-detail-files">{selectedOrder.receipt && <a className="order-file-link" href={selectedOrder.receipt.dataUrl} download={selectedOrder.receipt.name}><Banknote size={15} /> To'lov cheki <small>{selectedOrder.receipt.name}</small></a>}{selectedOrder.productDocument && <a className="order-file-link" href={selectedOrder.productDocument.dataUrl} download={selectedOrder.productDocument.name}><FileText size={15} /> Mahsulot hujjati <small>{selectedOrder.productDocument.name}</small></a>}</div></section>}
+            {orderPayments.length > 0 && <section className="order-detail-section"><div className="order-detail-section-title">To'lov tarixi <span>{orderPayments.length} ta</span></div><div className="order-detail-payments">{orderPayments.map((payment) => <div className="order-detail-payment" key={payment.id}><span>{fmtDate(payment.paymentDate)} · {payment.paymentMethod === "card" ? "Karta" : "Naqd"}</span><strong>{fmtM(payment.amount)}</strong></div>)}</div></section>}
+          </Modal>
+        );
+      })()}
+
       <div className="table-wrap">
         <table className="crm-table mobile-card-table">
           <thead>
@@ -400,6 +417,7 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
               <th>Jami</th>
               <th>To'lov</th>
               <th className="hide-mobile">Sana</th>
+              <th>Ko'rish</th>
             </tr>
           </thead>
           <tbody>
@@ -423,12 +441,13 @@ export function OrdersTab({ orders, products, companies, fetchAll, showToast, t 
                     {o.productDocument && <a href={o.productDocument.dataUrl} download={o.productDocument.name} style={{ display: "block", fontSize: 11, color: "#2563eb", fontWeight: 700, marginTop: 5, textDecoration: "none" }}>📄 Mahsulot hujjati</a>}
                   </td>
                   <td className="hide-mobile" style={{ fontSize: 11, color: "var(--app-muted)" }}>{fmtDate(o.orderDate || o.createdAt)}</td>
+                  <td data-label="Ko'rish" className="order-detail-cell"><button type="button" className="btn-ghost order-detail-trigger" onClick={() => setSelectedOrder(o)}>Batafsil</button></td>
                 </tr>
               );
             })}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", color: "var(--app-muted)", padding: 48 }}>
+                <td colSpan={7} style={{ textAlign: "center", color: "var(--app-muted)", padding: 48 }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>🛒</div>
                   <div style={{ fontWeight: 700 }}>Order yo'q</div>
                 </td>

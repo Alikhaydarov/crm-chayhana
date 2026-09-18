@@ -1,9 +1,15 @@
 import { CircleCheck, CircleX } from "lucide-react";
+import { useEffect } from "react";
 
 export function Modal({ onClose, children, className = "" }: { onClose: () => void; children: React.ReactNode; className?: string }) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className={`modal-box ${className}`} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div className={`modal-box ${className}`} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
         <div className="modal-drag" />
         {children}
       </div>
