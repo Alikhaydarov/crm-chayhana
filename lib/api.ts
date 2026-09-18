@@ -15,6 +15,7 @@ const CLIENT_TIMEOUT_MS = 18_000;
 const RETRY_DELAY_MS = 220;
 let sessionUserCache: AppUserInfo | null = null;
 let restoreSessionPromise: Promise<ApiResult<{ user: AppUserInfo }>> | null = null;
+let snapshotPrefetch: { userId: string; promise: Promise<any> } | null = null;
 
 type ApiResult<T = undefined> =
   | ({ success: true } & (T extends undefined ? Record<string, never> : T))
@@ -25,7 +26,7 @@ type RequestOptions = RequestInit & { retryAuth?: boolean };
 function isBrowser() { return typeof window !== "undefined"; }
 function getToken(key: string) { return isBrowser() ? localStorage.getItem(key) : null; }
 function saveTokens(access?: string, refresh?: string) { if (!isBrowser()) return; if (access) localStorage.setItem(ACCESS_TOKEN_KEY, access); if (refresh) localStorage.setItem(REFRESH_TOKEN_KEY, refresh); }
-export function clearSession() { sessionUserCache = null; restoreSessionPromise = null; if (!isBrowser()) return; localStorage.removeItem(ACCESS_TOKEN_KEY); localStorage.removeItem(REFRESH_TOKEN_KEY); }
+export function clearSession() { sessionUserCache = null; restoreSessionPromise = null; snapshotPrefetch = null; if (!isBrowser()) return; localStorage.removeItem(ACCESS_TOKEN_KEY); localStorage.removeItem(REFRESH_TOKEN_KEY); }
 export function hasSession() { return Boolean(getToken(ACCESS_TOKEN_KEY) || getToken(REFRESH_TOKEN_KEY)); }
 
 async function parseResponse(response: Response) { const contentType = response.headers.get("content-type") || ""; if (contentType.includes("application/json")) return response.json().catch(() => ({ message: "Server JSON javobi noto'g'ri" })); const text = await response.text(); return text ? { message: text } : {}; }
@@ -138,7 +139,7 @@ function normalizeStock(data: any): Record<string, number> { const value = data?
 async function optionalRequest<T>(path: string, fallback: T): Promise<T> { try { return await request<T>(path); } catch (error) { console.warn(`[crm-api] ${path} failed`, error); return fallback; } }
 function dataUrlToFile(receipt: OrderReceipt) { const [meta, encoded = ""] = receipt.dataUrl.split(","); const mime = meta.match(/data:([^;]+)/)?.[1] || receipt.type || "application/octet-stream"; return new File([Uint8Array.from(atob(encoded), char => char.charCodeAt(0))], receipt.name, { type: mime }); }
 
-export async function loginApi(userId: string, password: string): Promise<ApiResult<{ user: AppUserInfo }>> { try { const data = await request<any>("/auth/login/", { method: "POST", body: JSON.stringify({ userId, password }), retryAuth: false }); saveTokens(data.access, data.refresh); sessionUserCache = await enrichUserBranch(normalizeUser(data.user)); return success({ user: sessionUserCache }); } catch (error) { return failure(error); } }
+export async function loginApi(userId: string, password: string): Promise<ApiResult<{ user: AppUserInfo }>> { try { const data = await request<any>("/auth/login/", { method: "POST", body: JSON.stringify({ userId, password }), retryAuth: false }); saveTokens(data.access, data.refresh); sessionUserCache = await enrichUserBranch(normalizeUser(data.user)); prefetchSnapshotApi(sessionUserCache); return success({ user: sessionUserCache }); } catch (error) { return failure(error); } }
 export function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo }>> {
   if (sessionUserCache) return Promise.resolve(success({ user: sessionUserCache }));
   if (restoreSessionPromise) return restoreSessionPromise;
@@ -148,10 +149,12 @@ export function restoreSessionApi(): Promise<ApiResult<{ user: AppUserInfo }>> {
       const decoded = decodeAccessTokenUser();
       if (decoded) {
         sessionUserCache = await enrichUserBranch(decoded);
+        prefetchSnapshotApi(sessionUserCache);
         return success({ user: sessionUserCache });
       }
       const data = await request<any>("/auth/me/");
       sessionUserCache = await enrichUserBranch(normalizeUser(data.user ?? data));
+      prefetchSnapshotApi(sessionUserCache);
       return success({ user: sessionUserCache });
     } catch (error) {
       return failure(error);
@@ -177,7 +180,7 @@ export async function getSnapshotVersionApi(): Promise<string | null> {
   }
 }
 
-export async function getSnapshotApi(user: AppUserInfo) {
+async function loadSnapshotApi(user: AppUserInfo) {
   try {
     const snapshot = unwrap<any>(await request("/snapshot/"));
     const embeddedMainStock = snapshot.mainStock ?? snapshot.main_stock ?? snapshot.mainWarehouseStock ?? snapshot.main_warehouse_stock;
@@ -200,6 +203,25 @@ export async function getSnapshotApi(user: AppUserInfo) {
     const paymentGroups = await Promise.all(companies.map(company => optionalRequest<any>(`/companies/${encodeURIComponent(company.id)}/payments/`, [])));
     return { products: unwrapList<Product>(productsData), stock: normalizeStock(mainStockData), mainStock: normalizeStock(mainStockData), shopStock: normalizeStock(shopStockData), transfers: user.role === "superadmin" ? unwrapList<any>(transfersData) : unwrapList<any>(transfersData).filter(transfer => transfer.toBranch === (user.branchSlug || user.role) || transfer.fromBranch === (user.branchSlug || user.role)), damages: [], reports: unwrap<any>(reportsData), companies, orders: unwrapList<any>(ordersData), companyPayments: paymentGroups.flatMap(group => unwrapList<any>(group)), shopSales: unwrapList<any>(shopSalesData), branches: unwrapList<any>(branchesData), accounts: unwrapList<any>(usersData).map(normalizeAccount) };
   }
+}
+
+export function prefetchSnapshotApi(user: AppUserInfo) {
+  if (snapshotPrefetch?.userId === user.id) return snapshotPrefetch.promise;
+  const entry = { userId: user.id, promise: loadSnapshotApi(user) };
+  snapshotPrefetch = entry;
+  void entry.promise.catch(() => {
+    if (snapshotPrefetch === entry) snapshotPrefetch = null;
+  });
+  return entry.promise;
+}
+
+export async function getSnapshotApi(user: AppUserInfo) {
+  if (snapshotPrefetch?.userId === user.id) {
+    const entry = snapshotPrefetch;
+    snapshotPrefetch = null;
+    return entry.promise;
+  }
+  return loadSnapshotApi(user);
 }
 
 async function mutation(path: string, method: string, body?: unknown): Promise<ApiResult<any>> { try { const data = await request<any>(path, { method, body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body) }); return success({ data: unwrap(data) }); } catch (error) { return failure(error); } }

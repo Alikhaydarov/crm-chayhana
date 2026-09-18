@@ -28,7 +28,6 @@ export function useAppData(user: UserInfo | null) {
   const pendingRefreshRef = useRef(false);
   const pendingRefreshSilentRef = useRef(true);
   const hasDataRef = useRef(false);
-  const lastSnapshotRef = useRef<string | null>(null);
   const lastWatermarkRef = useRef<string | null>(null);
 
   const fetchAll = useCallback(async (silent = false) => {
@@ -43,15 +42,6 @@ export function useAppData(user: UserInfo | null) {
     if (!silent && !hasDataRef.current) setIsLoading(true);
     try {
       const d: any = await getSnapshotApi(user);
-
-      // Poll runs every 5s while the tab is visible. Most polls return
-      // unchanged data, so skip re-rendering the whole app when the
-      // snapshot is identical to what we already have.
-      const snapshotKey = JSON.stringify(d);
-      if (hasDataRef.current && snapshotKey === lastSnapshotRef.current) {
-        return;
-      }
-      lastSnapshotRef.current = snapshotKey;
 
       setProducts(d.products || []);
       setStock(d.stock || {});
@@ -77,6 +67,14 @@ export function useAppData(user: UserInfo | null) {
       setBranches(Array.isArray(d.branches) ? d.branches : []);
       setProductBatches(Array.isArray(d.productBatches) ? d.productBatches : []);
       hasDataRef.current = true;
+      // Seed the cheap change detector after the first snapshot. Without
+      // this, the first 5-second poll always looked "changed" and fetched
+      // the entire snapshot a second time immediately after login.
+      if (lastWatermarkRef.current === null) {
+        void getSnapshotVersionApi().then((watermark) => {
+          if (watermark !== null) lastWatermarkRef.current = watermark;
+        });
+      }
     } catch (error: any) {
       if (!silent) {
         showToast(error?.message || "Ma'lumotlarni yuklab bo'lmadi", "error");

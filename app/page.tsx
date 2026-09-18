@@ -12,6 +12,7 @@ export default function RootPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    router.prefetch("/dashboard");
     const s = localStorage.getItem("crm-theme") as ThemeMode | null;
     if (s) setTheme(s);
     restoreSessionApi().then((result) => {
