@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, ImagePlus, PackageX, Send } from "lucide-react";
+import { AlertTriangle, Camera, ImagePlus, PackageX, Send } from "lucide-react";
 import { PageWrap, Modal } from "@/components/ui";
+import { CameraCodeScanner } from "@/components/products/CameraCodeScanner";
 import { createDamageRequestApi, createTransferApi, updateStockApi } from "@/lib/api";
 import { BRANCH_NAMES } from "@/lib/constants";
 import { fmt, fmtM } from "@/lib/utils";
@@ -32,6 +33,7 @@ function fileToReceipt(file: File): Promise<OrderReceipt> {
 
 export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showToast, t }: Props) {
   const [search, setSearch] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
   const [editP, setEditP] = useState<Product | null>(null);
   const [newQty, setNewQty] = useState("");
   const [damageOpen, setDamageOpen] = useState(false);
@@ -55,9 +57,18 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
     (sum, product) => sum + (visibleStock[product.id] || 0) * product.pricePerUnit,
     0,
   );
-  const filtered = warehouseProducts.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = warehouseProducts.filter((p) => {
+    const query = search.trim().toLocaleLowerCase();
+    return !query || `${p.name} ${p.qrCode || ""}`.toLocaleLowerCase().includes(query);
+  }).sort((a, b) => {
+    const query = search.trim().toLocaleLowerCase();
+    const aExact = a.qrCode?.trim().toLocaleLowerCase() === query;
+    const bExact = b.qrCode?.trim().toLocaleLowerCase() === query;
+    return Number(bExact) - Number(aExact) || a.name.localeCompare(b.name);
+  });
+  const findExactProduct = (value: string) =>
+    warehouseProducts.find((p) => p.qrCode?.trim() === value.trim())
+    || warehouseProducts.find((p) => p.name.trim().toLocaleLowerCase() === value.trim().toLocaleLowerCase());
   const lowStock = filtered.filter((p) => (visibleStock[p.id] || 0) <= p.minStock).length;
 
   const saveStock = async () => {
@@ -311,14 +322,34 @@ export function WarehouseTab({ products, stock, shopStock, user, fetchAll, showT
         </Modal>
       )}
 
-      <div style={{ marginBottom: 16, maxWidth: 320 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, maxWidth: 420 }}>
         <input
           className="crm-input"
-          placeholder={t.searchProduct}
+          placeholder="Nomi yoki shtrix-kodi..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            const product = findExactProduct(search);
+            if (product) showToast(`${product.name} topildi`);
+          }}
+          style={{ flex: 1 }}
         />
+        <button type="button" className="btn-primary" onClick={() => setScanOpen(true)} title="Shtrix-kod skaneri" aria-label="Shtrix-kod skaneri" style={{ flex: "0 0 auto" }}>
+          <Camera size={17} />
+        </button>
       </div>
+      <CameraCodeScanner
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onDetected={(code) => {
+          setScanOpen(false);
+          setSearch(code);
+          const product = findExactProduct(code);
+          if (product) showToast(`${product.name} topildi`);
+          else showToast("Bu shtrix-kod bo'yicha mahsulot topilmadi", "error");
+        }}
+      />
 
       <div className="table-wrap">
         <table className="crm-table mobile-card-table">
