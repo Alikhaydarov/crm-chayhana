@@ -13,24 +13,17 @@ export const GLOBAL_CSS = `
   .fade-up  { animation: fadeUp  .3s cubic-bezier(.22,.68,0,1.2) forwards; }
   .fade-in  { animation: fadeIn  .25s ease forwards; }
 
-  .crm-input {
-    display: block; width: 100%;
-    background: var(--app-input) !important;
-    color: var(--app-text) !important;
-    border: 1.5px solid var(--app-border) !important;
-    border-radius: 8px !important;
-    padding: 9px 12px !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    outline: none !important;
-    font-family: inherit !important;
-    transition: border-color .15s, box-shadow .15s !important;
-  }
-  .crm-input:focus {
-    border-color: var(--app-primary) !important;
-    box-shadow: 0 0 0 3px var(--app-primary-soft) !important;
-  }
-  select.crm-input option { background: var(--app-panel); color: var(--app-text); }
+  /*
+   * .crm-input's actual definition now lives entirely in app/globals.css,
+   * where @import "tailwindcss" makes Tailwind utilities (and @apply)
+   * available. A second definition used to live here too, injected via
+   * this <style> tag -- and since that tag renders inside <body>, after
+   * globals.css's <head> stylesheet, it silently won every property
+   * conflict between the two (padding, font-size, border-width), which is
+   * exactly the kind of "which of the two copies is actually live"
+   * confusion this class kept running into. Removed rather than kept in
+   * sync by hand.
+   */
 
   .btn-primary {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
